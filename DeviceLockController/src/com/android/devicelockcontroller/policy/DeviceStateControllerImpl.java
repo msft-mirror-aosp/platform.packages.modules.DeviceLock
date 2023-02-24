@@ -71,7 +71,8 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
 
     @Override
     public boolean isCheckInNeeded() {
-        return mState == DeviceState.UNPROVISIONED && UserPreferences.needCheckIn(mContext);
+        // TODO: Persist the isCheckInNeeded state into storage to prevent unnecessary check-ins.
+        return mState == DeviceState.UNPROVISIONED;
     }
 
     @Override

@@ -63,10 +63,7 @@ public final class GetDeviceCheckInStatusResponseWrapper extends DeviceCheckInRe
         }
     }
 
-    /**
-     * A class that stores the information about next step in the check-in process.
-     */
-    public static final class NextStepInformation {
+    private static final class NextStepInformation {
 
         //TODO: Consider to use a builder pattern to ensure at least one of the below fields is
         // not null value so that we can eliminate the need of two separate constructors.
@@ -85,21 +82,21 @@ public final class GetDeviceCheckInStatusResponseWrapper extends DeviceCheckInRe
             mDeviceProvisioningInformation = information;
         }
 
-        public boolean isNextCheckInInformationAvailable() {
+        private boolean isNextCheckInInformationAvailable() {
             return mNextCheckInInformation != null;
         }
 
         @Nullable
-        public NextCheckinInformation getNextCheckInInformation() {
+        private NextCheckinInformation getNextCheckInInformation() {
             return mNextCheckInInformation;
         }
 
-        public boolean isDeviceProvisioningInformationAvailable() {
+        private boolean isDeviceProvisioningInformationAvailable() {
             return mDeviceProvisioningInformation != null;
         }
 
         @Nullable
-        public DeviceProvisioningInformation getDeviceProvisioningInformation() {
+        private DeviceProvisioningInformation getDeviceProvisioningInformation() {
             return mDeviceProvisioningInformation;
         }
     }
