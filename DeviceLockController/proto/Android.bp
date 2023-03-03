@@ -45,8 +45,7 @@ genrule {
 }
 
 java_library {
-    name: "devicelockcontroller-grpc-lite",
-    host_supported: true,
+    name: "devicelockcontroller-proto-lite",
     proto: {
         type: "lite",
         include_dirs: [
