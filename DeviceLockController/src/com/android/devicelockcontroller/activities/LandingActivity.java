@@ -14,10 +14,23 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.setup;
+package com.android.devicelockcontroller.activities;
 
-abstract class AbstractUserPreferencesTest {
-    protected static final String ALLOWLIST_PACKAGE_0 = "allowlist.package.0";
-    protected static final String ALLOWLIST_PACKAGE_1 = "allowlist.package.1";
-    protected static final String PACKAGE_OVERRIDING_HOME = "com.home.package";
+import android.os.Bundle;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.android.devicelockcontroller.R;
+
+/**
+ * The first activity displayed during the provisioning flow.
+ */
+public final class LandingActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.landing_activity);
+    }
 }

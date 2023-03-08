@@ -20,24 +20,24 @@ import static android.devicelock.DeviceId.DEVICE_ID_TYPE_IMEI;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_MEID;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
-import android.content.pm.ServiceInfo;
 import android.devicelock.DeviceId;
 import android.devicelock.DeviceLockManager;
 import android.os.Build;
 import android.os.OutcomeReceiver;
+import android.os.UserHandle;
 import android.telephony.TelephonyManager;
 
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.server.devicelock.DeviceLockControllerPackageUtils;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -77,13 +77,22 @@ public final class DeviceLockManagerTest {
 
     private static final int TIMEOUT = 1;
 
-    // TODO: remove once Device Policy Engine is implemented.
-    private void skipTestIfNotDeviceOwner() {
-        final StringBuilder errorStringBuilder = new StringBuilder();
-        ServiceInfo serviceInfo = mPackageUtils.findService(errorStringBuilder);
-        assertWithMessage(errorStringBuilder.toString()).that(serviceInfo).isNotNull();
+    private void addFinancedDeviceKioskRole() {
+        final String cmd =
+                String.format("cmd role add-role-holder --user %d "
+                                + "android.app.role.FINANCED_DEVICE_KIOSK %s 1",
+                        UserHandle.myUserId(),
+                        mContext.getPackageName());
+        SystemUtil.runShellCommandOrThrow(cmd);
+    }
 
-        assumeTrue(mDevicePolicyManager.isDeviceOwnerApp(serviceInfo.packageName));
+    private void removeFinancedDeviceKioskRole() {
+        final String cmd =
+                String.format("cmd role remove-role-holder --user %d "
+                                + "android.app.role.FINANCED_DEVICE_KIOSK %s 1",
+                        UserHandle.myUserId(),
+                        mContext.getPackageName());
+        SystemUtil.runShellCommandOrThrow(cmd);
     }
 
     public ListenableFuture<Boolean> getIsDeviceLockedFuture() {
@@ -245,10 +254,9 @@ public final class DeviceLockManagerTest {
     @Test
     public void deviceShouldLockAndUnlock() throws InterruptedException, ExecutionException,
             TimeoutException {
-        skipTestIfNotDeviceOwner();
 
         try {
-            adoptShellPermissions();
+            addFinancedDeviceKioskRole();
 
             getUnlockDeviceFuture().get(TIMEOUT, TimeUnit.SECONDS);
 
@@ -265,7 +273,7 @@ public final class DeviceLockManagerTest {
             locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
             assertThat(locked).isFalse();
         } finally {
-            dropShellPermissions();
+            removeFinancedDeviceKioskRole();
         }
     }
 
@@ -275,8 +283,17 @@ public final class DeviceLockManagerTest {
                 mPackageUtils.getDeviceIdTypeBitmap(errorMessage);
         assertThat(deviceIdTypeBitmap).isGreaterThan(-1);
 
-        final String imei = mTelephonyManager.getImei();
-        final String meid = mTelephonyManager.getMeid();
+        String imei;
+        String meid;
+
+        try {
+            adoptShellPermissions();
+
+            imei = mTelephonyManager.getImei();
+            meid = mTelephonyManager.getMeid();
+        } finally {
+            dropShellPermissions();
+        }
 
         final boolean imeiAvailable = (imei != null)
                 && ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0);
@@ -291,7 +308,7 @@ public final class DeviceLockManagerTest {
     public void getDeviceIdShouldReturnAnId()
             throws ExecutionException, InterruptedException, TimeoutException {
         try {
-            adoptShellPermissions();
+            addFinancedDeviceKioskRole();
 
             skipIfNoIdAvailable();
 
@@ -299,7 +316,7 @@ public final class DeviceLockManagerTest {
             assertThat(deviceId.getType()).isAnyOf(DEVICE_ID_TYPE_IMEI, DEVICE_ID_TYPE_MEID);
             assertThat(deviceId.getId()).isNotEmpty();
         } finally {
-            dropShellPermissions();
+            removeFinancedDeviceKioskRole();
         }
     }
 
