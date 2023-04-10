@@ -21,19 +21,24 @@ import android.content.ComponentName;
 import android.content.Context;
 
 import androidx.annotation.MainThread;
+import androidx.annotation.Nullable;
+import androidx.work.Configuration;
+import androidx.work.DelegatingWorkerFactory;
+import androidx.work.ListenableWorker;
 
 import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DevicePolicyControllerImpl;
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.DeviceStateControllerImpl;
 import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
+import com.android.devicelockcontroller.policy.TaskWorkerFactory;
 import com.android.devicelockcontroller.util.LogUtil;
 
 /**
  * Application class for Device Lock Controller.
  */
-public final class DeviceLockControllerApplication extends Application implements
-        PolicyObjectsInterface {
+public class DeviceLockControllerApplication extends Application implements
+        PolicyObjectsInterface, Configuration.Provider {
     private static final String TAG = "DeviceLockControllerApplication";
 
     private static final String DEVICE_ADMIN_RECEIVER_CLASS =
@@ -77,5 +82,21 @@ public final class DeviceLockControllerApplication extends Application implement
 
     public static Context getAppContext() {
         return sApplicationContext;
+    }
+
+    //b/267355744: Required to initialize WorkManager on-demand.
+    @Override
+    public Configuration getWorkManagerConfiguration() {
+        final DelegatingWorkerFactory factory = new DelegatingWorkerFactory();
+        factory.addFactory(new TaskWorkerFactory());
+        return new Configuration.Builder()
+                .setWorkerFactory(factory)
+                .setMinimumLoggingLevel(android.util.Log.INFO)
+                .build();
+    }
+
+    @Nullable
+    public Class<? extends ListenableWorker> getPlayInstallPackageTaskClass() {
+        return null;
     }
 }

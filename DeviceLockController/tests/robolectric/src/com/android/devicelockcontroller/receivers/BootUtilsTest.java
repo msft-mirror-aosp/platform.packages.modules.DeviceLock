@@ -49,15 +49,14 @@ public final class BootUtilsTest {
     @Test
     public void startLockTaskModeAtBoot_success() {
         when(mStateController.isLocked()).thenReturn(true);
-        when(mPolicyController.launchActivityInLockedMode()).thenReturn(true);
         BootUtils.startLockTaskModeAtBoot(mTestApplication);
-        verify(mPolicyController).launchActivityInLockedMode();
+        verify(mPolicyController).enqueueStartLockTaskModeWorker();
     }
 
     @Test
     public void startLockTaskModeAtBoot_deviceIsNotLocked_doesNotLaunchActivityInLockedMode() {
         when(mStateController.isLocked()).thenReturn(false);
         BootUtils.startLockTaskModeAtBoot(mTestApplication);
-        verify(mPolicyController, never()).launchActivityInLockedMode();
+        verify(mPolicyController, never()).enqueueStartLockTaskModeWorker();
     }
 }

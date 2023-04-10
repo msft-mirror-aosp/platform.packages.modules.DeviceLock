@@ -24,8 +24,8 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
-import com.android.devicelockcontroller.provision.checkin.DeviceCheckInHelper;
-import com.android.devicelockcontroller.provision.checkin.DeviceCheckInHelperImpl;
+import com.android.devicelockcontroller.provision.worker.DeviceCheckInHelper;
+import com.android.devicelockcontroller.util.LogUtil;
 
 /**
  * Boot completed broadcast receiver to enqueue the check-in work for provision when device boots
@@ -34,6 +34,8 @@ import com.android.devicelockcontroller.provision.checkin.DeviceCheckInHelperImp
  * way that it only runs for system user.
  */
 public final class CheckInBootCompletedReceiver extends BroadcastReceiver {
+
+    private static final String TAG = "CheckInBootCompletedReceiver";
 
     @VisibleForTesting
     static void checkInIfNeeded(DeviceStateController stateController,
@@ -48,8 +50,10 @@ public final class CheckInBootCompletedReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (!intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED)) return;
 
+        LogUtil.i(TAG, "Received boot completed intent");
+
         checkInIfNeeded(
                 ((PolicyObjectsInterface) context.getApplicationContext()).getStateController(),
-                new DeviceCheckInHelperImpl(context));
+                new DeviceCheckInHelper(context));
     }
 }

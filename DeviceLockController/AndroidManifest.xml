@@ -16,12 +16,27 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-    package="com.android.devicelockcontroller">
+          xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.android.devicelockcontroller">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <!-- TODO: Remove once this permission is part of the role -->
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.MASTER_CLEAR"/>
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_APPS_CONTROL"/>
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_CALLS"/>
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_DEBUGGING_FEATURES"/>
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_INSTALL_UNKNOWN_SOURCES"/>
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_LOCK_TASK"/>
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_SAFE_BOOT"/>
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_TIME"/>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <uses-permission android:name="com.android.permission.INSTALL_EXISTING_PACKAGES"/>
 
     <application
         android:name=".DeviceLockControllerApplication"
@@ -30,6 +45,55 @@
         android:supportsRtl="true">
         <activity
             android:name="com.android.devicelockcontroller.activities.HelpActivity"
+            android:theme="@style/Theme.Materialu"
+            android:exported="false"/>
+        <activity
+            android:name="com.android.devicelockcontroller.activities.LandingActivity"
+            android:theme="@style/Theme.Materialu"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.devicelockcontroller.action.START_DEVICE_FINANCING_PROVISIONING"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name="com.android.devicelockcontroller.activities.DeviceFinancingSecondaryUserLandingActivity"
+            android:targetActivity=".activities.LandingActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.devicelockcontroller.action.START_DEVICE_FINANCING_SECONDARY_USER_PROVISIONING"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.android.devicelockcontroller.activities.DeviceFinancingDeferredProvisioningLandingActivity"
+            android:targetActivity=".activities.LandingActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.devicelockcontroller.action.START_DEVICE_FINANCING_DEFERRED_PROVISIONING"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.android.devicelockcontroller.activities.DeviceSubsidyProvisioningLandingActivity"
+            android:targetActivity=".activities.LandingActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_PROVISIONING"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="com.android.devicelockcontroller.activities.DeviceSubsidyDeferredProvisioningLandingActivity"
+            android:targetActivity=".activities.LandingActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_DEFERRED_PROVISIONING"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity-alias>
+        <activity
+            android:name="com.android.devicelockcontroller.activities.ProvisioningActivity"
             android:theme="@style/Theme.Materialu"
             android:exported="false"/>
         <service android:name="com.android.devicelockcontroller.DeviceLockControllerService"
@@ -41,14 +105,14 @@
             </intent-filter>
         </service>
         <service android:name="com.android.devicelockcontroller.setup.SetupParametersService"
-            android:directBootAware="true"
-            android:exported="false"
-            android:singleUser="true">
+                 android:directBootAware="true"
+                 android:exported="false"
+                 android:singleUser="true">
         </service>
         <service android:name="com.android.devicelockcontroller.setup.UserPreferencesService"
-            android:directBootAware="true"
-            android:exported="false"
-            android:singleUser="true">
+                 android:directBootAware="true"
+                 android:exported="false"
+                 android:singleUser="true">
         </service>
         <!-- The following component is needed because many Device Policy Manager APIs require
              this receiver component name as first argument. -->
@@ -64,18 +128,19 @@
             </intent-filter>
         </receiver>
         <!-- Single user boot completed broadcast receiver -->
-        <receiver android:name="com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver"
-                  android:exported="false"
-                  android:enabled="false"
-                  androidprv:systemUserOnly="true">
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver"
+            android:exported="false"
+            androidprv:systemUserOnly="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
         <!-- Multi users boot completed broadcast receiver -->
-        <receiver android:name="com.android.devicelockcontroller.receivers.LockTaskBootCompletedReceiver"
-                  android:exported="false"
-                  android:singleUser="false">
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.LockTaskBootCompletedReceiver"
+            android:exported="false"
+            android:singleUser="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
@@ -87,9 +152,16 @@
             android:exported="false"
             android:singleUser="false">
             <intent-filter>
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
+        <!-- b/267355744: Disable the default initializer used by WorkManager, so that we can ensure
+         WorkManager is initialized when needed. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove">
+        </provider>
     </application>
 
 </manifest>

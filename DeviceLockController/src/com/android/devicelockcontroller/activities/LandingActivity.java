@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,23 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.provision.checkin;
+package com.android.devicelockcontroller.activities;
+
+import android.os.Bundle;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.android.devicelockcontroller.R;
 
 /**
- * Interface for the DeviceCheckInHelper class.
+ * The first activity displayed during the provisioning flow.
  */
-public interface DeviceCheckInHelper {
-    /**
-     * Enqueue the DeviceCheckIn work request to WorkManager
-     * @param isExpedited If true, the work request should be expedited.
-     */
-    void enqueueDeviceCheckInWork(boolean isExpedited);
+public final class LandingActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.landing_activity);
+    }
 }

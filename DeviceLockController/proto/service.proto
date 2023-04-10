@@ -16,12 +16,12 @@
 
 syntax = "proto2";
 
-package devicelock;
+package devicelockcontroller;
 
-import "packages/modules/DeviceLock/DeviceLockController/proto/configuration_info.proto";
-import "packages/modules/DeviceLock/DeviceLockController/proto/date.proto";
-import "packages/modules/DeviceLock/DeviceLockController/proto/device_checkin_info.proto";
-import "packages/modules/DeviceLock/DeviceLockController/proto/device_info.proto";
+import "google/protobuf/timestamp.proto";
+import "configuration_info.proto";
+import "device_checkin_info.proto";
+import "device_info.proto";
 
 option java_package = "com.android.devicelockcontroller.proto";
 option java_multiple_files = true;
@@ -44,19 +44,25 @@ service DeviceLockCheckinService {
 
 // Request to retrieve the check-in status of the device.
 message GetDeviceCheckinStatusRequest {
-  // The device identifiers associated with the device provided by Device Lock
-  // Android client. The Device Lock Android client would provide only one
+  // The device identifiers associated with the device provided by the Device
+  // Lock Android client. The Device Lock Android client would provide only one
   // device identifier once the Device Lock Check-in service determines which
   // of the device identifiers is registered with a locking program.
-  repeated string device_identifiers = 1;
-  optional DeviceIdentifierType device_identifier_type = 2;
+  repeated ClientDeviceIdentifier client_device_identifiers = 1;
   // The Mobile Network Code for the carrier, the Device Lock Android client
   // would fetch it from TelephonyManager#getSimOperator().
-  optional string carrier_mccmnc = 3;
+  optional string carrier_mccmnc = 2;
   // The Firebase Cloud Messaging (FCM) registration token associated with the
   // device provided by the Device Lock Android client. The token is only used
   // for GMS devices.
-  optional string fcm_registration_token = 4;
+  optional string fcm_registration_token = 3;
+}
+
+message ClientDeviceIdentifier {
+  // The device identifier associated with the device.
+  optional string device_identifier = 1;
+  // The type of the device identifier.
+  optional DeviceIdentifierType device_identifier_type = 2;
 }
 
 // The different check-in status the Device Lock Android client can be in.
@@ -103,7 +109,7 @@ message GetDeviceCheckinStatusResponse {
 message NextCheckinInformation {
   // Set by the Device Lock server which tells the Device Lock Android client
   // the date when the next check-in should happen.
-  optional Date next_checkin_date = 1;
+  optional google.protobuf.Timestamp next_checkin_timestamp = 1;
 }
 
 // Information needed by the Device Lock Android client for device provisioning.
@@ -161,9 +167,7 @@ message ReportDeviceProvisionCompleteRequest {
 // Response to a request reporting that device provisioning of an eligible
 // device is complete.
 message ReportDeviceProvisionCompleteResponse {
-  // Ids the client can send back for faster look-ups for reporting device
-  // events throughout the locking program.
-  optional int64 company_id = 1;
-  optional int64 device_id = 2;
-  optional int64 configuration_id = 3;
+  // An enrollment token the Device Lock Android client can use for future
+  // communication with the Device Lock server post-provisioning.
+  optional string enrollment_token = 1;
 }
