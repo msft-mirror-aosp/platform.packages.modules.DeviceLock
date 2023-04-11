@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.provision.checkin;
+package com.android.devicelockcontroller.provision.worker;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_IMEI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_MEID;
@@ -53,13 +53,13 @@ import java.time.Duration;
 import java.time.Instant;
 
 /**
- * Helper class to perform the device check in process with device lock backend server
+ * Helper class to perform the device check-in process with device lock backend server
  */
-public final class DeviceCheckInHelper {
+public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
     @VisibleForTesting
     public static final String CHECK_IN_WORK_NAME = "checkIn";
     private static final String TAG = "DeviceCheckInHelper";
-    private static final int CHECK_IN_INTERVAL_DAYS = 1;
+    private static final int CHECK_IN_INTERVAL_HOURS = 1;
     private final Context mAppContext;
     private final TelephonyManager mTelephonyManager;
 
@@ -73,6 +73,7 @@ public final class DeviceCheckInHelper {
      *
      * @param isExpedited If true, the work request should be expedited;
      */
+    @Override
     public void enqueueDeviceCheckInWork(boolean isExpedited) {
         enqueueDeviceCheckInWork(isExpedited, Duration.ZERO);
     }
@@ -83,8 +84,8 @@ public final class DeviceCheckInHelper {
      * @param isExpedited If true, the work request should be expedited;
      * @param delay       The duration that need to be delayed before performing check-in.
      */
-    public void enqueueDeviceCheckInWork(boolean isExpedited, Duration delay) {
-        LogUtil.i(TAG, "enqueueDeviceCheckInWork");
+    private void enqueueDeviceCheckInWork(boolean isExpedited, Duration delay) {
+        LogUtil.i(TAG, "enqueueDeviceCheckInWork with delay: " + delay);
         final OneTimeWorkRequest.Builder builder =
                 new OneTimeWorkRequest.Builder(DeviceCheckInWorker.class)
                         .setConstraints(
@@ -92,19 +93,21 @@ public final class DeviceCheckInHelper {
                                         NetworkType.CONNECTED).build())
                         .setInitialDelay(delay)
                         .setBackoffCriteria(BackoffPolicy.LINEAR,
-                                Duration.ofDays(CHECK_IN_INTERVAL_DAYS));
+                                Duration.ofHours(CHECK_IN_INTERVAL_HOURS));
         if (isExpedited) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
         WorkManager.getInstance(mAppContext).enqueueUniqueWork(CHECK_IN_WORK_NAME,
-                ExistingWorkPolicy.APPEND_OR_REPLACE, builder.build());
+                ExistingWorkPolicy.REPLACE, builder.build());
     }
 
 
+    @Override
     @NonNull
     ArraySet<DeviceId> getDeviceUniqueIds() {
         final int deviceIdTypeBitmap = mAppContext.getResources().getInteger(
                 R.integer.device_id_type_bitmap);
         if (deviceIdTypeBitmap < 0) {
             LogUtil.e(TAG, "getDeviceId: Cannot get device_id_type_bitmap");
+            return new ArraySet<>();
         }
 
         return getDeviceAvailableUniqueIds(deviceIdTypeBitmap);
@@ -139,15 +142,16 @@ public final class DeviceCheckInHelper {
         return deviceIds;
     }
 
+    @Override
     @NonNull
     String getCarrierInfo() {
         // TODO(b/267507927): Figure out if we need carrier info of all sims.
         return mTelephonyManager.getSimOperator();
     }
 
+    @Override
     boolean handleGetDeviceCheckInStatusResponse(
-            GetDeviceCheckInStatusGrpcResponse response) {
-        if (response == null) return false;
+            @NonNull GetDeviceCheckInStatusGrpcResponse response) {
         UserPreferences.setRegisteredDeviceId(mAppContext,
                 response.getRegisteredDeviceIdentifier());
         LogUtil.d(TAG, "check in succeed: " + response.getDeviceCheckInStatus());

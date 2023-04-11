@@ -22,31 +22,30 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * This class provides resources and data used for the deferred provisioning flow of the device
+ * This class provides resources and data used to be displayed for secondary users for the device
  * financing use case.
  */
-public final class DeviceFinancingDeferredProvisionInfoViewModel extends ProvisionInfoViewModel {
-
+public final class DeviceFinancingSecondaryUserProvisionInfoViewModel extends
+        ProvisionInfoViewModel {
     private static final int HEADER_DRAWABLE_ID = R.drawable.ic_info_24px;
 
-    private static final int HEADER_TEXT_ID = R.string.enroll_your_device_header;
-
-    private static final int SUBHEADER_TEXT_ID = R.string.enroll_your_device_financing_subheader;
+    private static final int HEADER_TEXT_ID = R.string.device_provided_by_creditor;
 
     private static final Integer[] DRAWABLE_IDS = new Integer[]{
             R.drawable.ic_file_download_24px, R.drawable.ic_lock_outline_24px,
     };
 
     private static final Integer[] TEXT_IDS = new Integer[]{
-            R.string.download_kiosk_app, R.string.restrict_device_if_missing_payment,
+            R.string.install_kiosk_app_secondary_user,
+            R.string.restrict_device_if_owner_doesnt_make_payment,
     };
 
-    public DeviceFinancingDeferredProvisionInfoViewModel() {
+    public DeviceFinancingSecondaryUserProvisionInfoViewModel() {
         super();
 
         mHeaderDrawableIdLiveData.setValue(HEADER_DRAWABLE_ID);
         mHeaderTextIdLiveData.setValue(HEADER_TEXT_ID);
-        mSubheaderTextIdLiveData.setValue(SUBHEADER_TEXT_ID);
+
         List<ProvisionInfo> provisionInfoList = new ArrayList<>();
         for (int i = 0, size = DRAWABLE_IDS.length; i < size; ++i) {
             provisionInfoList.add(new ProvisionInfo(DRAWABLE_IDS[i], TEXT_IDS[i]));
