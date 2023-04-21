@@ -16,6 +16,19 @@
 
 package com.android.devicelockcontroller.setup;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ALLOWLIST;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_APP_PROVIDER_NAME;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_DISABLE_OUTGOING_CALLS;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_DOWNLOAD_URL;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SETUP_ACTIVITY;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SIGNATURE_CHECKSUM;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.TYPE_UNDEFINED;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -23,6 +36,7 @@ import android.util.ArraySet;
 
 import androidx.annotation.Nullable;
 
+import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisioningType;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.collect.ImmutableList;
@@ -32,7 +46,7 @@ import java.util.Set;
 /**
  * Store provisioning parameters
  */
-public final class SetupParameters {
+final class SetupParameters {
     private static final String TAG = "SetupParameters";
 
     private static final String FILENAME = "setup-prefs";
@@ -45,45 +59,14 @@ public final class SetupParameters {
             "kiosk-disable-outgoing-calls";
     private static final String KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE =
             "kiosk-enable-notifications-in-lock-task-mode";
+    private static final String KEY_PROVISIONING_TYPE = "provisioning-type";
+    private static final String KEY_MANDATORY_PROVISION = "mandatory-provision";
+    private static final String KEY_KIOSK_APP_PROVIDER_NAME = "kiosk-app-provider-name";
+    private static final String KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES =
+            "disallow-installing-from-unknown-sources";
 
-    public static final String EXTRA_KIOSK_PACKAGE =
-            "com.android.devicelockcontroller.KIOSK_PACKAGE";
-
-    /**
-     * URL to download the kiosk app.
-     *
-     * <p>DLC will look for a pre-installed package with the name defined by {@link
-     * #EXTRA_KIOSK_PACKAGE}. If the package is not present, DLC will try to download the package
-     * from the URL provided.
-     */
-    public static final String EXTRA_KIOSK_DOWNLOAD_URL =
-            "com.android.devicelockcontroller.KIOSK_DOWNLOAD_URL";
-
-    /**
-     * Intent's extras key for Base64 encoded SHA-256 hash checksum of the kiosk app's signing
-     * certificate.
-     */
-    public static final String EXTRA_KIOSK_SIGNATURE_CHECKSUM =
-            "com.android.devicelockcontroller.KIOSK_SIGNATURE_CHECKSUM";
-
-    public static final String EXTRA_KIOSK_SETUP_ACTIVITY =
-            "com.android.devicelockcontroller.KIOSK_SETUP_ACTIVITY";
-    public static final String EXTRA_KIOSK_NAME =
-            "com.android.devicelockcontroller.KIOSK_NAME";
-    public static final String EXTRA_KIOSK_DISABLE_OUTGOING_CALLS =
-            "com.android.devicelockcontroller.KIOSK_DISABLE_OUTGOING_CALLS";
-    public static final String EXTRA_KIOSK_READ_IMEI_ALLOWED =
-            "com.android.devicelockcontroller.KIOSK_READ_IMEI_ALLOWED";
-    /**
-     * Used to control if notifications are enabled in lock task mode. The default value is false.
-     *
-     * @see android.app.admin.DevicePolicyManager#LOCK_TASK_FEATURE_NOTIFICATIONS
-     */
-    public static final String EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE =
-            "com.android.devicelockcontroller.KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE";
-    public static final String EXTRA_KIOSK_ALLOWLIST =
-            "com.android.devicelockcontroller.KIOSK_ALLOWLIST";
-    private SetupParameters() {}
+    private SetupParameters() {
+    }
 
     private static SharedPreferences getSharedPreferences(Context context) {
         Context deviceContext = context.createDeviceProtectedStorageContext();
@@ -94,21 +77,21 @@ public final class SetupParameters {
      * Parse setup parameters from the extras bundle.
      *
      * @param context Application context
-     * @param bundle Bundle with provisioning parameters.
+     * @param bundle  Bundle with provisioning parameters.
      */
-    public static synchronized void createPrefs(Context context, Bundle bundle) {
+    static synchronized void createPrefs(Context context, Bundle bundle) {
         SharedPreferences sharedPreferences = getSharedPreferences(context);
         if (sharedPreferences.contains(KEY_KIOSK_PACKAGE)) {
             LogUtil.i(TAG, "Setup parameters are already populated");
 
             return;
         }
-
         populatePreferencesLocked(sharedPreferences, bundle);
     }
 
     private static void populatePreferencesLocked(SharedPreferences sharedPreferences,
             Bundle bundle) {
+
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(KEY_KIOSK_PACKAGE, bundle.getString(EXTRA_KIOSK_PACKAGE));
         editor.putString(KEY_KIOSK_DOWNLOAD_URL, bundle.getString(EXTRA_KIOSK_DOWNLOAD_URL));
@@ -121,6 +104,12 @@ public final class SetupParameters {
                 bundle.getBoolean(EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE));
         editor.putStringSet(KEY_KIOSK_ALLOWLIST,
                 new ArraySet<>(bundle.getStringArrayList(EXTRA_KIOSK_ALLOWLIST)));
+        editor.putInt(KEY_PROVISIONING_TYPE, bundle.getInt(EXTRA_PROVISIONING_TYPE));
+        editor.putBoolean(KEY_MANDATORY_PROVISION, bundle.getBoolean(EXTRA_MANDATORY_PROVISION));
+        editor.putString(KEY_KIOSK_APP_PROVIDER_NAME,
+                bundle.getString(EXTRA_KIOSK_APP_PROVIDER_NAME));
+        editor.putBoolean(KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES,
+                bundle.getBoolean(EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES));
         editor.apply();
     }
 
@@ -131,7 +120,7 @@ public final class SetupParameters {
      * @return kiosk app package name.
      */
     @Nullable
-    public static String getKioskPackage(Context context) {
+    static String getKioskPackage(Context context) {
         return getSharedPreferences(context).getString(KEY_KIOSK_PACKAGE, null /* defValue */);
     }
 
@@ -142,7 +131,7 @@ public final class SetupParameters {
      * @return Kiosk app download URL.
      */
     @Nullable
-    public static String getKioskDownloadUrl(Context context) {
+    static String getKioskDownloadUrl(Context context) {
         return getSharedPreferences(context).getString(KEY_KIOSK_DOWNLOAD_URL, null /* defValue */);
     }
 
@@ -153,7 +142,7 @@ public final class SetupParameters {
      * @return Signature checksum.
      */
     @Nullable
-    public static String getKioskSignatureChecksum(Context context) {
+    static String getKioskSignatureChecksum(Context context) {
         return getSharedPreferences(context)
                 .getString(KEY_KIOSK_SIGNATURE_CHECKSUM, null /* defValue */);
     }
@@ -165,7 +154,7 @@ public final class SetupParameters {
      * @return Setup activity.
      */
     @Nullable
-    public static String getKioskSetupActivity(Context context) {
+    static String getKioskSetupActivity(Context context) {
         return getSharedPreferences(context)
                 .getString(KEY_KIOSK_SETUP_ACTIVITY, null /* defValue */);
     }
@@ -174,9 +163,9 @@ public final class SetupParameters {
      * Check if the configuration disables outgoing calls.
      *
      * @param context Context used to get the shared preferences.
-     * @return True if outgoign calls are disabled.
+     * @return True if outgoing calls are disabled.
      */
-    public static boolean getOutgoingCallsDisabled(Context context) {
+    static boolean getOutgoingCallsDisabled(Context context) {
         return getSharedPreferences(context)
                 .getBoolean(KEY_KIOSK_DISABLE_OUTGOING_CALLS, false /* defValue */);
     }
@@ -187,7 +176,7 @@ public final class SetupParameters {
      * @param context Context used to get the shared preferences.
      * @return List of allowed packages.
      */
-    public static ImmutableList<String> getKioskAllowlist(Context context) {
+    static ImmutableList<String> getKioskAllowlist(Context context) {
         SharedPreferences sharedPreferences = getSharedPreferences(context);
         Set<String> allowlistSet =
                 sharedPreferences.getStringSet(KEY_KIOSK_ALLOWLIST, null /* defValue */);
@@ -200,8 +189,62 @@ public final class SetupParameters {
      * @param context Context used to get the shared preferences.
      * @return True if notification are enabled.
      */
-    public static boolean isNotificationsInLockTaskModeEnabled(Context context) {
+    static boolean isNotificationsInLockTaskModeEnabled(Context context) {
         return getSharedPreferences(context)
                 .getBoolean(KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE, false /* defValue */);
+    }
+
+    /**
+     * Get the provisioning type of this configuration.
+     *
+     * @param context Context used to get the shared preferences.
+     * @return The type of provisioning which could be one of {@link ProvisioningType}.
+     */
+    @ProvisioningType
+    static int getProvisioningType(Context context) {
+        return getSharedPreferences(context).getInt(KEY_PROVISIONING_TYPE, TYPE_UNDEFINED);
+    }
+
+    /**
+     * Check if provision is mandatory.
+     *
+     * @param context Context used to get the shared preferences.
+     * @return True if the provision should be mandatory.
+     */
+    static boolean isProvisionMandatory(Context context) {
+        return getSharedPreferences(context).getBoolean(KEY_MANDATORY_PROVISION, false);
+    }
+
+    /**
+     * Get the name of the provider of the kiosk app.
+     *
+     * @param context Context used to get the shared preferences.
+     * @return the name of the provider.
+     */
+    @Nullable
+    static String getKioskAppProviderName(Context context) {
+        return getSharedPreferences(context).getString(KEY_KIOSK_APP_PROVIDER_NAME,
+                null /* defValue */);
+    }
+
+    /**
+     * Check if installing from unknown sources should be disallowed on this device after provision
+     *
+     * @param context Context used to get the shared preferences.
+     * @return True if installing from unknown sources is disallowed.
+     */
+    static boolean isInstallingFromUnknownSourcesDisallowed(Context context) {
+        return getSharedPreferences(context).getBoolean(
+                KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES, /* defValue= */ false);
+    }
+
+    /**
+     * Override the device provider name using the given string.
+     * Note: this API is used for testing purpose only.
+     */
+    static void overrideDeviceProviderName(Context context, String name) {
+        SharedPreferences.Editor editor = getSharedPreferences(context).edit();
+        editor.putString(KEY_KIOSK_APP_PROVIDER_NAME, name);
+        editor.apply();
     }
 }

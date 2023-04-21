@@ -17,14 +17,14 @@
 package com.android.devicelockcontroller.policy;
 
 import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
-import android.content.Context;
 import android.os.Bundle;
 import android.os.UserManager;
 
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
-import com.android.devicelockcontroller.setup.SetupParameters;
+import com.android.devicelockcontroller.setup.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
+
+import com.google.common.util.concurrent.Futures;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,18 +48,14 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
     private final ArrayList<String> mAlwaysOnRestrictions = new ArrayList<>();
     private final ArrayList<String> mLockModeRestrictions = new ArrayList<>();
 
-    private final ComponentName mComponentName;
     private final DevicePolicyManager mDpm;
     private final UserManager mUserManager;
-    private final Context mContext;
     private final boolean mIsDebug;
 
-    UserRestrictionsPolicyHandler(Context context, ComponentName adminComponent,
-            DevicePolicyManager dpm, UserManager userManager, boolean isDebug) {
-        mComponentName = adminComponent;
+    UserRestrictionsPolicyHandler(DevicePolicyManager dpm, UserManager userManager,
+            boolean isDebug) {
         mDpm = dpm;
         mUserManager = userManager;
-        mContext = context;
         mIsDebug = isDebug;
 
         LogUtil.i(TAG, String.format(Locale.US, "Build type DEBUG = %s", isDebug));
@@ -69,7 +65,7 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
             Collections.addAll(mAlwaysOnRestrictions, RESTRICTIONS_RELEASE_BUILDS);
         }
 
-        if (SetupParameters.getOutgoingCallsDisabled(context)) {
+        if (Futures.getUnchecked(SetupParametersClient.getInstance().getOutgoingCallsDisabled())) {
             mLockModeRestrictions.add(UserManager.DISALLOW_OUTGOING_CALLS);
         }
     }
@@ -79,6 +75,8 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
     public int setPolicyForState(@DeviceState int state) {
         switch (state) {
             case DeviceState.UNPROVISIONED:
+            case DeviceState.PSEUDO_LOCKED:
+            case DeviceState.PSEUDO_UNLOCKED:
                 break;
             case DeviceState.SETUP_IN_PROGRESS:
             case DeviceState.SETUP_SUCCEEDED:
@@ -143,10 +141,10 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
 
     @Override
     public void setSetupParametersValid() {
-        if (SetupParameters.getOutgoingCallsDisabled(mContext)
+        if (Futures.getUnchecked(SetupParametersClient.getInstance().getOutgoingCallsDisabled())
                 && !mLockModeRestrictions.contains(UserManager.DISALLOW_OUTGOING_CALLS)) {
             LogUtil.i(TAG, String.format(Locale.US, "add %s into lock task mode restrictions",
-                        UserManager.DISALLOW_OUTGOING_CALLS));
+                    UserManager.DISALLOW_OUTGOING_CALLS));
             mLockModeRestrictions.add(UserManager.DISALLOW_OUTGOING_CALLS);
         }
     }
@@ -158,10 +156,10 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
             String restriction = restrictions.get(i);
             if (userRestrictionBundle.getBoolean(restriction, false) != enable) {
                 if (enable) {
-                    mDpm.addUserRestriction(mComponentName, restriction);
+                    mDpm.addUserRestriction(null /* admin */, restriction);
                     LogUtil.v(TAG, String.format(Locale.US, "enable %s restriction", restriction));
                 } else {
-                    mDpm.clearUserRestriction(mComponentName, restriction);
+                    mDpm.clearUserRestriction(null /* admin */, restriction);
                     LogUtil.v(TAG, String.format(Locale.US, "clear %s restriction", restriction));
                 }
             }
@@ -170,7 +168,7 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
         if (!mIsDebug
                 && enable
                 && restrictions.contains(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
-            mDpm.clearUserRestriction(mComponentName, UserManager.DISALLOW_DEBUGGING_FEATURES);
+            mDpm.clearUserRestriction(null /* admin */, UserManager.DISALLOW_DEBUGGING_FEATURES);
             LogUtil.v(TAG, String.format(Locale.US, "clear %s restriction",
                     UserManager.DISALLOW_DEBUGGING_FEATURES));
         }

@@ -21,12 +21,18 @@ package com.android.devicelockcontroller.setup;
  * {@hide}
  */
 interface IUserPreferencesService {
-    boolean isLockTaskModeActive();
-    void setLockTaskModeActive(boolean isActive);
     int getDeviceState();
     void setDeviceState(int state);
     String getPackageOverridingHome();
     void setPackageOverridingHome(in String packageName);
     List<String> getLockTaskAllowlist();
     void setLockTaskAllowlist(in List<String> allowlist);
+    boolean needCheckIn();
+    void setNeedCheckIn(boolean needCheckIn);
+    String getRegisteredDeviceId();
+    void setRegisteredDeviceId(String registeredDeviceId);
+    boolean isProvisionForced();
+    void setProvisionForced(boolean isForced);
+    String getEnrollmentToken();
+    void setEnrollmentToken(String token);
 }

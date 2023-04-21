@@ -29,11 +29,8 @@ import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * This class implements a client what automatically binds to a service and allows
@@ -51,7 +48,7 @@ abstract class DlcClient {
     @GuardedBy("mLock")
     private ServiceConnection mServiceConnection;
 
-    private final Context mContext;
+    private Context mContext;
 
     private final ComponentName mComponentName;
     private final ListeningExecutorService mListeningExecutorService;
@@ -75,14 +72,13 @@ abstract class DlcClient {
         public void onBindingDied(ComponentName name) {
             unbind();
         }
-    };
+    }
 
-    DlcClient(@NonNull Context context, @NonNull ComponentName componentName) {
+    DlcClient(@NonNull Context context, @NonNull ComponentName componentName,
+            ListeningExecutorService executorService) {
         mContext = context;
         mComponentName = componentName;
-        final ExecutorService mExecutorService = Executors.newCachedThreadPool();
-        mListeningExecutorService =
-                MoreExecutors.listeningDecorator(mExecutorService);
+        mListeningExecutorService = executorService;
     }
 
     @GuardedBy("mLock")
@@ -146,5 +142,10 @@ abstract class DlcClient {
             }
             throw new Exception("Failed to call remote DLC API");
         });
+    }
+
+    void tearDown() {
+        unbind();
+        mContext = null;
     }
 }

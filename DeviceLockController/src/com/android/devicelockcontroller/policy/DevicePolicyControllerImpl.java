@@ -43,8 +43,10 @@ import androidx.work.WorkerParameters;
 import com.android.devicelockcontroller.DeviceLockControllerApplication;
 import com.android.devicelockcontroller.common.DeviceLockConstants;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
-import com.android.devicelockcontroller.setup.SetupParameters;
+import com.android.devicelockcontroller.setup.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
+
+import com.google.common.util.concurrent.Futures;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -69,28 +71,26 @@ public final class DevicePolicyControllerImpl
      * Create a new policy controller.
      *
      * @param context         The context used by this policy controller.
-     * @param componentName   Admin component name.
      * @param stateController State controller.
      */
-    public DevicePolicyControllerImpl(
-            Context context, ComponentName componentName, DeviceStateController stateController) {
-        this(context, componentName, stateController,
+    public DevicePolicyControllerImpl(Context context, DeviceStateController stateController) {
+        this(context, stateController,
                 context.getSystemService(DevicePolicyManager.class));
     }
 
     @VisibleForTesting
-    DevicePolicyControllerImpl(Context context, ComponentName componentName,
+    DevicePolicyControllerImpl(Context context,
             DeviceStateController stateController, DevicePolicyManager dpm) {
         mContext = context;
         mDpm = dpm;
         mStateController = stateController;
-        mLockTaskHandler = new LockTaskModePolicyHandler(context, componentName, dpm);
+        mLockTaskHandler = new LockTaskModePolicyHandler(context, dpm);
 
         final boolean isDebug = SystemProperties.getInt("ro.debuggable", 0) == 1;
-        mPolicyList.add(new UserRestrictionsPolicyHandler(context, componentName, dpm,
+        mPolicyList.add(new UserRestrictionsPolicyHandler(dpm,
                 context.getSystemService(UserManager.class), isDebug));
         mPolicyList.add(mLockTaskHandler);
-        mPolicyList.add(new KioskAppPolicyHandler(context, componentName, dpm));
+        mPolicyList.add(new KioskAppPolicyHandler(dpm));
         stateController.addCallback(this);
     }
 
@@ -153,7 +153,8 @@ public final class DevicePolicyControllerImpl
         for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
             PolicyHandler policy = mPolicyList.get(i);
             if (newState == DeviceState.SETUP_IN_PROGRESS) {
-                final String kioskPackage = SetupParameters.getKioskPackage(mContext);
+                final String kioskPackage = Futures.getUnchecked(
+                        SetupParametersClient.getInstance().getKioskPackage());
                 if (kioskPackage == null) {
                     throw new NullPointerException(
                             "SetupParameters must be present before finalization.");
@@ -181,7 +182,7 @@ public final class DevicePolicyControllerImpl
             case DeviceState.SETUP_SUCCEEDED:
             case DeviceState.SETUP_FAILED:
                 return new Intent().setComponent(ComponentName.unflattenFromString(
-                        DeviceLockConstants.SETUP_FAILED_ACTIVITY));
+                        DeviceLockConstants.PROVISIONING_ACTIVITY));
             case DeviceState.KIOSK_SETUP:
                 return getKioskSetupActivityIntent();
             case DeviceState.LOCKED:
@@ -200,7 +201,8 @@ public final class DevicePolicyControllerImpl
     @Nullable
     private Intent getLockScreenActivityIntent() {
         final PackageManager packageManager = mContext.getPackageManager();
-        final String kioskPackage = SetupParameters.getKioskPackage(mContext);
+        final String kioskPackage = Futures.getUnchecked(
+                SetupParametersClient.getInstance().getKioskPackage());
         if (kioskPackage == null) {
             LogUtil.e(TAG, "Missing kiosk package parameter");
             return null;
@@ -234,7 +236,8 @@ public final class DevicePolicyControllerImpl
 
     @Nullable
     private Intent getKioskSetupActivityIntent() {
-        final String setupActivity = SetupParameters.getKioskSetupActivity(mContext);
+        final String setupActivity = Futures.getUnchecked(
+                SetupParametersClient.getInstance().getKioskSetupActivity());
 
         if (setupActivity == null) {
             LogUtil.e(TAG, "Failed to get setup Activity");

@@ -33,19 +33,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RunWith(RobolectricTestRunner.class)
-public class UserPreferencesTest extends AbstractUserPreferencesTest {
+public class UserPreferencesTest extends AbstractUserPreferencesTestBase {
     private Context mContext;
 
     @Before
     public void setup() {
         mContext = ApplicationProvider.getApplicationContext();
-    }
-
-    @Test
-    public void isLockTaskModeActive_shouldReturnWhetherLockTaskModeIsActive() {
-        assertThat(UserPreferences.isLockTaskModeActive(mContext)).isFalse();
-        UserPreferences.setLockTaskModeActive(mContext, true);
-        assertThat(UserPreferences.isLockTaskModeActive(mContext)).isTrue();
     }
 
     @Test

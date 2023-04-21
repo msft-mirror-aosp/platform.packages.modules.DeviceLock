@@ -32,24 +32,6 @@ license {
 }
 
 filegroup {
-    name: "devicelockcontroller-sources",
-    srcs: [
-        "src/**/*.java",
-    ],
-    exclude_srcs: [
-        "src/com/android/devicelockcontroller/activities/*.java",
-        "src/com/android/devicelockcontroller/util/*.java",
-    ],
-}
-
-filegroup {
-    name: "devicelockcontroller-activities-sources",
-    srcs: [
-        "src/com/android/devicelockcontroller/activities/*.java",
-    ],
-}
-
-filegroup {
     name: "devicelockcontroller-util-sources",
     srcs: [
         "src/com/android/devicelockcontroller/util/*.java",
@@ -57,9 +39,34 @@ filegroup {
 }
 
 filegroup {
+    name: "devicelockcontroller-grpc-interface-sources",
+    srcs: [
+        "src/com/android/devicelockcontroller/provision/grpc/*.java",
+    ],
+}
+
+filegroup {
+    name: "devicelockcontroller-grpc-impl-sources",
+    srcs: [
+        "src/com/android/devicelockcontroller/provision/grpc/impl/*.java",
+    ],
+}
+
+filegroup {
     name: "devicelockcontroller-aidl",
     srcs: [
         "src/**/*.aidl",
+    ],
+}
+
+filegroup {
+    name: "devicelockcontroller-sources",
+    srcs: [
+        "src/**/*.java",
+    ],
+    exclude_srcs: [
+        ":devicelockcontroller-util-sources",
+        ":devicelockcontroller-grpc-impl-sources",
     ],
 }
 
@@ -97,24 +104,6 @@ java_library {
 }
 
 java_library {
-    name: "devicelockcontroller-activities-lib",
-    srcs: [":devicelockcontroller-activities-sources"],
-    sdk_version: "module_current",
-    min_sdk_version: "UpsideDownCake",
-    static_libs: [
-        "androidx.appcompat_appcompat",
-        "devicelockcontroller-res-lib",
-        "devicelockcontroller-util-lib",
-    ],
-    apex_available: [
-        "com.android.devicelock",
-    ],
-    visibility: [
-        "//packages/modules/DeviceLock:__subpackages__",
-    ],
-}
-
-java_library {
     name: "devicelockcontroller-interface",
     sdk_version: "module_current",
     min_sdk_version: "33", // AIDL compiler does not know about UpsideDownCake
@@ -128,16 +117,70 @@ java_library {
 }
 
 java_library {
-    name: "devicelockcontroller-grpclib",
+    name: "devicelockcontroller-common-lib",
+    srcs: ["src/com/android/devicelockcontroller/common/*.java"],
     sdk_version: "module_current",
     min_sdk_version: "UpsideDownCake",
     apex_available: ["com.android.devicelock"],
     static_libs: [
+        "androidx.annotation_annotation",
+    ],
+}
+
+java_library {
+    name: "devicelockcontroller-grpc-interface-lib",
+    srcs: [
+        ":devicelockcontroller-grpc-interface-sources",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "UpsideDownCake",
+    apex_available: ["com.android.devicelock"],
+    static_libs: [
+        "devicelockcontroller-common-lib",
+        "androidx.annotation_annotation",
         "grpc-java-core-android",
         "grpc-java-okhttp-client-lite",
         "libprotobuf-java-lite",
         "opencensus-java-api",
         "opencensus-java-contrib-grpc-metrics",
+    ],
+    visibility: [
+        "//packages/modules/DeviceLock:__subpackages__",
+        "//vendor:__subpackages__",
+    ],
+}
+
+// Library with all dependencies for building DeviceLockController
+android_library {
+    name: "devicelockcontroller-lib",
+    sdk_version: "module_current",
+    min_sdk_version: "UpsideDownCake",
+    srcs: [":devicelockcontroller-sources"],
+    libs: [
+        "framework-connectivity",
+        // TODO: Remove framework-tethering after cronet is moved to framework-connectivity
+        "framework-tethering",
+        "org.apache.http.legacy",
+    ],
+    static_libs: [
+        "androidx.annotation_annotation",
+        "androidx.collection_collection",
+        "androidx.lifecycle_lifecycle-extensions",
+        "androidx.work_work-runtime",
+        "devicelockcontroller-grpc-interface-lib",
+        "devicelockcontroller-interface",
+        "devicelockcontroller-res-lib",
+        "devicelockcontroller-util-lib",
+        "guava",
+        "jsr330",
+        "dagger2",
+    ],
+    apex_available: [
+        "com.android.devicelock",
+    ],
+    visibility: [
+        "//packages/modules/DeviceLock:__subpackages__",
+        "//vendor:__subpackages__",
     ],
 }
 
@@ -151,44 +194,12 @@ android_app {
     rename_resources_package: false,
     required: ["privapp_allowlist_com.android.devicelockcontroller.xml"],
 
-    srcs: [":devicelockcontroller-sources"],
+    srcs: [":devicelockcontroller-grpc-impl-sources"],
 
     static_libs: [
-        "androidx.annotation_annotation",
-        "androidx.collection_collection",
-        "androidx.lifecycle_lifecycle-extensions",
-        "androidx.work_work-runtime",
-        "devicelockcontroller-activities-lib",
-        "devicelockcontroller-grpclib",
-        "devicelockcontroller-protos-lite",
-        "devicelockcontroller-interface",
-        "devicelockcontroller-res-lib",
-        "devicelockcontroller-util-lib",
-        "guava",
-        "firebase-encoders-jar",
-        "firebase-common-aar",
-        "firebase-components-aar",
-        "firebase-iid-aar",
-        "firebase-iid-interop-aar",
-        "firebase-installations-aar",
-        "firebase-installations-interop-aar",
-        "firebase-messaging-aar",
-        "firebase-measurement-connector-aar",
-        "firebase-encoders-json-aar",
-        "firebase-datatransport-aar",
-        "play-services-basement-aar",
-        "play-services-cloud-messaging-aar",
-        "play-services-stats-aar",
-        "play-services-tasks-aar",
-        "transport-api-aar",
-        "transport-backend-cct-aar",
-        "transport-runtime-aar",
-        "jsr330",
-        "dagger2",
-    ],
-
-    libs: [
-        "framework-tethering",
+        "devicelockcontroller-lib",
+        "devicelockcontroller-grpc-interface-lib",
+        "devicelockcontroller-proto-lite",
     ],
 
     lint: {

@@ -17,7 +17,6 @@
 package com.android.devicelockcontroller.policy;
 
 import static com.android.devicelockcontroller.policy.DevicePolicyControllerImpl.START_LOCK_TASK_MODE_WORK_NAME;
-import static com.android.devicelockcontroller.setup.SetupParameters.isNotificationsInLockTaskModeEnabled;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -35,9 +34,11 @@ import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
-import com.android.devicelockcontroller.setup.SetupParameters;
+import com.android.devicelockcontroller.setup.SetupParametersClient;
 import com.android.devicelockcontroller.setup.UserPreferences;
 import com.android.devicelockcontroller.util.LogUtil;
+
+import com.google.common.util.concurrent.Futures;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,14 +55,10 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
                     | DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS);
     private static final String TAG = "LockTaskModePolicyHandler";
     private final Context mContext;
-    private final ComponentName mComponentName;
     private final DevicePolicyManager mDpm;
 
-    LockTaskModePolicyHandler(
-            Context context, ComponentName adminComponentName, DevicePolicyManager dpm) {
-
+    LockTaskModePolicyHandler(Context context, DevicePolicyManager dpm) {
         mContext = context;
-        mComponentName = adminComponentName;
         mDpm = dpm;
     }
 
@@ -75,6 +72,10 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
     @Override
     @ResultType
     public int setPolicyForState(@DeviceState int state) {
+        if (state == DeviceState.PSEUDO_UNLOCKED || state == DeviceState.PSEUDO_LOCKED) {
+            return SUCCESS;
+        }
+
         if (state == DeviceState.SETUP_SUCCEEDED) {
             composeAllowlist();
         }
@@ -107,9 +108,9 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
 
         final String currentPackage = UserPreferences.getPackageOverridingHome(mContext);
         if (currentPackage != null) {
-            mDpm.clearPackagePersistentPreferredActivities(mComponentName, currentPackage);
+            mDpm.clearPackagePersistentPreferredActivities(null /* admin */, currentPackage);
         }
-        mDpm.addPersistentPreferredActivity(mComponentName, getHomeIntentFilter(), activity);
+        mDpm.addPersistentPreferredActivity(null /* admin */, getHomeIntentFilter(), activity);
         UserPreferences.setPackageOverridingHome(mContext, activity.getPackageName());
 
         return true;
@@ -131,18 +132,21 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
             allowlist.add(defaultDialer);
         }
         final String[] allowlistPackages = allowlist.toArray(new String[allowlist.size()]);
-        mDpm.setLockTaskPackages(mComponentName, allowlistPackages);
+        mDpm.setLockTaskPackages(null /* admin */, allowlistPackages);
         LogUtil.i(TAG, String.format(Locale.US, "Update Lock task allowlist %s",
                 Arrays.toString(allowlistPackages)));
     }
 
     private void enableLockTaskMode() {
         int lockTaskFeatures = DEFAULT_LOCK_TASK_FEATURES;
-        if (isNotificationsInLockTaskModeEnabled(mContext)) {
+        if (Futures.getUnchecked(
+                SetupParametersClient.getInstance().isNotificationsInLockTaskModeEnabled())) {
             lockTaskFeatures |= DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS;
         }
-        mDpm.setLockTaskFeatures(mComponentName, lockTaskFeatures);
+        // updateAllowlist() calls setLockTaskPackages(), which must be called before
+        // setLockTaskFeatures().
         updateAllowlist();
+        mDpm.setLockTaskFeatures(null /* admin */, lockTaskFeatures);
     }
 
     private void disableLockTaskMode() {
@@ -150,10 +154,10 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
 
         final String currentPackage = UserPreferences.getPackageOverridingHome(mContext);
         // This will stop the lock task mode
-        mDpm.setLockTaskPackages(mComponentName, new String[0]);
+        mDpm.setLockTaskPackages(null /* admin */, new String[0]);
         LogUtil.i(TAG, "Clear Lock task allowlist");
         if (currentPackage != null) {
-            mDpm.clearPackagePersistentPreferredActivities(mComponentName, currentPackage);
+            mDpm.clearPackagePersistentPreferredActivities(null /* admin */, currentPackage);
             UserPreferences.setPackageOverridingHome(mContext, null /* packageName */);
         }
     }
@@ -172,15 +176,15 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
         final String[] allowlistArray =
                 mContext.getResources().getStringArray(R.array.lock_task_allowlist);
         final ArrayList<String> allowlistPackages = new ArrayList<>(Arrays.asList(allowlistArray));
-        final String kioskPackage = SetupParameters.getKioskPackage(mContext);
-        if (kioskPackage != null) {
-            allowlistPackages.add(kioskPackage);
-        }
         allowlistSystemAppForAction(Intent.ACTION_DIAL, allowlistPackages);
         allowlistSystemAppForAction(Settings.ACTION_SETTINGS, allowlistPackages);
         allowlistInputMethod(allowlistPackages);
         allowlistCellBroadcastReceiver(allowlistPackages);
-        allowlistPackages.addAll(SetupParameters.getKioskAllowlist(mContext));
+        final String kioskPackage = Futures.getUnchecked(
+                SetupParametersClient.getInstance().getKioskPackage());
+        if (kioskPackage != null) allowlistPackages.add(kioskPackage);
+        allowlistPackages.addAll(
+                Futures.getUnchecked(SetupParametersClient.getInstance().getKioskAllowlist()));
         UserPreferences.setLockTaskAllowlist(mContext, allowlistPackages);
     }
 

@@ -34,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RunWith(RobolectricTestRunner.class)
-public class UserPreferencesServiceTest extends AbstractUserPreferencesTest {
+public class UserPreferencesServiceTest extends AbstractUserPreferencesTestBase {
     private IUserPreferencesService mIUserPreferencesService;
 
     @Before
@@ -45,14 +45,6 @@ public class UserPreferencesServiceTest extends AbstractUserPreferencesTest {
                 userPreferencesServiceController.create().get();
         mIUserPreferencesService =
                 (IUserPreferencesService) userPreferencesService.onBind(new Intent());
-    }
-
-    @Test
-    public void isLockTaskModeActive_shouldReturnWhetherLockTaskModeIsActive()
-            throws RemoteException {
-        assertThat(mIUserPreferencesService.isLockTaskModeActive()).isFalse();
-        mIUserPreferencesService.setLockTaskModeActive(true);
-        assertThat(mIUserPreferencesService.isLockTaskModeActive()).isTrue();
     }
 
     @Test

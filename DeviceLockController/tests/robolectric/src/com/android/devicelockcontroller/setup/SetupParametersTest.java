@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RunWith(RobolectricTestRunner.class)
-public final class SetupParametersTest extends AbstractSetupParametersTest {
+public final class SetupParametersTest extends AbstractSetupParametersTestBase {
     private Context mContext;
 
     @Before
@@ -58,6 +58,11 @@ public final class SetupParametersTest extends AbstractSetupParametersTest {
         expectedKioskAllowlist.add(KIOSK_ALLOWLIST_PACKAGE_1);
         assertThat(SetupParameters.getKioskAllowlist(mContext))
                 .containsExactlyElementsIn(expectedKioskAllowlist);
+        assertThat(SetupParameters.getProvisioningType(mContext)).isEqualTo(PROVISIONING_TYPE);
+        assertThat(SetupParameters.isProvisionMandatory(mContext)).isEqualTo(MANDATORY_PROVISION);
+        assertThat(SetupParameters.getKioskAppProviderName(mContext)).isEqualTo(
+                KIOSK_APP_PROVIDER_NAME);
+        assertThat(SetupParameters.isInstallingFromUnknownSourcesDisallowed(mContext)).isTrue();
     }
 
     @Test

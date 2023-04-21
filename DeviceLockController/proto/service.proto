@@ -16,12 +16,12 @@
 
 syntax = "proto2";
 
-package devicelock;
+package devicelockcontroller;
 
-import "packages/modules/DeviceLock/DeviceLockController/proto/configuration_info.proto";
-import "packages/modules/DeviceLock/DeviceLockController/proto/date.proto";
-import "packages/modules/DeviceLock/DeviceLockController/proto/device_checkin_info.proto";
-import "packages/modules/DeviceLock/DeviceLockController/proto/device_info.proto";
+import "google/protobuf/timestamp.proto";
+import "configuration_info.proto";
+import "device_checkin_info.proto";
+import "device_info.proto";
 
 option java_package = "com.android.devicelockcontroller.proto";
 option java_multiple_files = true;
@@ -109,7 +109,7 @@ message GetDeviceCheckinStatusResponse {
 message NextCheckinInformation {
   // Set by the Device Lock server which tells the Device Lock Android client
   // the date when the next check-in should happen.
-  optional Date next_checkin_date = 1;
+  optional google.protobuf.Timestamp next_checkin_timestamp = 1;
 }
 
 // Information needed by the Device Lock Android client for device provisioning.
@@ -167,9 +167,7 @@ message ReportDeviceProvisionCompleteRequest {
 // Response to a request reporting that device provisioning of an eligible
 // device is complete.
 message ReportDeviceProvisionCompleteResponse {
-  // Ids the client can send back for faster look-ups for reporting device
-  // events throughout the locking program.
-  optional int64 company_id = 1;
-  optional int64 device_id = 2;
-  optional int64 configuration_id = 3;
+  // An enrollment token the Device Lock Android client can use for future
+  // communication with the Device Lock server post-provisioning.
+  optional string enrollment_token = 1;
 }

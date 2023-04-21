@@ -40,16 +40,6 @@ public final class UserPreferencesService extends Service {
     private final IUserPreferencesService.Stub mBinder =
             new IUserPreferencesService.Stub() {
                 @Override
-                public boolean isLockTaskModeActive() {
-                    return UserPreferences.isLockTaskModeActive(mContext);
-                }
-
-                @Override
-                public void setLockTaskModeActive(boolean isActive) {
-                    UserPreferences.setLockTaskModeActive(mContext, isActive);
-                }
-
-                @Override
                 @DeviceState
                 public int getDeviceState() {
                     return UserPreferences.getDeviceState(mContext);
@@ -79,6 +69,46 @@ public final class UserPreferencesService extends Service {
                 @Override
                 public void setLockTaskAllowlist(List<String> allowlist) {
                     UserPreferences.setLockTaskAllowlist(mContext, new ArrayList<>(allowlist));
+                }
+
+                @Override
+                public boolean needCheckIn() {
+                    return UserPreferences.needCheckIn(mContext);
+                }
+
+                @Override
+                public void setNeedCheckIn(boolean needCheckIn) {
+                    UserPreferences.setNeedCheckIn(mContext, needCheckIn);
+                }
+
+                @Override
+                public String getRegisteredDeviceId() {
+                    return UserPreferences.getRegisteredDeviceId(mContext);
+                }
+
+                @Override
+                public void setRegisteredDeviceId(String registeredDeviceId) {
+                    UserPreferences.setRegisteredDeviceId(mContext, registeredDeviceId);
+                }
+
+                @Override
+                public boolean isProvisionForced() {
+                    return UserPreferences.isProvisionForced(mContext);
+                }
+
+                @Override
+                public void setProvisionForced(boolean isForced) {
+                    UserPreferences.setProvisionForced(mContext, isForced);
+                }
+
+                @Override
+                public String getEnrollmentToken() {
+                    return UserPreferences.getEnrollmentToken(mContext);
+                }
+
+                @Override
+                public void setEnrollmentToken(String token) {
+                    UserPreferences.setEnrollmentToken(mContext, token);
                 }
             };
 
