@@ -16,6 +16,10 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SIGNATURE_CHECKSUM;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.KEY_KIOSK_APP_INSTALLED;
+
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -30,8 +34,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.work.Data;
 import androidx.work.WorkerParameters;
 
-import com.android.devicelockcontroller.setup.SetupParameters;
-import com.android.devicelockcontroller.setup.UserPreferences;
+import com.android.devicelockcontroller.storage.GlobalParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,8 +49,7 @@ import java.util.Locale;
  * Verify the apk specified at {@code
  * getInputData().getString(TASK_RESULT_DOWNLOADED_FILE_LOCATION_KEY)}. It extracts package info
  * from the apk using {@link PackageManager#getPackageArchiveInfo} and compares the package name and
- * signature checksum against the provided
- * {@link SetupParameters#getKioskSignatureChecksum(Context)}.
+ * signature checksum against the provided input data.
  */
 public final class VerifyPackageTask extends AbstractTask {
     private static final String TAG = "VerifyPackageTask";
@@ -72,15 +74,8 @@ public final class VerifyPackageTask extends AbstractTask {
         return mExecutorService.submit(
                 () -> {
                     LogUtil.i(TAG, "Starts to run");
-                    final String fileLocation =
-                            getInputData().getString(TASK_RESULT_DOWNLOADED_FILE_LOCATION_KEY);
-                    if (TextUtils.isEmpty(fileLocation)) {
-                        LogUtil.e(TAG, String.format(Locale.US,
-                                "The downloaded file location is %s", fileLocation));
-                        return failure(ERROR_CODE_NO_VALID_DOWNLOADED_FILE);
-                    }
 
-                    final String packageName = SetupParameters.getKioskPackage(mContext);
+                    final String packageName = getInputData().getString(EXTRA_KIOSK_PACKAGE);
                     if (TextUtils.isEmpty(packageName)) {
                         LogUtil.e(TAG, String.format(Locale.US,
                                 "The expected package name of the kiosk app is %s", packageName));
@@ -88,7 +83,7 @@ public final class VerifyPackageTask extends AbstractTask {
                     }
 
                     final String signatureChecksum =
-                            SetupParameters.getKioskSignatureChecksum(mContext);
+                            getInputData().getString(EXTRA_KIOSK_SIGNATURE_CHECKSUM);
                     if (TextUtils.isEmpty(signatureChecksum)) {
                         LogUtil.e(TAG, String.format(Locale.US,
                                 "The expected signature checksum of the kiosk app is %s",
@@ -96,10 +91,26 @@ public final class VerifyPackageTask extends AbstractTask {
                         return failure(ERROR_CODE_SIGNATURE_CHECKSUM_MISMATCH);
                     }
 
-                    final PackageInfo packageInfo =
-                            mPackageManager.getPackageArchiveInfo(fileLocation,
-                                    PackageManager.GET_SIGNATURES
-                                            | PackageManager.GET_SIGNING_CERTIFICATES);
+                    PackageInfo packageInfo;
+                    final String fileLocation =
+                            getInputData().getString(TASK_RESULT_DOWNLOADED_FILE_LOCATION_KEY);
+
+                    if (getInputData().getBoolean(KEY_KIOSK_APP_INSTALLED, false)) {
+                        packageInfo = mPackageManager.getPackageInfo(
+                                packageName,
+                                PackageManager.GET_SIGNATURES
+                                        | PackageManager.GET_SIGNING_CERTIFICATES);
+                    } else {
+                        if (TextUtils.isEmpty(fileLocation)) {
+                            LogUtil.e(TAG, String.format(Locale.US,
+                                    "The downloaded file location is %s", fileLocation));
+                            return failure(ERROR_CODE_NO_VALID_DOWNLOADED_FILE);
+                        }
+                        packageInfo = mPackageManager.getPackageArchiveInfo(
+                                fileLocation,
+                                PackageManager.GET_SIGNATURES
+                                        | PackageManager.GET_SIGNING_CERTIFICATES);
+                    }
 
                     if (packageInfo == null) {
                         LogUtil.e(TAG, "Cannot find package info");
@@ -133,7 +144,7 @@ public final class VerifyPackageTask extends AbstractTask {
                     // before the apk is installed, if we need to verify the package later, we need
                     // to retrieve all signatures and compare each of them with the one we saved
                     // here.
-                    UserPreferences.setKioskSignature(mContext, signatures[0].toCharsString());
+                    GlobalParameters.setKioskSignature(mContext, signatures[0].toCharsString());
 
                     // need to pass the file location to next task
                     final Data data = new Data.Builder()

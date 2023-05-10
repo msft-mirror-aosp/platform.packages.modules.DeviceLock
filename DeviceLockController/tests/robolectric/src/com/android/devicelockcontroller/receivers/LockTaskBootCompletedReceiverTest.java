@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.receivers;
 
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,10 +32,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application = TestDeviceLockControllerApplication.class)
 public class LockTaskBootCompletedReceiverTest {
 
     private static final Intent BOOT_COMPLETED_INTENT = new Intent(
@@ -59,6 +58,6 @@ public class LockTaskBootCompletedReceiverTest {
     public void onReceive_startLockTaskMode() {
         mLockTaskBootCompletedReceiver.onReceive(mTestApplication, BOOT_COMPLETED_INTENT);
 
-        verify(mPolicyController).enqueueStartLockTaskModeWorker();
+        verify(mPolicyController).enqueueStartLockTaskModeWorker(eq(true));
     }
 }

@@ -16,6 +16,23 @@
 
 package com.android.devicelockcontroller.provision.grpc;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ALLOWLIST;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_APP_PROVIDER_NAME;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_DISABLE_OUTGOING_CALLS;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_DOWNLOAD_URL;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SETUP_ACTIVITY;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SIGNATURE_CHECKSUM;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_SUPPORT_URL;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_TERMS_AND_CONDITIONS_URL;
+
+import android.os.Bundle;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A data structure class that contains information necessary to device provisioning for DeviceLock
  * program.
@@ -36,18 +53,31 @@ public final class ProvisioningConfiguration {
     // user to make a payment), e.g. "com.foo.bar/com.foo.bar.MainActivity".
     private final String mKioskAppMainActivity;
     // The list of apps that a user can use when the device is locked.
-    private final String mKioskAppAllowlistPackages;
+    private final List<String> mKioskAppAllowlistPackages;
     // Whether the user can make phone calls when the device is locked.
     private final boolean mKioskAppEnableOutgoingCalls;
 
     // Whether notifications are shown to the user when the device is locked.
     private final boolean mKioskAppEnableEnableNotifications;
 
+    // Whether installing application from unknown sources is disallowed on this device once
+    // provisioned.
+    private final boolean mDisallowInstallingFromUnknownSources;
+
+    // The URL to the Terms and Conditions of the partner for enrolling in a
+    // Device Lock program.
+    private final String mTermsAndConditionsUrl;
+
+    // The URL to the support page the user can use to get help.
+    private final String mSupportUrl;
+
     public ProvisioningConfiguration(
             String kioskAppDownloadUrl, String kioskAppProviderName,
             String kioskAppPackageName, String kioskAppSignatureChecksum,
-            String kioskAppMainActivity, String kioskAppAllowlistPackages,
-            boolean kioskAppEnableOutgoingCalls, boolean kioskAppEnableEnableNotifications) {
+            String kioskAppMainActivity, List<String> kioskAppAllowlistPackages,
+            boolean kioskAppEnableOutgoingCalls, boolean kioskAppEnableEnableNotifications,
+            boolean disallowInstallingFromUnknownSources, String termsAndConditionsUrl,
+            String supportUrl) {
         mKioskAppDownloadUrl = kioskAppDownloadUrl;
         mKioskAppProviderName = kioskAppProviderName;
         mKioskAppPackageName = kioskAppPackageName;
@@ -56,37 +86,30 @@ public final class ProvisioningConfiguration {
         mKioskAppAllowlistPackages = kioskAppAllowlistPackages;
         mKioskAppEnableOutgoingCalls = kioskAppEnableOutgoingCalls;
         mKioskAppEnableEnableNotifications = kioskAppEnableEnableNotifications;
+        mDisallowInstallingFromUnknownSources = disallowInstallingFromUnknownSources;
+        mTermsAndConditionsUrl = termsAndConditionsUrl;
+        mSupportUrl = supportUrl;
     }
 
-    public String getKioskAppDownloadUrl() {
-        return mKioskAppDownloadUrl;
-    }
-
-    public String getKioskAppProviderName() {
-        return mKioskAppProviderName;
-    }
-
-    public String getKioskAppPackageName() {
-        return mKioskAppPackageName;
-    }
-
-    public String getKioskAppSignatureChecksum() {
-        return mKioskAppSignatureChecksum;
-    }
-
-    public String getKioskAppMainActivity() {
-        return mKioskAppMainActivity;
-    }
-
-    public String getKioskAppAllowlistPackages() {
-        return mKioskAppAllowlistPackages;
-    }
-
-    public boolean isKioskAppEnableOutgoingCalls() {
-        return mKioskAppEnableOutgoingCalls;
-    }
-
-    public boolean isKioskAppEnableEnableNotifications() {
-        return mKioskAppEnableEnableNotifications;
+    /**
+     * Create a bundle containing the provisioning information.
+     */
+    public Bundle toBundle() {
+        final Bundle bundle = new Bundle();
+        bundle.putString(EXTRA_KIOSK_PACKAGE, mKioskAppPackageName);
+        bundle.putString(EXTRA_KIOSK_DOWNLOAD_URL, mKioskAppDownloadUrl);
+        bundle.putString(EXTRA_KIOSK_SIGNATURE_CHECKSUM, mKioskAppSignatureChecksum);
+        bundle.putString(EXTRA_KIOSK_SETUP_ACTIVITY, mKioskAppMainActivity);
+        bundle.putBoolean(EXTRA_KIOSK_DISABLE_OUTGOING_CALLS, mKioskAppEnableOutgoingCalls);
+        bundle.putBoolean(EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE,
+                mKioskAppEnableEnableNotifications);
+        bundle.putStringArrayList(EXTRA_KIOSK_ALLOWLIST,
+                new ArrayList<>(mKioskAppAllowlistPackages));
+        bundle.putString(EXTRA_KIOSK_APP_PROVIDER_NAME, mKioskAppProviderName);
+        bundle.putBoolean(EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES,
+                mDisallowInstallingFromUnknownSources);
+        bundle.putString(EXTRA_TERMS_AND_CONDITIONS_URL, mTermsAndConditionsUrl);
+        bundle.putString(EXTRA_SUPPORT_URL, mSupportUrl);
+        return bundle;
     }
 }

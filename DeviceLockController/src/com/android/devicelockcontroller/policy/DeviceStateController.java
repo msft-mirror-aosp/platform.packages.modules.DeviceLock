@@ -17,22 +17,29 @@
 package com.android.devicelockcontroller.policy;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.MainThread;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 // TODO: rework the state and events for vNext
 
 /**
  * Interface for the device lock controller state machine.
  */
+@MainThread
 public interface DeviceStateController {
     /**
      * Moves the device to a new state based on the input event
      *
      * @throws StateTransitionException when the input event does not match the current state.
      */
-    void setNextStateForEvent(@DeviceEvent int event) throws StateTransitionException;
+    ListenableFuture<Void> setNextStateForEvent(@DeviceEvent int event)
+            throws StateTransitionException;
 
     /** Returns the current state of the device */
     @DeviceState
@@ -54,6 +61,7 @@ public interface DeviceStateController {
     void removeCallback(StateListener listener);
 
     /** Device state definitions */
+    @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
             DeviceState.UNPROVISIONED,
@@ -142,6 +150,33 @@ public interface DeviceStateController {
     /** Listener interface for state changes. */
     interface StateListener {
         /** Notified after the device transitions to a new state */
-        void onStateChanged(@DeviceState int newState);
+        ListenableFuture<Void> onStateChanged(@DeviceState int newState);
+    }
+
+
+    /**
+     * Get the corresponding string for the input {@link DeviceEvent}
+     */
+    static String eventToString(@DeviceEvent int event) {
+        switch (event) {
+            case DeviceEvent.PROVISIONING_SUCCESS:
+                return "PROVISIONING_SUCCESS";
+            case DeviceEvent.SETUP_SUCCESS:
+                return "SETUP_SUCCESS";
+            case DeviceEvent.SETUP_FAILURE:
+                return "SETUP_FAILURE";
+            case DeviceEvent.SETUP_COMPLETE:
+                return "SETUP_COMPLETE";
+            case DeviceEvent.LOCK_DEVICE:
+                return "LOCK_DEVICE";
+            case DeviceEvent.UNLOCK_DEVICE:
+                return "UNLOCK_DEVICE";
+            case DeviceEvent.CLEAR:
+                return "CLEAR";
+            case DeviceEvent.RESET:
+                return "RESET";
+            default:
+                return "UNKNOWN_EVENT";
+        }
     }
 }

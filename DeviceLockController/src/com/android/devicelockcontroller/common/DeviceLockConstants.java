@@ -16,18 +16,19 @@
 
 package com.android.devicelockcontroller.common;
 
+import android.content.Context;
+
 import androidx.annotation.IntDef;
 
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /** Constants being used by more than one class in the Device Lock application. */
 public final class DeviceLockConstants {
-    // TODO: properly set to an activity. Additionally, package could be com.android... or
-    // com.google.android... and should be determined dynamically.
-    public static final String SETUP_FAILED_ACTIVITY =
-            "com.android.devicelockcontroller/"
-                    + "com.android.devicelockcontroller.SetupFailedActivity";
+
+    public static final String KEY_KIOSK_APP_INSTALLED = "devicelock_kiosk_app_installed";
 
     // Constants related to unique device identifiers.
     @Retention(RetentionPolicy.SOURCE)
@@ -36,7 +37,9 @@ public final class DeviceLockConstants {
             DEVICE_ID_TYPE_IMEI,
             DEVICE_ID_TYPE_MEID,
     })
-    public @interface DeviceIdType {}
+    public @interface DeviceIdType {
+    }
+
     // The device id type is unspecified
     public static final int DEVICE_ID_TYPE_UNSPECIFIED = -1;
     // The device id is a IMEI
@@ -51,15 +54,16 @@ public final class DeviceLockConstants {
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(value = {
             STATUS_UNSPECIFIED,
-            READY_FOR_PROVISION,
             RETRY_CHECK_IN,
+            READY_FOR_PROVISION,
             STOP_CHECK_IN,
     })
-    public @interface DeviceCheckInStatus {}
+    public @interface DeviceCheckInStatus {
+    }
 
     public static final int STATUS_UNSPECIFIED = 0;
-    public static final int READY_FOR_PROVISION = 1;
-    public static final int RETRY_CHECK_IN = 2;
+    public static final int RETRY_CHECK_IN = 1;
+    public static final int READY_FOR_PROVISION = 2;
     public static final int STOP_CHECK_IN = 3;
 
     @Retention(RetentionPolicy.SOURCE)
@@ -67,21 +71,106 @@ public final class DeviceLockConstants {
             REASON_UNSPECIFIED,
             USER_DEFERRED_DEVICE_PROVISIONING,
     })
-    public @interface PauseDeviceProvisioningReason {}
+    public @interface PauseDeviceProvisioningReason {
+    }
 
     public static final int REASON_UNSPECIFIED = 0;
     public static final int USER_DEFERRED_DEVICE_PROVISIONING = 1;
 
+    @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(value = {
-            TYPE_UNDEFINED,
-            TYPE_FINANCED,
+            ProvisioningType.TYPE_UNDEFINED,
+            ProvisioningType.TYPE_FINANCED,
+            ProvisioningType.TYPE_SUBSIDY,
     })
-    public @interface ProvisioningType {}
+    public @interface ProvisioningType {
+        int TYPE_UNDEFINED = 0;
+        int TYPE_FINANCED = 1;
+        int TYPE_SUBSIDY = 2;
+    }
 
-    public static final int TYPE_UNDEFINED = 0;
-    public static final int TYPE_FINANCED = 1;
+    public static final String EXTRA_KIOSK_PACKAGE =
+            "com.android.devicelockcontroller.KIOSK_PACKAGE";
+
+    /**
+     * URL to download the kiosk app.
+     *
+     * <p>DLC will look for a pre-installed package with the name defined by {@link
+     * #EXTRA_KIOSK_PACKAGE}. If the package is not present, DLC will try to download the package
+     * from the URL provided.
+     */
+    public static final String EXTRA_KIOSK_DOWNLOAD_URL =
+            "com.android.devicelockcontroller.KIOSK_DOWNLOAD_URL";
+
+    /**
+     * Intent's extras key for Base64 encoded SHA-256 hash checksum of the kiosk app's signing
+     * certificate.
+     */
+    public static final String EXTRA_KIOSK_SIGNATURE_CHECKSUM =
+            "com.android.devicelockcontroller.KIOSK_SIGNATURE_CHECKSUM";
+
+    public static final String EXTRA_KIOSK_SETUP_ACTIVITY =
+            "com.android.devicelockcontroller.KIOSK_SETUP_ACTIVITY";
+    public static final String EXTRA_KIOSK_DISABLE_OUTGOING_CALLS =
+            "com.android.devicelockcontroller.KIOSK_DISABLE_OUTGOING_CALLS";
+    /**
+     * Used to control if notifications are enabled in lock task mode. The default value is false.
+     *
+     * @see android.app.admin.DevicePolicyManager#LOCK_TASK_FEATURE_NOTIFICATIONS
+     */
+    public static final String EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE =
+            "com.android.devicelockcontroller.KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE";
+    public static final String EXTRA_KIOSK_ALLOWLIST =
+            "com.android.devicelockcontroller.KIOSK_ALLOWLIST";
+    public static final String EXTRA_PROVISIONING_TYPE =
+            "com.android.devicelockcontroller.PROVISIONING_TYPE";
+    public static final String EXTRA_MANDATORY_PROVISION =
+            "com.android.devicelockcontroller.MANDATORY_PROVISION";
+    public static final String EXTRA_KIOSK_APP_PROVIDER_NAME =
+            "com.android.devicelockcontroller.KIOSK_APP_PROVIDER_NAME";
+    public static final String EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES =
+            "com.android.devicelockcontroller.DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES";
+
+    public static final String EXTRA_TERMS_AND_CONDITIONS_URL =
+            "com.android.devicelockcontroller.TERMS_AND_CONDITIONS_URL";
+
+    public static final String EXTRA_SUPPORT_URL = "com.android.devicelockcontroller.SUPPORT_URL";
+
+    public static final String ACTION_START_DEVICE_FINANCING_PROVISIONING =
+            "com.android.devicelockcontroller.action.START_DEVICE_FINANCING_PROVISIONING";
+    public static final String ACTION_START_DEVICE_FINANCING_DEFERRED_PROVISIONING =
+            "com.android.devicelockcontroller.action.START_DEVICE_FINANCING_DEFERRED_PROVISIONING";
+
+    public static final String ACTION_START_DEVICE_FINANCING_SECONDARY_USER_PROVISIONING =
+            "com.android.devicelockcontroller.action"
+                    + ".START_DEVICE_FINANCING_SECONDARY_USER_PROVISIONING";
+
+    public static final String ACTION_START_DEVICE_SUBSIDY_PROVISIONING =
+            "com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_PROVISIONING";
+
+    public static final String ACTION_START_DEVICE_SUBSIDY_DEFERRED_PROVISIONING =
+            "com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_DEFERRED_PROVISIONING";
+
+    public static final String ACTION_DEVICE_FINANCING_PROVISION_NOT_REQUIRED =
+            "com.android.devicelockcontroller.action.DEVICE_FINANCING_PROVISION_NOT_REQUIRED";
+
+    public static final String ACTION_DEVICE_SUBSIDY_PROVISION_NOT_REQUIRED =
+            "com.android.devicelockcontroller.action.DEVICE_SUBSIDY_PROVISION_NOT_REQUIRED";
+
+    public static final String ACTION_START_DEVICE_FINANCING_ENROLLMENT =
+            "com.android.devicelockcontroller.action.START_DEVICE_FINANCING_ENROLLMENT";
+
+    public static final String ACTION_START_DEVICE_SUBSIDY_ENROLLMENT =
+            "com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_ENROLLMENT";
+
+    /** Uses the package name of {@link Context#getPackageName()} to return the landing activity. */
+    public static String getLandingActivity(Context context) {
+        return context.getPackageName() + "/"
+                + "com.android.devicelockcontroller.activities.LandingActivity";
+    }
 
     /** Restrict instantiation. */
-    private DeviceLockConstants() {}
+    private DeviceLockConstants() {
+    }
 }

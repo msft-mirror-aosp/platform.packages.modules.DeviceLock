@@ -18,10 +18,8 @@ package com.android.devicelockcontroller.activities;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.content.Context;
-import android.widget.TextView;
-
-import androidx.test.core.app.ApplicationProvider;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentContainerView;
 
 import com.android.devicelockcontroller.R;
 
@@ -34,15 +32,14 @@ import org.robolectric.RobolectricTestRunner;
 @RunWith(RobolectricTestRunner.class)
 public final class LandingActivityTest {
 
-    private final Context mContext = ApplicationProvider.getApplicationContext();
-
     @Ignore("http://b/269463682")
     @Test
-    public void landingActivity_showsCorrectText() {
+    public void landingActivity_setsProvisionInfoFragment() {
         LandingActivity activity = Robolectric.buildActivity(LandingActivity.class).setup().get();
+        FragmentContainerView fragmentContainerView = activity.findViewById(
+                R.id.fragment_container);
 
-        TextView textView = activity.findViewById(R.id.landing_activity_text_view);
-        String expectedString = mContext.getString(R.string.app_name);
-        assertThat(textView.getText().toString()).isEqualTo(expectedString);
+        assertThat((Fragment) fragmentContainerView.getFragment()).isInstanceOf(
+                ProvisionInfoFragment.class);
     }
 }
