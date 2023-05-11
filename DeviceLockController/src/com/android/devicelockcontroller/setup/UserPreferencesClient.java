@@ -23,13 +23,17 @@ import android.content.Context;
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.DeviceLockControllerApplication;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.List;
+import java.util.concurrent.Executors;
 
 /**
  * A class used to access User Preferences from a secondary user.
@@ -39,12 +43,8 @@ public final class UserPreferencesClient extends DlcClient {
     private static UserPreferencesClient sUserPreferencesClient;
 
     private UserPreferencesClient(@NonNull Context context,
-            @NonNull ComponentName componentName) {
-        super(context, componentName);
-    }
-
-    private UserPreferencesClient(@NonNull Context context) {
-        this(context, new ComponentName(context, UserPreferencesService.class));
+            ListeningExecutorService executorService) {
+        super(context, new ComponentName(context, UserPreferencesService.class), executorService);
     }
 
     /**
@@ -52,37 +52,26 @@ public final class UserPreferencesClient extends DlcClient {
      */
     @MainThread
     public static UserPreferencesClient getInstance() {
+        return getInstance(DeviceLockControllerApplication.getAppContext(),
+                /* executorService= */ null);
+    }
+
+    /**
+     * Get the UserPreferencesClient singleton instance.
+     */
+    @MainThread
+    @VisibleForTesting
+    public static UserPreferencesClient getInstance(Context appContext,
+            @Nullable ListeningExecutorService executorService) {
         if (sUserPreferencesClient == null) {
-            final Context applicationContext = DeviceLockControllerApplication.getAppContext();
-            sUserPreferencesClient = new UserPreferencesClient(applicationContext);
+            sUserPreferencesClient = new UserPreferencesClient(
+                    appContext,
+                    executorService == null
+                            ? MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())
+                            : executorService);
         }
 
         return sUserPreferencesClient;
-    }
-
-    /**
-     * Checks if lock task mode is active.
-     *
-     * @return True if lock task mode is active.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Boolean> isLockTaskModeActive() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                        .isLockTaskModeActive());
-    }
-
-    /**
-     * Sets the current lock task mode state.
-     *
-     * @param isActive New state.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Void> setLockTaskModeActive(boolean isActive) {
-        return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService)
-                    .setLockTaskModeActive(isActive);
-            return null;
-        });
     }
 
     /**
@@ -91,9 +80,9 @@ public final class UserPreferencesClient extends DlcClient {
      * @return the current device state.
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Integer> getDeviceState() {
+    public ListenableFuture<@DeviceState Integer> getDeviceState() {
         return call(() -> IUserPreferencesService.Stub.asInterface(
-                        mDlcService).getDeviceState());
+                mDlcService).getDeviceState());
     }
 
     /**
@@ -117,7 +106,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getPackageOverridingHome() {
         return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                        .getPackageOverridingHome());
+                .getPackageOverridingHome());
     }
 
     /**
@@ -142,7 +131,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<List<String>> getLockTaskAllowlist() {
         return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                        .getLockTaskAllowlist());
+                .getLockTaskAllowlist());
     }
 
     /**
@@ -167,7 +156,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Boolean> needCheckIn() {
         return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                        .needCheckIn());
+                .needCheckIn());
     }
 
     /**
@@ -194,7 +183,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getRegisteredDeviceId() {
         return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                        .getRegisteredDeviceId());
+                .getRegisteredDeviceId());
     }
 
     /**
@@ -219,7 +208,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Boolean> isProvisionForced() {
         return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                        .isProvisionForced());
+                .isProvisionForced());
     }
 
     /**
@@ -245,7 +234,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getEnrollmentToken() {
         return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                        .getEnrollmentToken());
+                .getEnrollmentToken());
     }
 
     /**

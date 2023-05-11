@@ -16,11 +16,13 @@
 
 package com.android.devicelockcontroller.activities;
 
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 
@@ -33,7 +35,10 @@ import com.android.devicelockcontroller.R;
 public final class ProvisionInfoListAdapter extends
         ListAdapter<ProvisionInfo, ProvisionInfoViewHolder> {
 
-    ProvisionInfoListAdapter() {
+    private final ProvisionInfoViewModel mViewModel;
+    private final LifecycleOwner mLifecycleOwner;
+
+    ProvisionInfoListAdapter(ProvisionInfoViewModel viewModel, LifecycleOwner lifecycleOwner) {
         super(new DiffUtil.ItemCallback<>() {
             @Override
             public boolean areItemsTheSame(@NonNull ProvisionInfo oldItem,
@@ -47,6 +52,8 @@ public final class ProvisionInfoListAdapter extends
                 return oldItem.equals(newItem);
             }
         });
+        mViewModel = viewModel;
+        mLifecycleOwner = lifecycleOwner;
     }
 
     @NonNull
@@ -60,6 +67,12 @@ public final class ProvisionInfoListAdapter extends
     @Override
     public void onBindViewHolder(@NonNull ProvisionInfoViewHolder provisionInfoViewHolder,
             int position) {
-        provisionInfoViewHolder.bind(getItem(position));
+        String providerName = mViewModel.mProviderNameLiveData.getValue();
+        if (TextUtils.isEmpty(providerName)) {
+            mViewModel.mProviderNameLiveData.observe(mLifecycleOwner,
+                    newValue -> notifyItemChanged(position));
+            return;
+        }
+        provisionInfoViewHolder.bind(getItem(position), providerName);
     }
 }

@@ -27,10 +27,12 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SIGNATURE_CHECKSUM;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_TERMS_AND_CONDITIONS_URL;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.TYPE_UNDEFINED;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.ArraySet;
 
@@ -46,7 +48,7 @@ import java.util.Set;
 /**
  * Store provisioning parameters
  */
-public final class SetupParameters {
+final class SetupParameters {
     private static final String TAG = "SetupParameters";
 
     private static final String FILENAME = "setup-prefs";
@@ -64,6 +66,8 @@ public final class SetupParameters {
     private static final String KEY_KIOSK_APP_PROVIDER_NAME = "kiosk-app-provider-name";
     private static final String KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES =
             "disallow-installing-from-unknown-sources";
+    private static final String KEY_TERMS_AND_CONDITIONS_URL =
+            "terms-and-conditions-url";
 
     private SetupParameters() {
     }
@@ -73,13 +77,23 @@ public final class SetupParameters {
         return deviceContext.getSharedPreferences(FILENAME, Context.MODE_PRIVATE);
     }
 
+    // Note that this API is only used for debugging purpose and should only be called in
+    // debuggable build.
+    static synchronized void overridePrefs(Context context, Bundle bundle) {
+        if (!Build.isDebuggable()) {
+            throw new SecurityException(
+                    "Setup parameters is not allowed to be override in non-debuggable build!");
+        }
+        populatePreferencesLocked(getSharedPreferences(context), bundle);
+    }
+
     /**
      * Parse setup parameters from the extras bundle.
      *
      * @param context Application context
      * @param bundle  Bundle with provisioning parameters.
      */
-    public static synchronized void createPrefs(Context context, Bundle bundle) {
+    static synchronized void createPrefs(Context context, Bundle bundle) {
         SharedPreferences sharedPreferences = getSharedPreferences(context);
         if (sharedPreferences.contains(KEY_KIOSK_PACKAGE)) {
             LogUtil.i(TAG, "Setup parameters are already populated");
@@ -110,6 +124,8 @@ public final class SetupParameters {
                 bundle.getString(EXTRA_KIOSK_APP_PROVIDER_NAME));
         editor.putBoolean(KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES,
                 bundle.getBoolean(EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES));
+        editor.putString(KEY_TERMS_AND_CONDITIONS_URL,
+                bundle.getString(EXTRA_TERMS_AND_CONDITIONS_URL));
         editor.apply();
     }
 
@@ -120,7 +136,7 @@ public final class SetupParameters {
      * @return kiosk app package name.
      */
     @Nullable
-    public static String getKioskPackage(Context context) {
+    static String getKioskPackage(Context context) {
         return getSharedPreferences(context).getString(KEY_KIOSK_PACKAGE, null /* defValue */);
     }
 
@@ -131,7 +147,7 @@ public final class SetupParameters {
      * @return Kiosk app download URL.
      */
     @Nullable
-    public static String getKioskDownloadUrl(Context context) {
+    static String getKioskDownloadUrl(Context context) {
         return getSharedPreferences(context).getString(KEY_KIOSK_DOWNLOAD_URL, null /* defValue */);
     }
 
@@ -142,7 +158,7 @@ public final class SetupParameters {
      * @return Signature checksum.
      */
     @Nullable
-    public static String getKioskSignatureChecksum(Context context) {
+    static String getKioskSignatureChecksum(Context context) {
         return getSharedPreferences(context)
                 .getString(KEY_KIOSK_SIGNATURE_CHECKSUM, null /* defValue */);
     }
@@ -154,7 +170,7 @@ public final class SetupParameters {
      * @return Setup activity.
      */
     @Nullable
-    public static String getKioskSetupActivity(Context context) {
+    static String getKioskSetupActivity(Context context) {
         return getSharedPreferences(context)
                 .getString(KEY_KIOSK_SETUP_ACTIVITY, null /* defValue */);
     }
@@ -165,7 +181,7 @@ public final class SetupParameters {
      * @param context Context used to get the shared preferences.
      * @return True if outgoing calls are disabled.
      */
-    public static boolean getOutgoingCallsDisabled(Context context) {
+    static boolean getOutgoingCallsDisabled(Context context) {
         return getSharedPreferences(context)
                 .getBoolean(KEY_KIOSK_DISABLE_OUTGOING_CALLS, false /* defValue */);
     }
@@ -176,7 +192,7 @@ public final class SetupParameters {
      * @param context Context used to get the shared preferences.
      * @return List of allowed packages.
      */
-    public static ImmutableList<String> getKioskAllowlist(Context context) {
+    static ImmutableList<String> getKioskAllowlist(Context context) {
         SharedPreferences sharedPreferences = getSharedPreferences(context);
         Set<String> allowlistSet =
                 sharedPreferences.getStringSet(KEY_KIOSK_ALLOWLIST, null /* defValue */);
@@ -189,7 +205,7 @@ public final class SetupParameters {
      * @param context Context used to get the shared preferences.
      * @return True if notification are enabled.
      */
-    public static boolean isNotificationsInLockTaskModeEnabled(Context context) {
+    static boolean isNotificationsInLockTaskModeEnabled(Context context) {
         return getSharedPreferences(context)
                 .getBoolean(KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE, false /* defValue */);
     }
@@ -201,7 +217,7 @@ public final class SetupParameters {
      * @return The type of provisioning which could be one of {@link ProvisioningType}.
      */
     @ProvisioningType
-    public static int getProvisioningType(Context context) {
+    static int getProvisioningType(Context context) {
         return getSharedPreferences(context).getInt(KEY_PROVISIONING_TYPE, TYPE_UNDEFINED);
     }
 
@@ -211,7 +227,7 @@ public final class SetupParameters {
      * @param context Context used to get the shared preferences.
      * @return True if the provision should be mandatory.
      */
-    public static boolean isProvisionMandatory(Context context) {
+    static boolean isProvisionMandatory(Context context) {
         return getSharedPreferences(context).getBoolean(KEY_MANDATORY_PROVISION, false);
     }
 
@@ -222,7 +238,7 @@ public final class SetupParameters {
      * @return the name of the provider.
      */
     @Nullable
-    public static String getKioskAppProviderName(Context context) {
+    static String getKioskAppProviderName(Context context) {
         return getSharedPreferences(context).getString(KEY_KIOSK_APP_PROVIDER_NAME,
                 null /* defValue */);
     }
@@ -233,8 +249,21 @@ public final class SetupParameters {
      * @param context Context used to get the shared preferences.
      * @return True if installing from unknown sources is disallowed.
      */
-    public static boolean isInstallingFromUnknownSourcesDisallowed(Context context) {
+    static boolean isInstallingFromUnknownSourcesDisallowed(Context context) {
         return getSharedPreferences(context).getBoolean(
                 KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES, /* defValue= */ false);
+    }
+
+    /**
+     * Get the URL to the terms and conditions of the partner for enrolling in a Device Lock
+     * program.
+     *
+     * @param context Context used to get the shared preferences.
+     * @return The URL to the terms and conditions.
+     */
+    @Nullable
+    static String getTermsAndConditionsUrl(Context context) {
+        return getSharedPreferences(context).getString(
+                KEY_TERMS_AND_CONDITIONS_URL, /* defValue= */ null);
     }
 }

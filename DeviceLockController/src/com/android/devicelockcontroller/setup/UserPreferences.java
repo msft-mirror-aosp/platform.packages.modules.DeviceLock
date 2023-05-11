@@ -18,7 +18,6 @@ package com.android.devicelockcontroller.setup;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.SystemProperties;
 import android.util.ArraySet;
 
 import androidx.annotation.Nullable;
@@ -33,7 +32,6 @@ import java.util.Set;
  */
 public final class UserPreferences {
     private static final String FILENAME = "prefs";
-    private static final String KEY_LOCK_TASK_MODE_ACTIVE = "lock_task_mode_active";
     private static final String KEY_DEVICE_STATE = "device_state";
     private static final String KEY_KIOSK_SIGNING_CERT = "kiosk_signing_cert";
     private static final String KEY_HOME_PACKAGE_OVERRIDE = "home_override_package";
@@ -51,27 +49,6 @@ public final class UserPreferences {
         final Context deviceContext = context.createDeviceProtectedStorageContext();
 
         return deviceContext.getSharedPreferences(FILENAME, Context.MODE_PRIVATE);
-    }
-
-    /**
-     * Checks if lock task mode is active.
-     *
-     * @param context Context used to get the shared preferences.
-     * @return True if lock task mode is active.
-     */
-    public static boolean isLockTaskModeActive(Context context) {
-        return getSharedPreferences(context).getBoolean(KEY_LOCK_TASK_MODE_ACTIVE, false);
-    }
-
-    /**
-     * Sets the current lock task mode state.
-     *
-     * @param context  Context used to get the shared preferences.
-     * @param isActive New state.
-     */
-    public static void setLockTaskModeActive(Context context, boolean isActive) {
-        getSharedPreferences(context).edit().putBoolean(KEY_LOCK_TASK_MODE_ACTIVE, isActive)
-                .apply();
     }
 
     /**
@@ -178,10 +155,7 @@ public final class UserPreferences {
      * @return true if check-in request needs to be performed.
      */
     public static boolean needCheckIn(Context context) {
-        // TODO(b/257092561): Remove the flag before release
-        return SystemProperties.getBoolean("devicelock.checkin.enabled", false)
-                && getSharedPreferences(context)
-                        .getBoolean(KEY_NEED_CHECK_IN, /* defValue= */ true);
+        return getSharedPreferences(context).getBoolean(KEY_NEED_CHECK_IN, /* defValue= */ true);
     }
 
     /**
@@ -260,8 +234,8 @@ public final class UserPreferences {
     /**
      * Set the enrollment token assigned by the Device Lock backend server.
      *
-     * @param context  Context used to get the shared preferences.
-     * @param token The string value of the enrollment token.
+     * @param context Context used to get the shared preferences.
+     * @param token   The string value of the enrollment token.
      */
     public static void setEnrollmentToken(Context context, String token) {
         getSharedPreferences(context)

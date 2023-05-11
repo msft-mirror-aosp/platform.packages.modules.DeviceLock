@@ -19,10 +19,18 @@ package com.android.devicelockcontroller.policy;
 import androidx.annotation.IntDef;
 import androidx.lifecycle.LifecycleOwner;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/** Controller managing communication between setup tasks and UI layer. */
+/**
+ * Controller managing communication between setup tasks and UI layer.
+ *
+ * Note that some APIs return a listenable future because the underlying calls to
+ * {@link com.android.devicelockcontroller.setup.SetupParametersClient} return a listenable future
+ * for inter process calls.
+ */
 public interface SetupController {
 
     /** Definitions for status of the setup. */
@@ -54,13 +62,7 @@ public interface SetupController {
     int getSetupState();
 
     /** Triggers the setup flow process. */
-    void startSetupFlow(LifecycleOwner owner);
-
-    /**
-     * Finishes the setup flow process. Triggers the appropriate actions based on whether setup was
-     * successful.
-     */
-    void finishSetup();
+    ListenableFuture<Void> startSetupFlow(LifecycleOwner owner);
 
     /** Callback interface for updates on setup tasks */
     interface SetupUpdatesCallbacks {
@@ -73,7 +75,9 @@ public interface SetupController {
                         FailureType.DOWNLOAD_FAILED,
                         FailureType.VERIFICATION_FAILED,
                         FailureType.INSTALL_FAILED,
-                        FailureType.PACKAGE_DOES_NOT_EXIST
+                        FailureType.PACKAGE_DOES_NOT_EXIST,
+                        FailureType.DELETE_PACKAGE_FAILED,
+                        FailureType.INSTALL_EXISTING_FAILED,
                 })
         @interface FailureType {
             /** Setup failed to complete */
@@ -86,6 +90,10 @@ public interface SetupController {
             int INSTALL_FAILED = 3;
             /** Pre-installed package not found */
             int PACKAGE_DOES_NOT_EXIST = 4;
+            /** Delete apk failed */
+            int DELETE_PACKAGE_FAILED = 5;
+            /** Install package for secondary users failed */
+            int INSTALL_EXISTING_FAILED = 6;
         }
 
         /** Method called when setup has failed. */

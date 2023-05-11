@@ -18,16 +18,18 @@ package com.android.devicelockcontroller.common;
 
 import androidx.annotation.IntDef;
 
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /** Constants being used by more than one class in the Device Lock application. */
 public final class DeviceLockConstants {
     // TODO: properly set to an activity. Additionally, package could be com.android... or
     // com.google.android... and should be determined dynamically.
-    public static final String PROVISIONING_ACTIVITY =
+    public static final String LANDING_ACTIVITY =
             "com.android.devicelockcontroller/"
-                    + "com.android.devicelockcontroller.activities.ProvisioningActivity";
+                    + "com.android.devicelockcontroller.activities.LandingActivity";
     public static final String KEY_KIOSK_APP_INSTALLED = "devicelock_kiosk_app_installed";
 
     // Constants related to unique device identifiers.
@@ -77,6 +79,7 @@ public final class DeviceLockConstants {
     public static final int REASON_UNSPECIFIED = 0;
     public static final int USER_DEFERRED_DEVICE_PROVISIONING = 1;
 
+    @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(value = {
             TYPE_UNDEFINED,
@@ -130,6 +133,9 @@ public final class DeviceLockConstants {
     public static final String EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES =
             "com.android.devicelockcontroller.DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES";
 
+    public static final String EXTRA_TERMS_AND_CONDITIONS_URL =
+            "com.android.devicelockcontroller.TERMS_AND_CONDITIONS_URL";
+
     public static final String ACTION_START_DEVICE_FINANCING_PROVISIONING =
             "com.android.devicelockcontroller.action.START_DEVICE_FINANCING_PROVISIONING";
     public static final String ACTION_START_DEVICE_FINANCING_DEFERRED_PROVISIONING =
@@ -144,6 +150,18 @@ public final class DeviceLockConstants {
 
     public static final String ACTION_START_DEVICE_SUBSIDY_DEFERRED_PROVISIONING =
             "com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_DEFERRED_PROVISIONING";
+
+    public static final String ACTION_DEVICE_FINANCING_PROVISION_NOT_REQUIRED =
+            "com.android.devicelockcontroller.action.DEVICE_FINANCING_PROVISION_NOT_REQUIRED";
+
+    public static final String ACTION_DEVICE_SUBSIDY_PROVISION_NOT_REQUIRED =
+            "com.android.devicelockcontroller.action.DEVICE_SUBSIDY_PROVISION_NOT_REQUIRED";
+
+    public static final String ACTION_START_DEVICE_FINANCING_ENROLLMENT =
+            "com.android.devicelockcontroller.action.START_DEVICE_FINANCING_ENROLLMENT";
+
+    public static final String ACTION_START_DEVICE_SUBSIDY_ENROLLMENT =
+            "com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_ENROLLMENT";
 
     /** Restrict instantiation. */
     private DeviceLockConstants() {
