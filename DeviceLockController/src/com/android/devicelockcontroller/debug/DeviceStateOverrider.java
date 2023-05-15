@@ -22,20 +22,17 @@ import android.content.Intent;
 import android.os.Build;
 import android.text.TextUtils;
 
-import com.android.devicelockcontroller.storage.SetupParametersClient;
+import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
+import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
+import java.util.Locale;
 
-/**
- * A helper class used to receive commands from ADB.
- * Used for testing purpose only.
- */
-public final class SetupParametersOverrider extends BroadcastReceiver {
+public final class DeviceStateOverrider extends BroadcastReceiver {
 
-    private static final String TAG = "SetupParametersOverrider";
+    private static final int UNKNOWN_STATE = -1;
+    private static final String TAG = "DeviceStateOverrider";
+    private static final String EXTRA_NEW_STATE = "new-state";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -43,22 +40,21 @@ public final class SetupParametersOverrider extends BroadcastReceiver {
             LogUtil.w(TAG, "Adb command is not supported in non-debuggable build!");
             return;
         }
-        if (!TextUtils.equals(intent.getComponent().getClassName(), this.getClass().getName())) {
+
+        if (!TextUtils.equals(intent.getComponent().getClassName(), getClass().getName())) {
             LogUtil.w(TAG, "Implicit intent should not be used!");
             return;
         }
-        Futures.addCallback(
-                SetupParametersClient.getInstance().overridePrefs(intent.getExtras()),
-                new FutureCallback<>() {
-                    @Override
-                    public void onSuccess(Void result) {
-                        LogUtil.i(TAG, "Successfully override setup parameters!");
-                    }
 
-                    @Override
-                    public void onFailure(Throwable t) {
-                        LogUtil.e(TAG, "Failed to override setup parameters!", t);
-                    }
-                }, MoreExecutors.directExecutor());
+        @DeviceState
+        int newState = intent.getIntExtra(EXTRA_NEW_STATE, UNKNOWN_STATE);
+        switch (newState) {
+            case DeviceState.UNPROVISIONED -> {
+                UserParameters.clear(context);
+                LogUtil.i(TAG, "State has been set to UNPROVISIONED!");
+            }
+            //TODO: should support overriding other states as well.
+            default -> LogUtil.w(TAG, String.format(Locale.US, "Unsupported state: %d!", newState));
+        }
     }
 }

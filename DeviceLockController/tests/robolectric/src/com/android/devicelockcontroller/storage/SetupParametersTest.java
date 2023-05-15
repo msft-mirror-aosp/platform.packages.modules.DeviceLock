@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.setup;
+package com.android.devicelockcontroller.storage;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -65,6 +65,7 @@ public final class SetupParametersTest extends AbstractSetupParametersTestBase {
         assertThat(SetupParameters.isInstallingFromUnknownSourcesDisallowed(mContext)).isTrue();
         assertThat(SetupParameters.getTermsAndConditionsUrl(mContext))
                 .isEqualTo(TERMS_AND_CONDITIONS_URL);
+        assertThat(SetupParameters.getSupportUrl(mContext)).isEqualTo(SUPPORT_URL);
     }
 
     @Test

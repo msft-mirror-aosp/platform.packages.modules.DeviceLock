@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.setup;
+package com.android.devicelockcontroller.storage;
+
+import static com.android.devicelockcontroller.storage.IGlobalParametersService.Stub.asInterface;
 
 import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Context;
 
-import androidx.annotation.MainThread;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.DeviceLockControllerApplication;
-import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -36,91 +37,58 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 /**
- * A class used to access User Preferences from a secondary user.
+ * A class used to access Global Parameters from any user.
  */
-public final class UserPreferencesClient extends DlcClient {
-    @SuppressLint("StaticFieldLeak") // Only holds application context.
-    private static UserPreferencesClient sUserPreferencesClient;
+public final class GlobalParametersClient extends DlcClient {
 
-    private UserPreferencesClient(@NonNull Context context,
+    private static final Object sInstanceLock = new Object();
+
+    @SuppressLint("StaticFieldLeak") // Only holds application context.
+    @GuardedBy("sInstanceLock")
+    private static GlobalParametersClient sClient;
+
+    private GlobalParametersClient(@NonNull Context context,
             ListeningExecutorService executorService) {
-        super(context, new ComponentName(context, UserPreferencesService.class), executorService);
+        super(context, new ComponentName(context, GlobalParametersService.class), executorService);
     }
 
     /**
-     * Get the UserPreferencesClient singleton instance.
+     * Get the GlobalParametersClient singleton instance.
      */
-    @MainThread
-    public static UserPreferencesClient getInstance() {
+    public static GlobalParametersClient getInstance() {
         return getInstance(DeviceLockControllerApplication.getAppContext(),
                 /* executorService= */ null);
     }
 
     /**
-     * Get the UserPreferencesClient singleton instance.
+     * Get the GlobalParametersClient singleton instance.
      */
-    @MainThread
     @VisibleForTesting
-    public static UserPreferencesClient getInstance(Context appContext,
+    public static GlobalParametersClient getInstance(Context appContext,
             @Nullable ListeningExecutorService executorService) {
-        if (sUserPreferencesClient == null) {
-            sUserPreferencesClient = new UserPreferencesClient(
-                    appContext,
-                    executorService == null
-                            ? MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())
-                            : executorService);
+        synchronized (sInstanceLock) {
+            if (sClient == null) {
+                sClient = new GlobalParametersClient(
+                        appContext,
+                        executorService == null
+                                ? MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())
+                                : executorService);
+            }
+            return sClient;
         }
-
-        return sUserPreferencesClient;
     }
 
     /**
-     * Gets the current device state.
-     *
-     * @return the current device state.
+     * Reset the Client singleton instance
      */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<@DeviceState Integer> getDeviceState() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(
-                mDlcService).getDeviceState());
-    }
-
-    /**
-     * Sets the current device state.
-     *
-     * @param state New state.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Void> setDeviceState(@DeviceState int state) {
-        return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService).setDeviceState(state);
-            return null;
-        });
-    }
-
-    /**
-     * Gets the name of the package overriding home.
-     *
-     * @return Package overriding home.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<String> getPackageOverridingHome() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                .getPackageOverridingHome());
-    }
-
-    /**
-     * Sets the name of the package overriding home.
-     *
-     * @param packageName Package overriding home.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Void> setPackageOverridingHome(@Nullable String packageName) {
-        return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService)
-                    .setPackageOverridingHome(packageName);
-            return null;
-        });
+    @VisibleForTesting
+    public static void reset() {
+        synchronized (sInstanceLock) {
+            if (sClient != null) {
+                sClient.tearDown();
+                sClient = null;
+            }
+        }
     }
 
     /**
@@ -130,8 +98,7 @@ public final class UserPreferencesClient extends DlcClient {
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<List<String>> getLockTaskAllowlist() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                .getLockTaskAllowlist());
+        return call(() -> asInterface(getService()).getLockTaskAllowlist());
     }
 
     /**
@@ -142,8 +109,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setLockTaskAllowlist(List<String> allowlist) {
         return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService)
-                    .setLockTaskAllowlist(allowlist);
+            asInterface(getService()).setLockTaskAllowlist(allowlist);
             return null;
         });
     }
@@ -155,8 +121,7 @@ public final class UserPreferencesClient extends DlcClient {
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Boolean> needCheckIn() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                .needCheckIn());
+        return call(() -> asInterface(getService()).needCheckIn());
     }
 
     /**
@@ -167,8 +132,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setNeedCheckIn(boolean needCheckIn) {
         return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService)
-                    .setNeedCheckIn(needCheckIn);
+            asInterface(getService()).setNeedCheckIn(needCheckIn);
             return null;
         });
     }
@@ -182,8 +146,7 @@ public final class UserPreferencesClient extends DlcClient {
     @Nullable
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getRegisteredDeviceId() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                .getRegisteredDeviceId());
+        return call(() -> asInterface(getService()).getRegisteredDeviceId());
     }
 
     /**
@@ -194,8 +157,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setRegisteredDeviceId(String registeredDeviceId) {
         return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService)
-                    .setRegisteredDeviceId(registeredDeviceId);
+            asInterface(getService()).setRegisteredDeviceId(registeredDeviceId);
             return null;
         });
     }
@@ -207,8 +169,7 @@ public final class UserPreferencesClient extends DlcClient {
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Boolean> isProvisionForced() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                .isProvisionForced());
+        return call(() -> asInterface(getService()).isProvisionForced());
     }
 
     /**
@@ -219,8 +180,7 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setProvisionForced(boolean isForced) {
         return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService)
-                    .setProvisionForced(isForced);
+            asInterface(getService()).setProvisionForced(isForced);
             return null;
         });
     }
@@ -233,8 +193,7 @@ public final class UserPreferencesClient extends DlcClient {
     @Nullable
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getEnrollmentToken() {
-        return call(() -> IUserPreferencesService.Stub.asInterface(mDlcService)
-                .getEnrollmentToken());
+        return call(() -> asInterface(getService()).getEnrollmentToken());
     }
 
     /**
@@ -245,8 +204,31 @@ public final class UserPreferencesClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setEnrollmentToken(String token) {
         return call(() -> {
-            IUserPreferencesService.Stub.asInterface(mDlcService)
-                    .setEnrollmentToken(token);
+            asInterface(getService()).setEnrollmentToken(token);
+            return null;
+        });
+    }
+
+    /**
+     * Get the kiosk app signature.
+     *
+     * @return the kiosk app signature.
+     */
+    @Nullable
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<String> getKioskSignature() {
+        return call(() -> asInterface(getService()).getKioskSignature());
+    }
+
+    /**
+     * Sets the kiosk app signature.
+     *
+     * @param signature Kiosk app signature.
+     */
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<Void> setKioskSignature(String signature) {
+        return call(() -> {
+            asInterface(getService()).setKioskSignature(signature);
             return null;
         });
     }

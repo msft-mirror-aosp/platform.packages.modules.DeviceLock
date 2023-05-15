@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.setup;
+package com.android.devicelockcontroller.storage;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -22,19 +22,19 @@ import android.util.ArraySet;
 
 import androidx.annotation.Nullable;
 
-import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
-
 import java.util.ArrayList;
 import java.util.Set;
 
 /**
- * Class for local storage.
+ * Stores global parameters.
+ * <p>
+ * Note that, these parameter values are common across all users which means any users can read or
+ * write them. Due to this reason, unlike {@link UserParameters}, they must be accessed all the time
+ * via the {@link GlobalParametersClient}.
  */
-public final class UserPreferences {
-    private static final String FILENAME = "prefs";
-    private static final String KEY_DEVICE_STATE = "device_state";
+public final class GlobalParameters {
+    private static final String FILENAME = "global-params";
     private static final String KEY_KIOSK_SIGNING_CERT = "kiosk_signing_cert";
-    private static final String KEY_HOME_PACKAGE_OVERRIDE = "home_override_package";
     private static final String KEY_LOCK_TASK_ALLOWLIST = "lock_task_allowlist";
     private static final String KEY_NEED_CHECK_IN = "need_check_in";
     static final String KEY_REGISTERED_DEVICE_ID = "registered_device_id";
@@ -42,24 +42,13 @@ public final class UserPreferences {
     public static final String KEY_ENROLLMENT_TOKEN = "enrollment_token";
 
 
-    private UserPreferences() {
+    private GlobalParameters() {
     }
 
     private static SharedPreferences getSharedPreferences(Context context) {
         final Context deviceContext = context.createDeviceProtectedStorageContext();
 
         return deviceContext.getSharedPreferences(FILENAME, Context.MODE_PRIVATE);
-    }
-
-    /**
-     * Gets the current device state.
-     *
-     * @param context Context used to get the shared preferences.
-     * @return the current device state.
-     */
-    @DeviceState
-    public static int getDeviceState(Context context) {
-        return getSharedPreferences(context).getInt(KEY_DEVICE_STATE, DeviceState.UNPROVISIONED);
     }
 
     /**
@@ -74,16 +63,6 @@ public final class UserPreferences {
     }
 
     /**
-     * Sets the current device state.
-     *
-     * @param context Context used to get the shared preferences.
-     * @param state   New state.
-     */
-    public static void setDeviceState(Context context, @DeviceState int state) {
-        getSharedPreferences(context).edit().putInt(KEY_DEVICE_STATE, state).apply();
-    }
-
-    /**
      * Sets the kiosk app signature.
      *
      * @param context   Context used to get the shared preferences.
@@ -91,28 +70,6 @@ public final class UserPreferences {
      */
     public static void setKioskSignature(Context context, String signature) {
         getSharedPreferences(context).edit().putString(KEY_KIOSK_SIGNING_CERT, signature).apply();
-    }
-
-    /**
-     * Gets the name of the package overriding home.
-     *
-     * @param context Context used to get the shared preferences.
-     * @return Package overriding home.
-     */
-    @Nullable
-    public static String getPackageOverridingHome(Context context) {
-        return getSharedPreferences(context).getString(KEY_HOME_PACKAGE_OVERRIDE, null);
-    }
-
-    /**
-     * Sets the name of the package overriding home.
-     *
-     * @param context     Context used to get the shared preferences.
-     * @param packageName Package overriding home.
-     */
-    public static void setPackageOverridingHome(Context context, @Nullable String packageName) {
-        getSharedPreferences(context).edit().putString(KEY_HOME_PACKAGE_OVERRIDE, packageName)
-                .apply();
     }
 
     /**

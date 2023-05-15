@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.setup;
+package com.android.devicelockcontroller.storage;
 
 import android.app.Service;
 import android.content.Context;
@@ -101,6 +101,16 @@ public final class SetupParametersService extends Service {
                 @Override
                 public boolean isInstallingFromUnknownSourcesDisallowed() {
                     return SetupParameters.isInstallingFromUnknownSourcesDisallowed(mContext);
+                }
+
+                @Override
+                public String getTermsAndConditionsUrl() {
+                    return SetupParameters.getTermsAndConditionsUrl(mContext);
+                }
+
+                @Override
+                public String getSupportUrl() {
+                    return SetupParameters.getSupportUrl(mContext);
                 }
             };
 

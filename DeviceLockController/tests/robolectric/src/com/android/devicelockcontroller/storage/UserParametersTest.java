@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.setup;
+package com.android.devicelockcontroller.storage;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -29,12 +29,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @RunWith(RobolectricTestRunner.class)
-public class UserPreferencesTest extends AbstractUserPreferencesTestBase {
+public final class UserParametersTest {
     private Context mContext;
+    private static final String PACKAGE_OVERRIDING_HOME = "com.home.package";
+
 
     @Before
     public void setup() {
@@ -43,27 +42,16 @@ public class UserPreferencesTest extends AbstractUserPreferencesTestBase {
 
     @Test
     public void getDeviceState_shouldReturnExpectedCurrentDeviceState() {
-        assertThat(UserPreferences.getDeviceState(mContext)).isEqualTo(DeviceState.UNPROVISIONED);
-        UserPreferences.setDeviceState(mContext, DeviceState.SETUP_SUCCEEDED);
-        assertThat(UserPreferences.getDeviceState(mContext)).isEqualTo(DeviceState.SETUP_SUCCEEDED);
+        assertThat(UserParameters.getDeviceState(mContext)).isEqualTo(DeviceState.UNPROVISIONED);
+        UserParameters.setDeviceState(mContext, DeviceState.SETUP_SUCCEEDED);
+        assertThat(UserParameters.getDeviceState(mContext)).isEqualTo(DeviceState.SETUP_SUCCEEDED);
     }
 
     @Test
     public void getPackageOverridingHome_shouldReturnExpectedOverridingHomePackage() {
-        assertThat(UserPreferences.getPackageOverridingHome(mContext)).isNull();
-        UserPreferences.setPackageOverridingHome(mContext, PACKAGE_OVERRIDING_HOME);
-        assertThat(UserPreferences.getPackageOverridingHome(mContext))
+        assertThat(UserParameters.getPackageOverridingHome(mContext)).isNull();
+        UserParameters.setPackageOverridingHome(mContext, PACKAGE_OVERRIDING_HOME);
+        assertThat(UserParameters.getPackageOverridingHome(mContext))
                 .isEqualTo(PACKAGE_OVERRIDING_HOME);
-    }
-
-    @Test
-    public void getLockTaskAllowlist_shouldReturnExpectedAllowlist() {
-        assertThat(UserPreferences.getLockTaskAllowlist(mContext)).isEmpty();
-        final ArrayList<String> expectedAllowlist = new ArrayList<>();
-        expectedAllowlist.add(ALLOWLIST_PACKAGE_0);
-        expectedAllowlist.add(ALLOWLIST_PACKAGE_1);
-        UserPreferences.setLockTaskAllowlist(mContext, expectedAllowlist);
-        final List<String> actualAllowlist = UserPreferences.getLockTaskAllowlist(mContext);
-        assertThat(actualAllowlist).containsExactlyElementsIn(expectedAllowlist);
     }
 }

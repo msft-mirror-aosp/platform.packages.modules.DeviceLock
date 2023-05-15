@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.setup;
+package com.android.devicelockcontroller.storage;
 
 /**
  * Binder interface to access provisioning information.
@@ -34,4 +34,6 @@ interface ISetupParametersService {
     boolean isProvisionMandatory();
     String getKioskAppProviderName();
     boolean isInstallingFromUnknownSourcesDisallowed();
+    String getTermsAndConditionsUrl();
+    String getSupportUrl();
 }

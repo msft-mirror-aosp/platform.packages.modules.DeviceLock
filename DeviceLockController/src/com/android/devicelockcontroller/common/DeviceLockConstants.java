@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.common;
 
+import android.content.Context;
+
 import androidx.annotation.IntDef;
 
 import java.lang.annotation.ElementType;
@@ -25,11 +27,7 @@ import java.lang.annotation.Target;
 
 /** Constants being used by more than one class in the Device Lock application. */
 public final class DeviceLockConstants {
-    // TODO: properly set to an activity. Additionally, package could be com.android... or
-    // com.google.android... and should be determined dynamically.
-    public static final String LANDING_ACTIVITY =
-            "com.android.devicelockcontroller/"
-                    + "com.android.devicelockcontroller.activities.LandingActivity";
+
     public static final String KEY_KIOSK_APP_INSTALLED = "devicelock_kiosk_app_installed";
 
     // Constants related to unique device identifiers.
@@ -82,14 +80,15 @@ public final class DeviceLockConstants {
     @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(value = {
-            TYPE_UNDEFINED,
-            TYPE_FINANCED,
+            ProvisioningType.TYPE_UNDEFINED,
+            ProvisioningType.TYPE_FINANCED,
+            ProvisioningType.TYPE_SUBSIDY,
     })
     public @interface ProvisioningType {
+        int TYPE_UNDEFINED = 0;
+        int TYPE_FINANCED = 1;
+        int TYPE_SUBSIDY = 2;
     }
-
-    public static final int TYPE_UNDEFINED = 0;
-    public static final int TYPE_FINANCED = 1;
 
     public static final String EXTRA_KIOSK_PACKAGE =
             "com.android.devicelockcontroller.KIOSK_PACKAGE";
@@ -136,6 +135,8 @@ public final class DeviceLockConstants {
     public static final String EXTRA_TERMS_AND_CONDITIONS_URL =
             "com.android.devicelockcontroller.TERMS_AND_CONDITIONS_URL";
 
+    public static final String EXTRA_SUPPORT_URL = "com.android.devicelockcontroller.SUPPORT_URL";
+
     public static final String ACTION_START_DEVICE_FINANCING_PROVISIONING =
             "com.android.devicelockcontroller.action.START_DEVICE_FINANCING_PROVISIONING";
     public static final String ACTION_START_DEVICE_FINANCING_DEFERRED_PROVISIONING =
@@ -162,6 +163,12 @@ public final class DeviceLockConstants {
 
     public static final String ACTION_START_DEVICE_SUBSIDY_ENROLLMENT =
             "com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_ENROLLMENT";
+
+    /** Uses the package name of {@link Context#getPackageName()} to return the landing activity. */
+    public static String getLandingActivity(Context context) {
+        return context.getPackageName() + "/"
+                + "com.android.devicelockcontroller.activities.LandingActivity";
+    }
 
     /** Restrict instantiation. */
     private DeviceLockConstants() {
