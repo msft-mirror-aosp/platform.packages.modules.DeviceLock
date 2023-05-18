@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller;
 
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent.CLEAR;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent.LOCK_DEVICE;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent.UNLOCK_DEVICE;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.PSEUDO_LOCKED;
+
 import android.app.Service;
 import android.content.Intent;
 import android.os.Bundle;
@@ -24,6 +29,7 @@ import android.os.RemoteCallback;
 
 import androidx.annotation.NonNull;
 
+import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
@@ -39,22 +45,30 @@ import com.google.common.util.concurrent.MoreExecutors;
  */
 public final class DeviceLockControllerService extends Service {
     private static final String TAG = "DeviceLockControllerService";
+    private DevicePolicyController mPolicyController;
     private DeviceStateController mStateController;
 
     private final IDeviceLockControllerService.Stub mBinder =
             new IDeviceLockControllerService.Stub() {
                 @Override
                 public void lockDevice(RemoteCallback remoteCallback) {
-                    Futures.addCallback(mStateController.setNextStateForEvent(
-                                    DeviceStateController.DeviceEvent.LOCK_DEVICE),
+                    Futures.addCallback(
+                            Futures.transformAsync(
+                                    mStateController.setNextStateForEvent(LOCK_DEVICE),
+                                    (Void unused) -> mStateController.getState() == PSEUDO_LOCKED
+                                            ? Futures.immediateFuture(true)
+                                            : mPolicyController.launchActivityInLockedMode(),
+                                    DeviceLockControllerService.this.getMainExecutor()),
                             remoteCallbackWrapper(remoteCallback, KEY_LOCK_DEVICE_RESULT),
                             MoreExecutors.directExecutor());
                 }
 
                 @Override
                 public void unlockDevice(RemoteCallback remoteCallback) {
-                    Futures.addCallback(mStateController.setNextStateForEvent(
-                                    DeviceStateController.DeviceEvent.UNLOCK_DEVICE),
+                    Futures.addCallback(
+                            Futures.transform(
+                                    mStateController.setNextStateForEvent(UNLOCK_DEVICE),
+                                    (Void unused) -> true, MoreExecutors.directExecutor()),
                             remoteCallbackWrapper(remoteCallback, KEY_UNLOCK_DEVICE_RESULT),
                             MoreExecutors.directExecutor());
 
@@ -77,8 +91,9 @@ public final class DeviceLockControllerService extends Service {
 
                 @Override
                 public void clearDevice(RemoteCallback remoteCallback) {
-                    Futures.addCallback(mStateController.setNextStateForEvent(
-                                    DeviceStateController.DeviceEvent.CLEAR),
+                    Futures.addCallback(
+                            Futures.transform(mStateController.setNextStateForEvent(CLEAR),
+                                    (Void unused) -> true, MoreExecutors.directExecutor()),
                             remoteCallbackWrapper(remoteCallback, KEY_CLEAR_DEVICE_RESULT),
                             MoreExecutors.directExecutor());
 
@@ -118,6 +133,7 @@ public final class DeviceLockControllerService extends Service {
 
         final PolicyObjectsInterface policyObjects = (PolicyObjectsInterface) getApplication();
         mStateController = policyObjects.getStateController();
+        mPolicyController = policyObjects.getPolicyController();
     }
 
     @Override
