@@ -16,8 +16,8 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_IMEI;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_MEID;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_MEID;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.RETRY_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
@@ -191,7 +191,7 @@ public final class DeviceCheckInHelperTest {
     }
 
     private static GetDeviceCheckInStatusGrpcResponse createStopResponse() {
-        return createMockResponse(STOP_CHECK_IN, /* nextCheckInDate= */ null, /* config= */ null);
+        return createMockResponse(STOP_CHECK_IN, /* nextCheckInTime= */ null, /* config= */ null);
     }
 
 
