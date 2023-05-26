@@ -27,13 +27,13 @@ import static org.junit.Assume.assumeTrue;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
-import android.content.pm.ServiceInfo;
 import android.devicelock.DeviceId;
 import android.devicelock.DeviceLockManager;
 import android.os.Build;
 import android.os.OutcomeReceiver;
 import android.os.UserHandle;
 import android.telephony.TelephonyManager;
+import android.util.ArrayMap;
 
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.test.filters.SdkSuppress;
@@ -78,15 +78,6 @@ public final class DeviceLockManagerTest {
             new DeviceLockControllerPackageUtils(mContext);
 
     private static final int TIMEOUT = 1;
-
-    // TODO: remove once Device Policy Engine is implemented.
-    private void skipTestIfNotDeviceOwner() {
-        final StringBuilder errorStringBuilder = new StringBuilder();
-        ServiceInfo serviceInfo = mPackageUtils.findService(errorStringBuilder);
-        assertWithMessage(errorStringBuilder.toString()).that(serviceInfo).isNotNull();
-
-        assumeTrue(mDevicePolicyManager.isDeviceOwnerApp(serviceInfo.packageName));
-    }
 
     private void addFinancedDeviceKioskRole() {
         final String cmd =
@@ -265,12 +256,9 @@ public final class DeviceLockManagerTest {
     @Test
     public void deviceShouldLockAndUnlock() throws InterruptedException, ExecutionException,
             TimeoutException {
-        skipTestIfNotDeviceOwner();
 
         try {
             addFinancedDeviceKioskRole();
-
-            getUnlockDeviceFuture().get(TIMEOUT, TimeUnit.SECONDS);
 
             boolean locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
             assertThat(locked).isFalse();
@@ -293,7 +281,7 @@ public final class DeviceLockManagerTest {
         final StringBuilder errorMessage = new StringBuilder();
         final int deviceIdTypeBitmap =
                 mPackageUtils.getDeviceIdTypeBitmap(errorMessage);
-        assertThat(deviceIdTypeBitmap).isGreaterThan(-1);
+        assertWithMessage(errorMessage.toString()).that(deviceIdTypeBitmap).isGreaterThan(-1);
 
         String imei;
         String meid;
@@ -324,19 +312,41 @@ public final class DeviceLockManagerTest {
 
             skipIfNoIdAvailable();
 
-            DeviceId deviceId = getDeviceIdFuture().get(TIMEOUT, TimeUnit.SECONDS);
-            assertThat(deviceId.getType()).isAnyOf(DEVICE_ID_TYPE_IMEI, DEVICE_ID_TYPE_MEID);
-            assertThat(deviceId.getId()).isNotEmpty();
+            // The device ID is supposed to be obtained from the DeviceLock backend service, passed
+            // to the DeviceLockController app, then passed to the DeviceLock system service. Since
+            // there is no way to communicate with the backend service within the scope of this test
+            // we expect the result to be an exception.
+            //
+            // TODO(b/281538947): find solution for properly testing the intended behavior.
+            assertThrows(ExecutionException.class,
+                    () -> getDeviceIdFuture().get(TIMEOUT, TimeUnit.SECONDS));
         } finally {
             removeFinancedDeviceKioskRole();
         }
     }
 
     @Test
-    public void getKioskAppShouldReturnMapping()
+    public void getKioskApp_financedRoleHolderExists_returnsMapping()
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final ArrayMap expectedKioskApps = new ArrayMap<Integer, String>();
+        expectedKioskApps.put(
+                DeviceLockManager.DEVICE_LOCK_ROLE_FINANCING, mContext.getPackageName());
+
+        try {
+            addFinancedDeviceKioskRole();
+
+            Map<Integer, String> kioskAppsMap = getKioskAppsFuture().get(TIMEOUT, TimeUnit.SECONDS);
+
+            assertThat(kioskAppsMap).isEqualTo(expectedKioskApps);
+        } finally {
+            removeFinancedDeviceKioskRole();
+        }
+    }
+
+    @Test
+    public void getKioskApp_financedRoleHolderDoesNotExist_returnsEmptyMapping()
             throws ExecutionException, InterruptedException, TimeoutException {
         Map<Integer, String> kioskAppsMap = getKioskAppsFuture().get(TIMEOUT, TimeUnit.SECONDS);
-        // TODO: update test once we have the service returning the correct mappings
         assertThat(kioskAppsMap).isEmpty();
     }
 

@@ -16,22 +16,39 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.CLEARED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.KIOSK_SETUP;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.LOCKED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.PSEUDO_LOCKED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.PSEUDO_UNLOCKED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.SETUP_FAILED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.SETUP_IN_PROGRESS;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.SETUP_SUCCEEDED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.UNLOCKED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.UNPROVISIONED;
+
 import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
-import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.UserManager;
+import android.util.ArraySet;
+
+import androidx.annotation.MainThread;
 
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
-import com.android.devicelockcontroller.setup.SetupParameters;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
-import java.util.ArrayList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+
 import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 
-/** Enforces UserRestriction policies. */
+/**
+ * Enforces UserRestriction policies.
+ */
 final class UserRestrictionsPolicyHandler implements PolicyHandler {
 
     private static final String TAG = "UserRestrictionsPolicyHandler";
@@ -45,21 +62,17 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
             UserManager.DISALLOW_DEBUGGING_FEATURES
     };
 
-    private final ArrayList<String> mAlwaysOnRestrictions = new ArrayList<>();
-    private final ArrayList<String> mLockModeRestrictions = new ArrayList<>();
+    private final ArraySet<String> mAlwaysOnRestrictions = new ArraySet<>();
+    private ArraySet<String> mLockModeRestrictions;
 
-    private final ComponentName mComponentName;
     private final DevicePolicyManager mDpm;
     private final UserManager mUserManager;
-    private final Context mContext;
     private final boolean mIsDebug;
 
-    UserRestrictionsPolicyHandler(Context context, ComponentName adminComponent,
-            DevicePolicyManager dpm, UserManager userManager, boolean isDebug) {
-        mComponentName = adminComponent;
+    UserRestrictionsPolicyHandler(DevicePolicyManager dpm, UserManager userManager,
+            boolean isDebug) {
         mDpm = dpm;
         mUserManager = userManager;
-        mContext = context;
         mIsDebug = isDebug;
 
         LogUtil.i(TAG, String.format(Locale.US, "Build type DEBUG = %s", isDebug));
@@ -68,100 +81,121 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
         if (!isDebug) {
             Collections.addAll(mAlwaysOnRestrictions, RESTRICTIONS_RELEASE_BUILDS);
         }
-
-        if (SetupParameters.getOutgoingCallsDisabled(context)) {
-            mLockModeRestrictions.add(UserManager.DISALLOW_OUTGOING_CALLS);
-        }
     }
 
     @Override
     @ResultType
-    public int setPolicyForState(@DeviceState int state) {
+    public ListenableFuture<@ResultType Integer> setPolicyForState(@DeviceState int state) {
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
+        LogUtil.v(TAG, String.format(Locale.US, "Setting restrictions for %d", state));
         switch (state) {
-            case DeviceState.UNPROVISIONED:
-                break;
-            case DeviceState.SETUP_IN_PROGRESS:
-            case DeviceState.SETUP_SUCCEEDED:
-            case DeviceState.SETUP_FAILED:
-            case DeviceState.UNLOCKED:
-            case DeviceState.KIOSK_SETUP:
+            case SETUP_IN_PROGRESS:
+            case SETUP_SUCCEEDED:
+            case UNLOCKED:
+            case KIOSK_SETUP:
                 setupRestrictions(mAlwaysOnRestrictions, true);
-                setupRestrictions(mLockModeRestrictions, false);
-                break;
-            case DeviceState.LOCKED:
+                return Futures.transform(retrieveLockModeRestrictions(),
+                        restrictions -> setupRestrictions(restrictions, false), mainHandler::post);
+            case LOCKED:
                 setupRestrictions(mAlwaysOnRestrictions, true);
-                setupRestrictions(mLockModeRestrictions, true);
-                break;
-            case DeviceState.CLEARED:
+                return Futures.transform(retrieveLockModeRestrictions(),
+                        restrictions -> setupRestrictions(restrictions, true), mainHandler::post);
+            case UNPROVISIONED:
+            case SETUP_FAILED:
+            case CLEARED:
                 setupRestrictions(mAlwaysOnRestrictions, false);
-                setupRestrictions(mLockModeRestrictions, false);
-                break;
+                return Futures.transform(retrieveLockModeRestrictions(),
+                        restrictions -> setupRestrictions(restrictions, false), mainHandler::post);
+            case PSEUDO_LOCKED:
+            case PSEUDO_UNLOCKED:
+                return Futures.immediateFuture(SUCCESS);
             default:
-                LogUtil.e(TAG, String.format(Locale.US, "Unhandled state %d", state));
-                return FAILURE;
+                return Futures.immediateFailedFuture(
+                        new IllegalStateException(String.valueOf(state)));
         }
 
-        LogUtil.v(TAG, String.format(Locale.US, "Restrictions set for %d", state));
 
-        return SUCCESS;
     }
 
     @Override
-    public boolean isCompliant(@DeviceState int state) {
+    public ListenableFuture<Boolean> isCompliant(@DeviceState int state) {
+        Handler mainHandler = new Handler(Looper.getMainLooper());
         switch (state) {
-            case DeviceState.UNPROVISIONED:
-                break;
-            case DeviceState.SETUP_IN_PROGRESS:
-            case DeviceState.SETUP_SUCCEEDED:
-            case DeviceState.SETUP_FAILED:
-            case DeviceState.UNLOCKED:
-            case DeviceState.KIOSK_SETUP:
-                if (!checkRestrictions(mAlwaysOnRestrictions, true)
-                        || !checkRestrictions(mLockModeRestrictions, false)) {
-                    return false;
+            case SETUP_IN_PROGRESS:
+            case SETUP_SUCCEEDED:
+            case UNLOCKED:
+            case KIOSK_SETUP:
+                if (checkRestrictions(mAlwaysOnRestrictions, true)) {
+                    return Futures.transform(retrieveLockModeRestrictions(),
+                            restrictions -> checkRestrictions(restrictions, false),
+                            mainHandler::post);
                 }
                 break;
-            case DeviceState.LOCKED:
-                if (!checkRestrictions(mAlwaysOnRestrictions, true)
-                        || !checkRestrictions(mLockModeRestrictions, true)) {
-                    return false;
+            case LOCKED:
+                if (checkRestrictions(mAlwaysOnRestrictions, true)) {
+                    return Futures.transform(retrieveLockModeRestrictions(),
+                            restrictions -> checkRestrictions(restrictions, true),
+                            mainHandler::post);
                 }
                 break;
-            case DeviceState.CLEARED:
-                if (!checkRestrictions(mAlwaysOnRestrictions, false)
-                        || !checkRestrictions(mLockModeRestrictions, false)) {
-                    return false;
+            case UNPROVISIONED:
+            case SETUP_FAILED:
+            case CLEARED:
+                if (checkRestrictions(mAlwaysOnRestrictions, false)) {
+                    return Futures.transform(retrieveLockModeRestrictions(),
+                            restrictions -> checkRestrictions(restrictions, false),
+                            mainHandler::post);
                 }
                 break;
             default:
                 LogUtil.i(TAG, String.format(Locale.US, "Unhandled state %d", state));
-                break;
+                return Futures.immediateFailedFuture(
+                        new IllegalStateException(String.valueOf(state)));
         }
-
-        return true;
+        return Futures.immediateFuture(false);
     }
 
-    @Override
-    public void setSetupParametersValid() {
-        if (SetupParameters.getOutgoingCallsDisabled(mContext)
-                && !mLockModeRestrictions.contains(UserManager.DISALLOW_OUTGOING_CALLS)) {
-            LogUtil.i(TAG, String.format(Locale.US, "add %s into lock task mode restrictions",
-                        UserManager.DISALLOW_OUTGOING_CALLS));
-            mLockModeRestrictions.add(UserManager.DISALLOW_OUTGOING_CALLS);
-        }
+    @MainThread
+    public ListenableFuture<ArraySet<String>> retrieveLockModeRestrictions() {
+        if (mLockModeRestrictions != null) return Futures.immediateFuture(mLockModeRestrictions);
+        final SetupParametersClient parameters = SetupParametersClient.getInstance();
+        final ListenableFuture<String> kioskPackageTask = parameters.getKioskPackage();
+        final ListenableFuture<Boolean> outgoingCallsDisabledTask =
+                parameters.getOutgoingCallsDisabled();
+        final ListenableFuture<Boolean> installingFromUnknownSourcesDisallowedTask =
+                parameters.isInstallingFromUnknownSourcesDisallowed();
+        return Futures.whenAllSucceed(kioskPackageTask,
+                        outgoingCallsDisabledTask,
+                        installingFromUnknownSourcesDisallowedTask)
+                .call(() -> {
+                    if (Futures.getDone(kioskPackageTask) == null) {
+                        throw new IllegalStateException("Setup parameters does not exist!");
+                    }
+                    if (mLockModeRestrictions == null) {
+                        mLockModeRestrictions = new ArraySet<>(2);
+                        if (Futures.getDone(outgoingCallsDisabledTask)) {
+                            mLockModeRestrictions.add(UserManager.DISALLOW_OUTGOING_CALLS);
+                        }
+                        if (Futures.getDone(installingFromUnknownSourcesDisallowedTask)) {
+                            mLockModeRestrictions.add(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+                        }
+                    }
+                    return mLockModeRestrictions;
+                }, new Handler(Looper.getMainLooper())::post);
     }
 
-    private void setupRestrictions(List<String> restrictions, boolean enable) {
+    @ResultType
+    private int setupRestrictions(ArraySet<String> restrictions, boolean enable) {
         Bundle userRestrictionBundle = mUserManager.getUserRestrictions();
 
         for (int i = 0, size = restrictions.size(); i < size; i++) {
-            String restriction = restrictions.get(i);
+            String restriction = restrictions.valueAt(i);
             if (userRestrictionBundle.getBoolean(restriction, false) != enable) {
                 if (enable) {
-                    mDpm.addUserRestriction(mComponentName, restriction);
+                    mDpm.addUserRestriction(null /* admin */, restriction);
                     LogUtil.v(TAG, String.format(Locale.US, "enable %s restriction", restriction));
                 } else {
-                    mDpm.clearUserRestriction(mComponentName, restriction);
+                    mDpm.clearUserRestriction(null /* admin */, restriction);
                     LogUtil.v(TAG, String.format(Locale.US, "clear %s restriction", restriction));
                 }
             }
@@ -170,17 +204,18 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
         if (!mIsDebug
                 && enable
                 && restrictions.contains(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
-            mDpm.clearUserRestriction(mComponentName, UserManager.DISALLOW_DEBUGGING_FEATURES);
+            mDpm.clearUserRestriction(null /* admin */, UserManager.DISALLOW_DEBUGGING_FEATURES);
             LogUtil.v(TAG, String.format(Locale.US, "clear %s restriction",
                     UserManager.DISALLOW_DEBUGGING_FEATURES));
         }
+        return SUCCESS;
     }
 
-    private boolean checkRestrictions(List<String> restrictions, boolean value) {
+    private boolean checkRestrictions(ArraySet<String> restrictions, boolean value) {
         Bundle userRestrictionBundle = mUserManager.getUserRestrictions();
 
         for (int i = 0, size = restrictions.size(); i < size; i++) {
-            String restriction = restrictions.get(i);
+            String restriction = restrictions.valueAt(i);
             if (value != userRestrictionBundle.getBoolean(restriction, false)) {
                 LogUtil.i(TAG, String.format(Locale.US, "%s restriction is not %b",
                         restriction, value));

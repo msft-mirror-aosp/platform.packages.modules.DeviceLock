@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.receivers;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,10 +32,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(application = TestDeviceLockControllerApplication.class)
 public final class BootUtilsTest {
     private DeviceStateController mStateController;
     private DevicePolicyController mPolicyController;
@@ -42,21 +42,21 @@ public final class BootUtilsTest {
     @Before
     public void setup() {
         mTestApplication = ApplicationProvider.getApplicationContext();
-        mStateController = mTestApplication.getMockStateController();
-        mPolicyController = mTestApplication.getMockPolicyController();
+        mStateController = mTestApplication.getStateController();
+        mPolicyController = mTestApplication.getPolicyController();
     }
 
     @Test
     public void startLockTaskModeAtBoot_success() {
         when(mStateController.isLocked()).thenReturn(true);
         BootUtils.startLockTaskModeAtBoot(mTestApplication);
-        verify(mPolicyController).enqueueStartLockTaskModeWorker();
+        verify(mPolicyController).enqueueStartLockTaskModeWorker(eq(true));
     }
 
     @Test
     public void startLockTaskModeAtBoot_deviceIsNotLocked_doesNotLaunchActivityInLockedMode() {
         when(mStateController.isLocked()).thenReturn(false);
         BootUtils.startLockTaskModeAtBoot(mTestApplication);
-        verify(mPolicyController, never()).enqueueStartLockTaskModeWorker();
+        verify(mPolicyController, never()).enqueueStartLockTaskModeWorker(anyBoolean());
     }
 }
