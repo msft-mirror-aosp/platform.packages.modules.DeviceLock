@@ -28,6 +28,7 @@ import static com.android.devicelockcontroller.policy.DeviceStateController.Devi
 import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.UNPROVISIONED;
 
 import android.app.admin.DevicePolicyManager;
+import android.content.Context;
 
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
@@ -40,13 +41,15 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Enforces restrictions on Kiosk app. */
-final class KioskAppPolicyHandler implements PolicyHandler {
-    private static final String TAG = "KioskAppPolicyHandler";
+/** Enforces restrictions on Kiosk app and controller. */
+final class PackagePolicyHandler implements PolicyHandler {
+    private static final String TAG = "PackagePolicyHandler";
 
+    private final Context mContext;
     private final DevicePolicyManager mDpm;
 
-    KioskAppPolicyHandler(DevicePolicyManager dpm) {
+    PackagePolicyHandler(Context context, DevicePolicyManager dpm) {
+        mContext = context;
         mDpm = dpm;
     }
 
@@ -56,10 +59,10 @@ final class KioskAppPolicyHandler implements PolicyHandler {
             case KIOSK_SETUP:
             case UNLOCKED:
             case LOCKED:
-                return enableKioskPackageProtection(true);
+                return enablePackageProtection(true /* enableForKiosk */, state);
             case CLEARED:
             case UNPROVISIONED:
-                return enableKioskPackageProtection(false);
+                return enablePackageProtection(false /* enableForKiosk */, state);
             case SETUP_IN_PROGRESS:
             case SETUP_SUCCEEDED:
             case SETUP_FAILED:
@@ -72,75 +75,29 @@ final class KioskAppPolicyHandler implements PolicyHandler {
         }
     }
 
-    @Override
-    public ListenableFuture<Boolean> isCompliant(@DeviceState int state) {
-        switch (state) {
-            case UNLOCKED:
-            case LOCKED:
-            case KIOSK_SETUP:
-                return isKioskPackageProtected();
-            case CLEARED:
-                return Futures.transform(isKioskPackageProtected(), result -> !result,
-                        MoreExecutors.directExecutor());
-            case UNPROVISIONED:
-            case SETUP_IN_PROGRESS:
-            case SETUP_SUCCEEDED:
-            case SETUP_FAILED:
-                return Futures.immediateFuture(true);
-            default:
-                return Futures.immediateFailedFuture(
-                        new IllegalStateException(String.valueOf(state)));
-        }
-    }
-
-    private ListenableFuture<Boolean> isKioskPackageProtected() {
+    private ListenableFuture<@ResultType Integer> enablePackageProtection(boolean enableForKiosk,
+            @DeviceState int state) {
         return Futures.transform(SetupParametersClient.getInstance().getKioskPackage(),
-                packageName -> {
-                    if (packageName == null) {
-                        LogUtil.e(TAG, "Kiosk package is not set");
-                        return false;
-                    }
-
-                    try {
-                        if (!mDpm.isUninstallBlocked(null /* admin */, packageName)) {
-                            return false;
+                kioskPackageName -> {
+                    if (kioskPackageName == null) {
+                        LogUtil.d(TAG, "Kiosk package is not set for state: " + state);
+                    } else {
+                        try {
+                            mDpm.setUninstallBlocked(null /* admin */, kioskPackageName,
+                                    enableForKiosk);
+                        } catch (SecurityException e) {
+                            LogUtil.e(TAG, "Unable to set device policy", e);
+                            return FAILURE;
                         }
-                    } catch (SecurityException e) {
-                        LogUtil.e(TAG, "Could not read device policy", e);
-                        return false;
-                    }
-
-                    final List<String> packages;
-                    try {
-                        packages = mDpm.getUserControlDisabledPackages(null /* admin */);
-                    } catch (SecurityException e) {
-                        LogUtil.e(TAG, "Could not read device policy");
-                        return false;
-                    }
-
-                    return packages != null && packages.contains(packageName);
-                }, MoreExecutors.directExecutor());
-
-    }
-
-    private ListenableFuture<@ResultType Integer> enableKioskPackageProtection(boolean enable) {
-        return Futures.transform(SetupParametersClient.getInstance().getKioskPackage(),
-                packageName -> {
-                    if (packageName == null) {
-                        LogUtil.e(TAG, "Kiosk package is not set");
-                        return FAILURE;
-                    }
-
-                    try {
-                        mDpm.setUninstallBlocked(null /* admin */, packageName, enable);
-                    } catch (SecurityException e) {
-                        LogUtil.e(TAG, "Unable to set device policy", e);
-                        return FAILURE;
                     }
 
                     final List<String> pkgList = new ArrayList<>();
-                    if (enable) {
-                        pkgList.add(packageName);
+
+                    // The controller itself should always have user control disabled
+                    pkgList.add(mContext.getPackageName());
+
+                    if (kioskPackageName != null && enableForKiosk) {
+                        pkgList.add(kioskPackageName);
                     }
 
                     try {

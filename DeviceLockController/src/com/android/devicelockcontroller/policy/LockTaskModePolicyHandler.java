@@ -67,7 +67,8 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
             (DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INFO
              | DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
              | DevicePolicyManager.LOCK_TASK_FEATURE_HOME
-             | DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS);
+             | DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS
+             | DevicePolicyManager.LOCK_TASK_FEATURE_BLOCK_ACTIVITY_START_IN_TASK);
     private static final String TAG = "LockTaskModePolicyHandler";
     private final Context mContext;
     private final DevicePolicyManager mDpm;
@@ -90,14 +91,14 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
         switch (state) {
             case PSEUDO_UNLOCKED:
             case PSEUDO_LOCKED:
+            case UNPROVISIONED:
                 return Futures.immediateFuture(SUCCESS);
+            case SETUP_FAILED:
             case UNLOCKED:
             case CLEARED:
-            case UNPROVISIONED:
                 return disableLockTaskMode();
             case SETUP_IN_PROGRESS:
             case SETUP_SUCCEEDED:
-            case SETUP_FAILED:
             case KIOSK_SETUP:
             case LOCKED:
                 return Futures.transformAsync(composeAllowlist(), empty -> enableLockTaskMode(),
@@ -106,12 +107,6 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
                 return Futures.immediateFailedFuture(
                         new IllegalStateException(String.valueOf(state)));
         }
-    }
-
-    @Override
-    public ListenableFuture<Boolean> isCompliant(@DeviceState int state) {
-        // TODO (b/147291511): On boot, the policies need to be verified.
-        return Futures.immediateFuture(true);
     }
 
     /**
@@ -184,6 +179,10 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
         WorkManager.getInstance(mContext).cancelUniqueWork(START_LOCK_TASK_MODE_WORK_NAME);
 
         final String currentPackage = UserParameters.getPackageOverridingHome(mContext);
+        // Device Policy Engine treats lock task features and packages as one policy and
+        // therefore we need to set both lock task features (to LOCK_TASK_FEATURE_NONE) and
+        // lock task packages (to an empty string array).
+        mDpm.setLockTaskFeatures(null /* admin */, DevicePolicyManager.LOCK_TASK_FEATURE_NONE);
         // This will stop the lock task mode
         mDpm.setLockTaskPackages(null /* admin */, new String[0]);
         LogUtil.i(TAG, "Clear Lock task allowlist");

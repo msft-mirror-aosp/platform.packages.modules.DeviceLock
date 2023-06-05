@@ -34,6 +34,11 @@ import java.lang.annotation.Target;
 @MainThread
 public interface DeviceStateController {
     /**
+     * Enforce all policies for the current device state.
+     */
+    ListenableFuture<Void> enforcePoliciesForCurrentState();
+
+    /**
      * Moves the device to a new state based on the input event
      */
     ListenableFuture<Void> setNextStateForEvent(@DeviceEvent int event);
@@ -115,7 +120,6 @@ public interface DeviceStateController {
             DeviceEvent.LOCK_DEVICE,
             DeviceEvent.UNLOCK_DEVICE,
             DeviceEvent.CLEAR,
-            DeviceEvent.RESET,
     })
     @interface DeviceEvent {
 
@@ -139,9 +143,6 @@ public interface DeviceStateController {
 
         /* Clear device lock restrictions */
         int CLEAR = 6;
-
-        /* Reset the state machine from pseudo locked/unlocked state back to UNPROVISIONED */
-        int RESET = 7;
     }
 
     /** Listener interface for state changes. */
@@ -170,8 +171,6 @@ public interface DeviceStateController {
                 return "UNLOCK_DEVICE";
             case DeviceEvent.CLEAR:
                 return "CLEAR";
-            case DeviceEvent.RESET:
-                return "RESET";
             default:
                 return "UNKNOWN_EVENT";
         }

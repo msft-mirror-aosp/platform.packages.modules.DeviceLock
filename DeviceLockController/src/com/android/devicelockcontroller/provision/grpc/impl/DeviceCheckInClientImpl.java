@@ -28,7 +28,6 @@ import android.util.ArraySet;
 
 import androidx.annotation.Keep;
 
-import com.android.devicelockcontroller.DeviceLockControllerApplication;
 import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.common.DeviceLockConstants;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType;
@@ -64,14 +63,12 @@ import io.grpc.okhttp.OkHttpChannelBuilder;
 public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     private final DeviceLockCheckinServiceBlockingStub mBlockingStub;
 
-    public DeviceCheckInClientImpl(String hostName, int portNumber, @Nullable String registeredId) {
-        super(registeredId);
+    public DeviceCheckInClientImpl() {
         mBlockingStub = DeviceLockCheckinServiceGrpc.newBlockingStub(
                         OkHttpChannelBuilder
-                                .forAddress(hostName, portNumber)
+                                .forAddress(sHostName, sPortNumber)
                                 .build())
-                .withInterceptors(new ApiKeyClientInterceptor(
-                        DeviceLockControllerApplication.getAppContext()));
+                .withInterceptors(new ApiKeyClientInterceptor(sApiKey));
     }
 
     @Override
@@ -103,7 +100,7 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
         try {
             return new IsDeviceInApprovedCountryGrpcResponseWrapper(
                     mBlockingStub.isDeviceInApprovedCountry(
-                            createIsDeviceInApprovedCountryRequest(carrierInfo, mRegisteredId)));
+                            createIsDeviceInApprovedCountryRequest(carrierInfo, sRegisteredId)));
         } catch (StatusRuntimeException e) {
             return new IsDeviceInApprovedCountryGrpcResponseWrapper(e.getStatus());
         }
@@ -114,7 +111,7 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
         try {
             return new PauseDeviceProvisioningGrpcResponseWrapper(
                     mBlockingStub.pauseDeviceProvisioning(
-                            createPauseDeviceProvisioningRequest(mRegisteredId, reason)));
+                            createPauseDeviceProvisioningRequest(sRegisteredId, reason)));
 
         } catch (StatusRuntimeException e) {
             return new PauseDeviceProvisioningGrpcResponseWrapper(e.getStatus());
@@ -143,7 +140,7 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             return new ReportDeviceProvisionStateGrpcResponseWrapper(
                     mBlockingStub.reportDeviceProvisionState(
                             createReportDeviceProvisionStateRequest(reasonOfFailure,
-                                    lastReceivedProvisionState, isSuccessful, mRegisteredId)));
+                                    lastReceivedProvisionState, isSuccessful, sRegisteredId)));
         } catch (StatusRuntimeException e) {
             return new ReportDeviceProvisionStateGrpcResponseWrapper(e.getStatus());
         }

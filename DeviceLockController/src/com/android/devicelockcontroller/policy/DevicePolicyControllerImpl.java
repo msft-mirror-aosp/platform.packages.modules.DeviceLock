@@ -64,7 +64,7 @@ import java.util.Locale;
 
 /**
  * Class that listens to state changes and applies the corresponding policies.
- *
+ * <p>
  * Note that some APIs return a listenable future because the underlying calls to
  * SetupParameterClient return a listenable future for inter process calls.
  */
@@ -103,7 +103,8 @@ public final class DevicePolicyControllerImpl
         mPolicyList.add(new AppOpsPolicyHandler(context, SystemDeviceLockManagerImpl.getInstance(),
                 context.getSystemService(AppOpsManager.class)));
         mPolicyList.add(mLockTaskHandler);
-        mPolicyList.add(new KioskAppPolicyHandler(dpm));
+        mPolicyList.add(new PackagePolicyHandler(context, dpm));
+        mPolicyList.add(new RolePolicyHandler(context, SystemDeviceLockManagerImpl.getInstance()));
         stateController.addCallback(this);
     }
 
@@ -132,8 +133,14 @@ public final class DevicePolicyControllerImpl
 
     @Override
     public void enqueueStartLockTaskModeWorker(boolean isMandatory) {
+        enqueueStartLockTaskModeWorkerWithDelay(isMandatory, Duration.ZERO);
+    }
+
+    @Override
+    public void enqueueStartLockTaskModeWorkerWithDelay(boolean isMandatory, Duration delay) {
         final OneTimeWorkRequest.Builder startLockTaskModeRequestBuilder =
                 new OneTimeWorkRequest.Builder(StartLockTaskModeWorker.class)
+                        .setInitialDelay(delay)
                         .setBackoffCriteria(BackoffPolicy.LINEAR,
                                 Duration.ofSeconds(START_LOCK_TASK_MODE_WORKER_INTERVAL));
         if (isMandatory) {
@@ -182,18 +189,23 @@ public final class DevicePolicyControllerImpl
         return Futures.whenAllSucceed(futures).call(() -> null, mContext.getMainExecutor());
     }
 
+    @Override
+    public DeviceStateController getStateController() {
+        return mStateController;
+    }
+
     private ListenableFuture<Intent> getLockedActivity() {
         @DeviceState int state = mStateController.getState();
 
         switch (state) {
             case DeviceState.SETUP_IN_PROGRESS:
             case DeviceState.SETUP_SUCCEEDED:
-            case DeviceState.SETUP_FAILED:
                 return getLandingActivityIntent();
             case DeviceState.KIOSK_SETUP:
                 return getKioskSetupActivityIntent();
             case DeviceState.LOCKED:
                 return getLockScreenActivityIntent();
+            case DeviceState.SETUP_FAILED:
             case DeviceState.UNLOCKED:
             case DeviceState.CLEARED:
             case DeviceState.UNPROVISIONED:

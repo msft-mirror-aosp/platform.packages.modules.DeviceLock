@@ -18,6 +18,7 @@ package com.android.devicelockcontroller;
 
 import android.app.Application;
 import android.content.Context;
+import android.os.UserManager;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
@@ -35,6 +36,8 @@ import com.android.devicelockcontroller.policy.SetupControllerImpl;
 import com.android.devicelockcontroller.policy.TaskWorkerFactory;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.util.concurrent.MoreExecutors;
+
 /**
  * Application class for Device Lock Controller.
  */
@@ -42,7 +45,6 @@ public class DeviceLockControllerApplication extends Application implements
         PolicyObjectsInterface, Configuration.Provider {
     private static final String TAG = "DeviceLockControllerApplication";
 
-    private DeviceStateController mStateController;
     private DevicePolicyController mPolicyController;
 
     private static Context sApplicationContext;
@@ -53,24 +55,31 @@ public class DeviceLockControllerApplication extends Application implements
         super.onCreate();
         sApplicationContext = getApplicationContext();
         LogUtil.i(TAG, "onCreate");
+
+        final boolean isUserProfile =
+                sApplicationContext.getSystemService(UserManager.class).isProfile();
+
+        if (isUserProfile) {
+            return;
+        }
+
+        // Make sure policies are enforced when the controller is started.
+        getStateController().enforcePoliciesForCurrentState().addListener(
+                () -> LogUtil.i(TAG, "Policies enforced"), MoreExecutors.directExecutor());
     }
 
     @Override
     @MainThread
     public DeviceStateController getStateController() {
-        if (mStateController == null) {
-            mStateController = new DeviceStateControllerImpl(this);
-        }
-
-        return mStateController;
+        return getPolicyController().getStateController();
     }
 
     @Override
     @MainThread
     public DevicePolicyController getPolicyController() {
         if (mPolicyController == null) {
-            final DeviceStateController stateController = getStateController();
-            mPolicyController = new DevicePolicyControllerImpl(this, stateController);
+            mPolicyController = new DevicePolicyControllerImpl(this,
+                    new DeviceStateControllerImpl(this));
         }
 
         return mPolicyController;

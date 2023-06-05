@@ -42,7 +42,8 @@ import java.util.concurrent.Executors;
  * Class used to access Setup Parameters from any users.
  * Storage is hosted by user 0 and is accessed indirectly using a service.
  */
-public final class SetupParametersClient extends DlcClient {
+public final class SetupParametersClient extends DlcClient
+        implements SetupParametersClientInterface {
     private static final Object sInstanceLock = new Object();
 
     @SuppressLint("StaticFieldLeak") // Only holds application context.
@@ -135,29 +136,10 @@ public final class SetupParametersClient extends DlcClient {
      *
      * @return kiosk app package name.
      */
+    @Override
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getKioskPackage() {
         return call(() -> asInterface(getService()).getKioskPackage());
-    }
-
-    /**
-     * Get the kiosk app download URL.
-     *
-     * @return Kiosk app download URL.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<String> getKioskDownloadUrl() {
-        return call(() -> asInterface(getService()).getKioskDownloadUrl());
-    }
-
-    /**
-     * Get the kiosk app signature checksum.
-     *
-     * @return Signature checksum.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<String> getKioskSignatureChecksum() {
-        return call(() -> asInterface(getService()).getKioskSignatureChecksum());
     }
 
     /**

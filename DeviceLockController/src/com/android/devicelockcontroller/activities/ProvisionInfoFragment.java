@@ -24,7 +24,10 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.Manifest;
+import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -33,16 +36,24 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.provision.worker.PauseProvisioningWorker;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -51,6 +62,19 @@ import java.util.Objects;
 public final class ProvisionInfoFragment extends Fragment {
 
     private static final String TAG = "ProvisionInfoFragment";
+
+    private ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(),
+                    isGranted -> {
+                            if (isGranted) {
+                                createNotificationAndCloseActivity();
+                            } else {
+                                Toast.makeText(getActivity(),
+                                        R.string.toast_message_grant_notification_permission,
+                                        Toast.LENGTH_LONG).show();
+                            }
+                    }
+            );
 
     @Nullable
     @Override
@@ -136,24 +160,60 @@ public final class ProvisionInfoFragment extends Fragment {
                     }
                 });
         Button next = view.findViewById(R.id.button_next);
-        Button previous = view.findViewById(R.id.button_previous);
         checkNotNull(next);
-        checkNotNull(previous);
         if (isDeferredProvisioning) {
             next.setText(R.string.start);
-            previous.setText(R.string.do_it_in_one_hour);
-            previous.setOnClickListener(v -> {
-                // TODO(b/279608060): Add code to send sticky notification.
-                getActivity().finish();
-            });
-        } else {
-            // Mandatory provisioning.
-
-            // Previous button should be hidden.
-            previous.setVisibility(View.GONE);
         }
-        next.setOnClickListener(v -> {
-            startActivity(new Intent().setClass(getContext(), ProvisioningActivity.class));
-        });
+        next.setOnClickListener(
+                v -> startActivity(new Intent(getContext(), ProvisioningActivity.class)));
+        updatePreviousButton(checkNotNull(view.findViewById(R.id.button_previous)), viewModel,
+                isDeferredProvisioning);
+    }
+
+    private void updatePreviousButton(Button previous, ProvisionInfoViewModel viewModel,
+            boolean isDeferredProvisioning) {
+        if (!isDeferredProvisioning) {
+            previous.setVisibility(View.GONE);
+            return;
+        }
+        previous.setText(R.string.do_it_in_one_hour);
+        previous.setVisibility(View.VISIBLE);
+
+        viewModel.mIsProvisionForcedLiveData.observe(getViewLifecycleOwner(),
+                isProvisionForced -> {
+                    previous.setEnabled(!isProvisionForced);
+                    // Allow the user to defer provisioning only when provisioning is not forced.
+                    if (!isProvisionForced) {
+                        previous.setOnClickListener(
+                                v -> {
+                                    WorkManager workManager =
+                                            WorkManager.getInstance(requireContext());
+                                    PauseProvisioningWorker
+                                            .reportProvisionPausedByUser(workManager);
+                                    int notificationPermission = ContextCompat.checkSelfPermission(
+                                            requireContext(),
+                                            Manifest.permission.POST_NOTIFICATIONS);
+                                    if (PackageManager.PERMISSION_GRANTED
+                                            == notificationPermission) {
+                                        createNotificationAndCloseActivity();
+                                    } else {
+                                        requestPermissionLauncher.launch(
+                                                Manifest.permission.POST_NOTIFICATIONS);
+                                    }
+                                });
+                    }
+                });
+    }
+
+    private void createNotificationAndCloseActivity() {
+        PendingIntent intent = PendingIntent.getActivity(
+                requireContext(),
+                /* requestCode= */ 0,
+                getActivity().getIntent(),
+                PendingIntent.FLAG_IMMUTABLE);
+        Instant resumeTime = Instant.now().plus(Duration.ofHours(1));
+        DeviceLockNotificationManager.sendDeferredEnrollmentNotification(requireContext(),
+                resumeTime, intent);
+        getActivity().finish();
     }
 }

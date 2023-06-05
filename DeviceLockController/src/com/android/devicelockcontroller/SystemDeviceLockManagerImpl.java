@@ -39,7 +39,7 @@ import java.util.concurrent.Executor;
  * Implementation for SystemDeviceLockManager.
  */
 public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManager {
-    private static final String TAG = "SystemDeviceLockManager";
+    private static final String TAG = "SystemDeviceLockManagerImpl";
 
     private final IDeviceLockService mIDeviceLockService;
 
@@ -130,6 +130,35 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
 
     @Override
     @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    public void removeFinancedDeviceKioskRole(@NonNull String packageName,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback) {
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        if (!isDeviceLockServiceAvailable(executor, callback)) {
+            return;
+        }
+
+        try {
+            mIDeviceLockService.removeFinancedDeviceKioskRole(packageName,
+                    new RemoteCallback(result -> executor.execute(() -> {
+                        final boolean roleRemoved = result.getBoolean(
+                                IDeviceLockService.KEY_REMOTE_CALLBACK_RESULT);
+                        if (roleRemoved) {
+                            callback.onResult(null /* result */);
+                        } else {
+                            callback.onError(new Exception("Failed to remove financed role from: "
+                                    + packageName));
+                        }
+                    }), new Handler(Looper.getMainLooper())));
+        } catch (RemoteException e) {
+            executor.execute(() -> callback.onError(new RuntimeException(e)));
+        }
+    }
+
+    @Override
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
@@ -151,6 +180,38 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
                             callback.onError(new Exception("Failed to change exempt from "
                                     + "activity background start to: "
                                     + (exempt ? "exempt" : "non exempt")));
+                        }
+                    }), new Handler(Looper.getMainLooper())));
+        } catch (RemoteException e) {
+            executor.execute(() -> callback.onError(new RuntimeException(e)));
+        }
+    }
+
+    @Override
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    public void setExemptFromHibernation(String packageName, boolean exempt,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback) {
+        Objects.requireNonNull(packageName);
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        if (!isDeviceLockServiceAvailable(executor, callback)) {
+            return;
+        }
+
+        try {
+            mIDeviceLockService.setExemptFromHibernation(packageName, exempt,
+                    new RemoteCallback(result -> executor.execute(() -> {
+                        final boolean restrictionChanged = result.getBoolean(
+                                IDeviceLockService.KEY_REMOTE_CALLBACK_RESULT);
+                        if (restrictionChanged) {
+                            callback.onResult(null /* result */);
+                        } else {
+                            callback.onError(new Exception("Failed to change exempt from "
+                                    + "hibernation to: "
+                                    + (exempt ? "exempt" : "non exempt") + " for package: "
+                                    + packageName));
                         }
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {

@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.policy;
+package com.android.devicelockcontroller.storage;
 
-/** Retry policy for {@link DownloadPackageTask}. */
-public interface DownloadRetryPolicy {
+import com.google.common.util.concurrent.ListenableFuture;
+
+/**
+ * Interface for SetupParametersClient.
+ */
+public interface SetupParametersClientInterface {
     /**
-     * Checks if allowed to try download again when the previous request failed.
+     * Get the name of the package implementing the kiosk app.
      *
-     * @return true if need to try again, false if not
+     * @return kiosk app package name.
      */
-    boolean needToRetry();
-
-    /** Returns how many retry attempts have been made. */
-    int getCurrentRetryCount();
+    ListenableFuture<String> getKioskPackage();
 }

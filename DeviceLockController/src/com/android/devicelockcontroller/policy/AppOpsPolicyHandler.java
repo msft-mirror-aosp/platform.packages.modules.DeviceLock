@@ -19,16 +19,18 @@ package com.android.devicelockcontroller.policy;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.os.OutcomeReceiver;
-import android.os.Process;
 
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 
 import com.android.devicelockcontroller.SystemDeviceLockManager;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
+import com.android.devicelockcontroller.storage.SetupParametersClientInterface;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 final class AppOpsPolicyHandler implements PolicyHandler {
     private static final String TAG = "AppOpsPolicyHandler";
@@ -38,12 +40,19 @@ final class AppOpsPolicyHandler implements PolicyHandler {
     private final Context mContext;
     private final SystemDeviceLockManager mSystemDeviceLockManager;
     private final AppOpsManager mAppOpsManager;
+    private final SetupParametersClientInterface mSetupParametersClient;
 
     AppOpsPolicyHandler(Context context, SystemDeviceLockManager systemDeviceLockManager,
             AppOpsManager appOpsManager) {
+        this(context, systemDeviceLockManager, appOpsManager, SetupParametersClient.getInstance());
+    }
+
+    AppOpsPolicyHandler(Context context, SystemDeviceLockManager systemDeviceLockManager,
+            AppOpsManager appOpsManager, SetupParametersClientInterface setupParametersClient) {
         mContext = context;
         mSystemDeviceLockManager = systemDeviceLockManager;
         mAppOpsManager = appOpsManager;
+        mSetupParametersClient = setupParametersClient;
     }
 
     private ListenableFuture<@ResultType Integer>
@@ -69,48 +78,63 @@ final class AppOpsPolicyHandler implements PolicyHandler {
                 });
     }
 
-    @Override
-    public ListenableFuture<@ResultType Integer> setPolicyForState(@DeviceState int state) {
-        switch (state) {
-            case DeviceStateController.DeviceState.PSEUDO_LOCKED:
-            case DeviceStateController.DeviceState.PSEUDO_UNLOCKED:
-                return Futures.immediateFuture(SUCCESS);
-            case DeviceStateController.DeviceState.SETUP_IN_PROGRESS:
-            case DeviceStateController.DeviceState.SETUP_SUCCEEDED:
-            case DeviceStateController.DeviceState.SETUP_FAILED:
-            case DeviceStateController.DeviceState.UNLOCKED:
-            case DeviceStateController.DeviceState.LOCKED:
-            case DeviceStateController.DeviceState.KIOSK_SETUP:
-                return getExemptFromBackgroundStartRestrictionsFuture(true /* exempt */);
-            case DeviceStateController.DeviceState.UNPROVISIONED:
-            case DeviceStateController.DeviceState.CLEARED:
-                return getExemptFromBackgroundStartRestrictionsFuture(false /* exempt */);
-            default:
-                return Futures.immediateFailedFuture(
-                        new IllegalStateException(String.valueOf(state)));
-        }
+    private ListenableFuture<@ResultType Integer> getExemptFromHibernationFuture(boolean exempt) {
+        return Futures.transformAsync(mSetupParametersClient.getKioskPackage(),
+                kioskPackageName -> kioskPackageName == null
+                        ? Futures.immediateFuture(SUCCESS)
+                        : CallbackToFutureAdapter.getFuture(
+                            completer -> {
+                                mSystemDeviceLockManager.setExemptFromHibernation(
+                                        kioskPackageName, exempt,
+                                        mContext.getMainExecutor(),
+                                        new OutcomeReceiver<Void, Exception>() {
+                                            @Override
+                                            public void onResult(Void unused) {
+                                                completer.set(SUCCESS);
+                                            }
+
+                                            @Override
+                                            public void onError(Exception error) {
+                                                LogUtil.e(TAG, "Cannot set exempt from hibernation",
+                                                        error);
+                                                completer.set(FAILURE);
+                                            }
+                                        });
+                                // Used only for debugging.
+                                return "setExemptFromHibernationFuture";
+                            }), MoreExecutors.directExecutor());
+    }
+
+    private ListenableFuture<@ResultType Integer>
+            getExemptFromBackgroundStartAndHibernationFuture(boolean exempt) {
+        final ListenableFuture<@ResultType Integer> backgroundFuture =
+                getExemptFromBackgroundStartRestrictionsFuture(exempt /* exempt */);
+        final ListenableFuture<@ResultType Integer> hibernationFuture =
+                getExemptFromHibernationFuture(exempt /* exempt */);
+        return Futures.whenAllSucceed(backgroundFuture, hibernationFuture)
+                .call(() -> (Futures.getDone(backgroundFuture) == SUCCESS
+                                && Futures.getDone(hibernationFuture) == SUCCESS)
+                                ? SUCCESS : FAILURE,
+                        MoreExecutors.directExecutor());
     }
 
     @Override
-    public ListenableFuture<Boolean> isCompliant(@DeviceState int state) {
-        final int mode = mAppOpsManager.unsafeCheckOpNoThrow(
-                OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION,
-                Process.myUid(), mContext.getPackageName());
-
+    public ListenableFuture<@ResultType Integer> setPolicyForState(@DeviceState int state) {
         switch (state) {
-            case DeviceStateController.DeviceState.PSEUDO_LOCKED:
-            case DeviceStateController.DeviceState.PSEUDO_UNLOCKED:
-                return Futures.immediateFuture(true);
-            case DeviceStateController.DeviceState.SETUP_IN_PROGRESS:
-            case DeviceStateController.DeviceState.SETUP_SUCCEEDED:
-            case DeviceStateController.DeviceState.SETUP_FAILED:
-            case DeviceStateController.DeviceState.UNLOCKED:
-            case DeviceStateController.DeviceState.LOCKED:
-            case DeviceStateController.DeviceState.KIOSK_SETUP:
-                return Futures.immediateFuture(mode == AppOpsManager.MODE_ALLOWED);
-            case DeviceStateController.DeviceState.UNPROVISIONED:
-            case DeviceStateController.DeviceState.CLEARED:
-                return Futures.immediateFuture(mode == AppOpsManager.MODE_DEFAULT);
+            case DeviceState.PSEUDO_LOCKED:
+            case DeviceState.PSEUDO_UNLOCKED:
+                return Futures.immediateFuture(SUCCESS);
+            case DeviceState.SETUP_IN_PROGRESS:
+            case DeviceState.SETUP_SUCCEEDED:
+            case DeviceState.SETUP_FAILED:
+            case DeviceState.KIOSK_SETUP:
+                return getExemptFromBackgroundStartRestrictionsFuture(true /* exempt */);
+            case DeviceState.UNLOCKED:
+            case DeviceState.LOCKED:
+                return getExemptFromBackgroundStartAndHibernationFuture(true /* exempt */);
+            case DeviceState.UNPROVISIONED:
+            case DeviceState.CLEARED:
+                return getExemptFromBackgroundStartAndHibernationFuture(false /* exempt */);
             default:
                 return Futures.immediateFailedFuture(
                         new IllegalStateException(String.valueOf(state)));
