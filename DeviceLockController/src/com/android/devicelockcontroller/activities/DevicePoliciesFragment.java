@@ -29,7 +29,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -68,7 +67,10 @@ public final class DevicePoliciesFragment extends Fragment {
         RecyclerView recyclerView = view.findViewById(R.id.recyclerview_device_policy_group);
         DevicePolicyGroupListAdapter adapter = new DevicePolicyGroupListAdapter();
         viewModel.mDevicePolicyGroupListLiveData.observe(getViewLifecycleOwner(),
-                adapter::submitList);
+                devicePolicyGroups -> {
+                    adapter.setProviderName(viewModel.mProviderNameLiveData.getValue());
+                    adapter.submitList(devicePolicyGroups);
+                });
         checkNotNull(recyclerView);
         recyclerView.setAdapter(adapter);
 
@@ -96,27 +98,26 @@ public final class DevicePoliciesFragment extends Fragment {
 
         ProvisioningProgressViewModel provisioningProgressViewModel =
                 new ViewModelProvider(requireActivity()).get(ProvisioningProgressViewModel.class);
-        MutableLiveData<ProvisioningProgress> progressLiveData =
-                provisioningProgressViewModel.getProvisioningProgressMutableLiveData();
         Button button = view.findViewById(R.id.button_next);
         checkNotNull(button);
         button.setOnClickListener(
                 v -> {
-                    progressLiveData.setValue(ProvisioningProgress.GETTING_DEVICE_READY);
+                    provisioningProgressViewModel.setProvisioningProgress(
+                            ProvisioningProgress.GETTING_DEVICE_READY);
                     Futures.addCallback(
                             setupController.startSetupFlow(getActivity()),
                             new FutureCallback<>() {
                                 @Override
                                 public void onSuccess(Void result) {
                                     LogUtil.i(TAG, "Setup flow has started installing kiosk app");
-                                    progressLiveData.postValue(
+                                    provisioningProgressViewModel.setProvisioningProgress(
                                             ProvisioningProgress.INSTALLING_KIOSK_APP);
                                 }
 
                                 @Override
                                 public void onFailure(Throwable t) {
-                                    //TODO(b/279969959): Show the failure UI if we have one.
                                     LogUtil.e(TAG, "Failed to start setup flow!", t);
+                                    // TODO(b/279969959): show setup failure UI
                                 }
                             }, MoreExecutors.directExecutor());
                 });
@@ -124,14 +125,15 @@ public final class DevicePoliciesFragment extends Fragment {
         setupController.addListener(new SetupController.SetupUpdatesCallbacks() {
             @Override
             public void setupFailed(int reason) {
-                //TODO(b/279969959): Show the failure UI if we have one.
                 LogUtil.e(TAG, "Failed to finish setup flow!");
+                // TODO(b/279969959): show setup failure UI
             }
 
             @Override
             public void setupCompleted() {
                 LogUtil.i(TAG, "Successfully finished setup flow!");
-                progressLiveData.postValue(ProvisioningProgress.OPENING_KIOSK_APP);
+                provisioningProgressViewModel.setProvisioningProgress(
+                        ProvisioningProgress.OPENING_KIOSK_APP);
             }
         });
     }

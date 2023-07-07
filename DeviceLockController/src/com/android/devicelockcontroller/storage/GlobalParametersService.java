@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 
+import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import java.util.ArrayList;
@@ -36,6 +37,10 @@ public final class GlobalParametersService extends Service {
 
     private final IGlobalParametersService.Stub mBinder =
             new IGlobalParametersService.Stub() {
+                @Override
+                public void clear() {
+                    GlobalParameters.clear(mContext);
+                }
 
                 @Override
                 public List<String> getLockTaskAllowlist() {
@@ -86,6 +91,30 @@ public final class GlobalParametersService extends Service {
                 public void setEnrollmentToken(String token) {
                     GlobalParameters.setEnrollmentToken(mContext, token);
                 }
+
+                @Override
+                public String getKioskSignature() {
+                    return GlobalParameters.getKioskSignature(mContext);
+                }
+
+                @Override
+                public void setKioskSignature(String kioskSignature) {
+                    GlobalParameters.setKioskSignature(mContext, kioskSignature);
+                }
+
+                @Override
+                @DeviceProvisionState
+                public int getLastReceivedProvisionState() {
+                    return GlobalParameters.getLastReceivedProvisionState(mContext);
+                }
+
+                @Override
+                public void setLastReceivedProvisionState(
+                        @DeviceProvisionState int provisionState) {
+                    GlobalParameters.setLastReceivedProvisionState(mContext, provisionState);
+                }
+
+
             };
 
     @Override

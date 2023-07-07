@@ -14,22 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.policy;
+package com.android.devicelockcontroller.debug;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import com.android.devicelockcontroller.util.LogUtil;
 
 /**
- * Downloader which handles download request. It provides a {@link ListenableFuture} when a download
- * request is enqueued.
+ * Utility class to log stack trace for debugging purpose
  */
-public interface Downloader {
-    /**
-     * Start download request.
-     *
-     * @return true, if the request succeeds, false if not.
-     */
-    ListenableFuture<Boolean> startDownload();
+public final class DebugLogUtil {
+    private DebugLogUtil() {
+    }
 
-    /** Returns the file path the downloader will download to. */
-    String getFileLocation();
+    static <T> T logAndReturn(String tag, T result) {
+        String methodName = new Throwable().getStackTrace()[1].getMethodName();
+        LogUtil.d(tag, methodName + ": " + result);
+        return result;
+    }
 }

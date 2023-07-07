@@ -18,9 +18,12 @@ package com.android.devicelockcontroller.storage;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.util.ArraySet;
 
 import androidx.annotation.Nullable;
+
+import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -32,14 +35,15 @@ import java.util.Set;
  * write them. Due to this reason, unlike {@link UserParameters}, they must be accessed all the time
  * via the {@link GlobalParametersClient}.
  */
-public final class GlobalParameters {
+final class GlobalParameters {
     private static final String FILENAME = "global-params";
     private static final String KEY_KIOSK_SIGNING_CERT = "kiosk_signing_cert";
     private static final String KEY_LOCK_TASK_ALLOWLIST = "lock_task_allowlist";
     private static final String KEY_NEED_CHECK_IN = "need_check_in";
-    static final String KEY_REGISTERED_DEVICE_ID = "registered_device_id";
+    private static final String KEY_REGISTERED_DEVICE_ID = "registered_device_id";
     private static final String KEY_FORCED_PROVISION = "forced_provision";
-    public static final String KEY_ENROLLMENT_TOKEN = "enrollment_token";
+    private static final String KEY_ENROLLMENT_TOKEN = "enrollment_token";
+    private static final String KEY_LAST_RECEIVED_PROVISION_STATE = "last-received-provision-state";
 
 
     private GlobalParameters() {
@@ -58,7 +62,7 @@ public final class GlobalParameters {
      * @return the kiosk app signature.
      */
     @Nullable
-    public static String getKioskSignature(Context context) {
+    static String getKioskSignature(Context context) {
         return getSharedPreferences(context).getString(KEY_KIOSK_SIGNING_CERT, null);
     }
 
@@ -68,7 +72,7 @@ public final class GlobalParameters {
      * @param context   Context used to get the shared preferences.
      * @param signature Kiosk app signature.
      */
-    public static void setKioskSignature(Context context, String signature) {
+    static void setKioskSignature(Context context, String signature) {
         getSharedPreferences(context).edit().putString(KEY_KIOSK_SIGNING_CERT, signature).apply();
     }
 
@@ -78,7 +82,7 @@ public final class GlobalParameters {
      * @param context Context used to get the shared preferences.
      * @return List of packages that are allowed in lock task mode.
      */
-    public static ArrayList<String> getLockTaskAllowlist(Context context) {
+    static ArrayList<String> getLockTaskAllowlist(Context context) {
         final ArrayList<String> allowlistArray = new ArrayList<>();
         SharedPreferences sharedPreferences = getSharedPreferences(context);
         final Set<String> allowlist =
@@ -96,7 +100,7 @@ public final class GlobalParameters {
      * @param context   Context used to get the shared preferences.
      * @param allowlist List of packages that are allowed in lock task mode.
      */
-    public static void setLockTaskAllowlist(Context context, ArrayList<String> allowlist) {
+    static void setLockTaskAllowlist(Context context, ArrayList<String> allowlist) {
         final Set<String> allowlistSet = new ArraySet<>(allowlist);
 
         getSharedPreferences(context)
@@ -111,7 +115,7 @@ public final class GlobalParameters {
      * @param context Context used to get the shared preferences.
      * @return true if check-in request needs to be performed.
      */
-    public static boolean needCheckIn(Context context) {
+    static boolean needCheckIn(Context context) {
         return getSharedPreferences(context).getBoolean(KEY_NEED_CHECK_IN, /* defValue= */ true);
     }
 
@@ -121,7 +125,7 @@ public final class GlobalParameters {
      * @param context     Context used to get the shared preferences.
      * @param needCheckIn new state of whether the device needs to perform check-in request.
      */
-    public static void setNeedCheckIn(Context context, boolean needCheckIn) {
+    static void setNeedCheckIn(Context context, boolean needCheckIn) {
         getSharedPreferences(context)
                 .edit()
                 .putBoolean(KEY_NEED_CHECK_IN, needCheckIn)
@@ -136,7 +140,7 @@ public final class GlobalParameters {
      * backed server.
      */
     @Nullable
-    public static String getRegisteredDeviceId(Context context) {
+    static String getRegisteredDeviceId(Context context) {
         SharedPreferences preferences = getSharedPreferences(context);
         return preferences.getString(KEY_REGISTERED_DEVICE_ID, null);
     }
@@ -147,7 +151,7 @@ public final class GlobalParameters {
      * @param context            Context used to get the shared preferences.
      * @param registeredDeviceId The registered device unique identifier.
      */
-    public static void setRegisteredDeviceId(Context context, String registeredDeviceId) {
+    static void setRegisteredDeviceId(Context context, String registeredDeviceId) {
         getSharedPreferences(context)
                 .edit()
                 .putString(KEY_REGISTERED_DEVICE_ID, registeredDeviceId)
@@ -160,7 +164,7 @@ public final class GlobalParameters {
      * @param context Context used to get the shared preferences.
      * @return True if the provision should be forced without any delays.
      */
-    public static boolean isProvisionForced(Context context) {
+    static boolean isProvisionForced(Context context) {
         return getSharedPreferences(context).getBoolean(KEY_FORCED_PROVISION, false);
     }
 
@@ -170,7 +174,7 @@ public final class GlobalParameters {
      * @param context  Context used to get the shared preferences.
      * @param isForced The new value of the forced provision flag.
      */
-    public static void setProvisionForced(Context context, boolean isForced) {
+    static void setProvisionForced(Context context, boolean isForced) {
         getSharedPreferences(context)
                 .edit()
                 .putBoolean(KEY_FORCED_PROVISION, isForced)
@@ -184,7 +188,7 @@ public final class GlobalParameters {
      * @return A string value of the enrollment token.
      */
     @Nullable
-    public static String getEnrollmentToken(Context context) {
+    static String getEnrollmentToken(Context context) {
         return getSharedPreferences(context).getString(KEY_ENROLLMENT_TOKEN, null);
     }
 
@@ -194,10 +198,31 @@ public final class GlobalParameters {
      * @param context Context used to get the shared preferences.
      * @param token   The string value of the enrollment token.
      */
-    public static void setEnrollmentToken(Context context, String token) {
+    static void setEnrollmentToken(Context context, String token) {
         getSharedPreferences(context)
                 .edit()
                 .putString(KEY_ENROLLMENT_TOKEN, token)
                 .apply();
+    }
+
+    @DeviceProvisionState
+    static int getLastReceivedProvisionState(Context context) {
+        return getSharedPreferences(context).getInt(KEY_LAST_RECEIVED_PROVISION_STATE,
+                DeviceProvisionState.PROVISION_STATE_UNSPECIFIED);
+    }
+
+    static void setLastReceivedProvisionState(Context context,
+            @DeviceProvisionState int provisionState) {
+        getSharedPreferences(context)
+                .edit()
+                .putInt(KEY_LAST_RECEIVED_PROVISION_STATE, provisionState)
+                .apply();
+    }
+
+    static void clear(Context context) {
+        if (!Build.isDebuggable()) {
+            throw new SecurityException("Clear is not allowed in non-debuggable build!");
+        }
+        getSharedPreferences(context).edit().clear().commit();
     }
 }

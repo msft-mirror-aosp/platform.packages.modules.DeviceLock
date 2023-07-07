@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.UserManager;
 import android.text.TextUtils;
 
 import com.android.devicelockcontroller.policy.DevicePolicyController;
@@ -28,6 +29,9 @@ import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
 import com.android.devicelockcontroller.provision.worker.DeviceCheckInHelper;
 import com.android.devicelockcontroller.util.LogUtil;
 
+/**
+ * Broadcast receiver which can start the setup flow.
+ */
 public final class SetupFlowStarter extends BroadcastReceiver {
 
     private static final String TAG = "SetupFlowStarter";
@@ -43,6 +47,13 @@ public final class SetupFlowStarter extends BroadcastReceiver {
         if (!TextUtils.equals(intent.getComponent().getClassName(),
                 SetupFlowStarter.class.getName())) {
             LogUtil.w(TAG, "Implicit intent should not be used!");
+            return;
+        }
+
+        final boolean isUserProfile =
+                context.getSystemService(UserManager.class).isProfile();
+        if (isUserProfile) {
+            LogUtil.w(TAG, "Broadcast should not target user profiles");
             return;
         }
 

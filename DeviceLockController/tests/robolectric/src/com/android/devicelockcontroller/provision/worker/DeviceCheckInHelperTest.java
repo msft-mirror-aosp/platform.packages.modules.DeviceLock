@@ -16,8 +16,8 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_IMEI;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_MEID;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_MEID;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.RETRY_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
@@ -30,7 +30,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
-import android.content.ComponentName;
 import android.telephony.TelephonyManager;
 import android.util.ArraySet;
 
@@ -50,18 +49,14 @@ import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
-import com.android.devicelockcontroller.storage.GlobalParameters;
-import com.android.devicelockcontroller.storage.SetupParametersClient;
-import com.android.devicelockcontroller.storage.SetupParametersService;
+import com.android.devicelockcontroller.storage.GlobalParametersClient;
 
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.testing.TestingExecutors;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.LooperMode;
@@ -79,7 +74,10 @@ import java.util.concurrent.TimeoutException;
 @RunWith(RobolectricTestRunner.class)
 public final class DeviceCheckInHelperTest {
     static final Duration TEST_CHECK_RETRY_DURATION = Duration.ofDays(30);
+    static final Duration TEST_NEGATIVE_CHECK_RETRY_DURATION =
+            Duration.ZERO.minus(TEST_CHECK_RETRY_DURATION);
     public static final boolean IS_PROVISIONING_MANDATORY = false;
+    private static final int GET_WORK_INFO_TIMEOUT_MILLIS = 500;
     private TestDeviceLockControllerApplication mTestApplication;
     static final int TOTAL_SLOT_COUNT = 2;
     static final int TOTAL_ID_COUNT = 4;
@@ -95,10 +93,8 @@ public final class DeviceCheckInHelperTest {
                     new DeviceId(DEVICE_ID_TYPE_MEID, MEID_2),
             });
     static final ProvisioningConfiguration TEST_CONFIGURATION = new ProvisioningConfiguration(
-            /* kioskAppDownloadUrl= */ "test_url",
             /* kioskAppProviderName= */ "test_provider",
             /* kioskAppPackageName= */ "test_package",
-            /* kioskAppSignatureChecksum= */ "test_checksum",
             /* kioskAppMainActivity= */ "test_activity",
             /* kioskAppAllowlistPackages= */ List.of("test_allowed_app1", "test_allowed_app2"),
             /* kioskAppEnableOutgoingCalls= */ false,
@@ -112,7 +108,7 @@ public final class DeviceCheckInHelperTest {
     private DeviceCheckInHelper mHelper;
 
     private ShadowTelephonyManager mTelephonyManager;
-    private SetupParametersClient mSetupParametersClient;
+    private GlobalParametersClient mGlobalParametersClient;
 
     @Before
     public void setUp() {
@@ -126,11 +122,7 @@ public final class DeviceCheckInHelperTest {
                         .setMinimumLoggingLevel(android.util.Log.DEBUG)
                         .setExecutor(new SynchronousExecutor())
                         .build());
-        Shadows.shadowOf(mTestApplication).setComponentNameAndServiceForBindService(
-                new ComponentName(mTestApplication, SetupParametersService.class),
-                Robolectric.setupService(SetupParametersService.class).onBind(null));
-        mSetupParametersClient = SetupParametersClient.getInstance(
-                mTestApplication, TestingExecutors.sameThreadScheduledExecutor());
+        mGlobalParametersClient = GlobalParametersClient.getInstance();
     }
 
     @Test
@@ -151,8 +143,7 @@ public final class DeviceCheckInHelperTest {
         final GetDeviceCheckInStatusGrpcResponse response = createStopResponse();
 
         assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response)).isTrue();
-
-        assertThat(GlobalParameters.needCheckIn(mTestApplication)).isFalse();
+        assertThat(Futures.getUnchecked(mGlobalParametersClient.needCheckIn())).isFalse();
     }
 
     @Test
@@ -169,7 +160,7 @@ public final class DeviceCheckInHelperTest {
 
         verify(stateController).setNextStateForEvent(eq(DeviceEvent.PROVISIONING_SUCCESS));
         verify(policyController).enqueueStartLockTaskModeWorker(eq(IS_PROVISIONING_MANDATORY));
-        assertThat(GlobalParameters.needCheckIn(mTestApplication)).isFalse();
+        assertThat(Futures.getUnchecked(mGlobalParametersClient.needCheckIn())).isFalse();
     }
 
     @Test
@@ -196,12 +187,29 @@ public final class DeviceCheckInHelperTest {
         WorkManager workManager = WorkManager.getInstance(mTestApplication);
 
         List<WorkInfo> workInfo = workManager.getWorkInfosForUniqueWork(
-                DeviceCheckInHelper.CHECK_IN_WORK_NAME).get(500, TimeUnit.MILLISECONDS);
+                DeviceCheckInHelper.CHECK_IN_WORK_NAME).get(GET_WORK_INFO_TIMEOUT_MILLIS,
+                TimeUnit.MILLISECONDS);
+        assertThat(workInfo.size()).isEqualTo(1);
+    }
+
+    @Test
+    public void handleGetDeviceCheckInStatusResponse_retryCheckIn_durationIsNegative_shouldRetry()
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final GetDeviceCheckInStatusGrpcResponse response = createRetryResponse(
+                Instant.now().plus(TEST_NEGATIVE_CHECK_RETRY_DURATION));
+
+        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response)).isTrue();
+
+        WorkManager workManager = WorkManager.getInstance(mTestApplication);
+
+        List<WorkInfo> workInfo = workManager.getWorkInfosForUniqueWork(
+                DeviceCheckInHelper.CHECK_IN_WORK_NAME).get(GET_WORK_INFO_TIMEOUT_MILLIS,
+                TimeUnit.MILLISECONDS);
         assertThat(workInfo.size()).isEqualTo(1);
     }
 
     private static GetDeviceCheckInStatusGrpcResponse createStopResponse() {
-        return createMockResponse(STOP_CHECK_IN, /* nextCheckInDate= */ null, /* config= */ null);
+        return createMockResponse(STOP_CHECK_IN, /* nextCheckInTime= */ null, /* config= */ null);
     }
 
 

@@ -16,8 +16,8 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_IMEI;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DEVICE_ID_TYPE_MEID;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_MEID;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
@@ -34,6 +34,7 @@ import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+import androidx.annotation.WorkerThread;
 import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
@@ -49,12 +50,13 @@ import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
-import com.android.devicelockcontroller.storage.GlobalParameters;
+import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import java.time.Duration;
@@ -159,10 +161,11 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
     }
 
     @Override
+    @WorkerThread
     boolean handleGetDeviceCheckInStatusResponse(
             @NonNull GetDeviceCheckInStatusGrpcResponse response) {
-        GlobalParameters.setRegisteredDeviceId(mAppContext,
-                response.getRegisteredDeviceIdentifier());
+        Futures.getUnchecked(GlobalParametersClient.getInstance().setRegisteredDeviceId(
+                response.getRegisteredDeviceIdentifier()));
         LogUtil.d(TAG, "check in succeed: " + response.getDeviceCheckInStatus());
         switch (response.getDeviceCheckInStatus()) {
             case READY_FOR_PROVISION:
@@ -173,35 +176,27 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                         policies.getStateController(),
                         policies.getPolicyController());
             case RETRY_CHECK_IN:
-                Instant nextCheckinTime = response.getNextCheckInTime();
-
-                final Duration delay = Duration.between(Instant.now(),
-                        Instant.ofEpochSecond(
-                                nextCheckinTime.getEpochSecond(),
-                                nextCheckinTime.getNano()));
-                //TODO: Figure out whether there should be a minimum delay?
-                if (delay.isNegative()) {
-                    LogUtil.w(TAG, "Next check in date is not in the future");
-                    return false;
-                }
+                Duration delay = Duration.between(Instant.now(), response.getNextCheckInTime());
+                delay = delay.isNegative() ? Duration.ZERO : delay;
                 enqueueDeviceCheckInWork(false, delay);
                 return true;
             case STOP_CHECK_IN:
-                GlobalParameters.setNeedCheckIn(mAppContext, false);
+                Futures.getUnchecked(GlobalParametersClient.getInstance().setNeedCheckIn(false));
                 return true;
             case STATUS_UNSPECIFIED:
             default:
-                // fall through
+                return false;
         }
-        return false;
     }
 
     @VisibleForTesting
+    @WorkerThread
     boolean handleProvisionReadyResponse(
             @NonNull GetDeviceCheckInStatusGrpcResponse response,
             DeviceStateController stateController,
             DevicePolicyController devicePolicyController) {
-        GlobalParameters.setProvisionForced(mAppContext, response.isProvisionForced());
+        Futures.getUnchecked(GlobalParametersClient.getInstance().setProvisionForced(
+                response.isProvisionForced()));
         final ProvisioningConfiguration configuration = response.getProvisioningConfig();
         if (configuration == null) {
             LogUtil.e(TAG, "Provisioning Configuration is not provided by server!");
@@ -243,10 +238,13 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                                 DeviceStateController.eventToString(PROVISIONING_SUCCESS)), t);
             }
         };
-        GlobalParameters.setNeedCheckIn(mAppContext, false);
         mAppContext.getMainExecutor().execute(
-                () -> Futures.addCallback(
-                        stateController.setNextStateForEvent(PROVISIONING_SUCCESS),
-                        futureCallback, MoreExecutors.directExecutor()));
+                () -> {
+                    ListenableFuture<Void> tasks = Futures.whenAllSucceed(
+                                    GlobalParametersClient.getInstance().setNeedCheckIn(false),
+                                    stateController.setNextStateForEvent(PROVISIONING_SUCCESS))
+                            .call(() -> null, MoreExecutors.directExecutor());
+                    Futures.addCallback(tasks, futureCallback, MoreExecutors.directExecutor());
+                });
     }
 }

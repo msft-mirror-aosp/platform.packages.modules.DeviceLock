@@ -21,23 +21,23 @@ import androidx.annotation.NonNull;
 import io.grpc.Status;
 
 /**
- * An abstract class that is used to encapsulate the response of reporting device provisioning
- * complete request.
+ * An abstract class that is used to encapsulate the response for determining if a registered
+ * device is in an approved country.
  */
-public abstract class ReportDeviceProvisionCompleteGrpcResponse extends DeviceCheckInGrpcResponse {
-    public ReportDeviceProvisionCompleteGrpcResponse() {
-    }
-
-    public ReportDeviceProvisionCompleteGrpcResponse(
-            @NonNull Status status) {
+public abstract class IsDeviceInApprovedCountryGrpcResponse extends
+        DeviceCheckInGrpcResponse {
+    public IsDeviceInApprovedCountryGrpcResponse(@NonNull Status status) {
         super(status);
     }
 
+    public IsDeviceInApprovedCountryGrpcResponse() {
+        mStatus = null;
+    }
+
     /**
-     * An enrollment token the Device Lock Android client can use for future communication with the
-     * Device Lock server post-provisioning.
+     * Check whether the device is in an approved country.
      *
-     * @return The enrollment token
+     * @return true if the device is in an approved country; false otherwise.
      */
-    public abstract String getEnrollmentToken();
+    public abstract boolean isDeviceInApprovedCountry();
 }

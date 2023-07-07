@@ -28,6 +28,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.DeviceLockControllerApplication;
+import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -92,13 +93,25 @@ public final class GlobalParametersClient extends DlcClient {
     }
 
     /**
+     * Clear any existing global parameters.
+     * Note that this API can only be called in debuggable build for debugging purpose.
+     */
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<Void> clear() {
+        return call(() -> {
+            asInterface(getService()).clear();
+            return null;
+        });
+    }
+
+    /**
      * Gets the list of packages allowlisted in lock task mode.
      *
      * @return List of packages that are allowed in lock task mode.
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<List<String>> getLockTaskAllowlist() {
-        return call(() -> asInterface(mDlcService).getLockTaskAllowlist());
+        return call(() -> asInterface(getService()).getLockTaskAllowlist());
     }
 
     /**
@@ -109,7 +122,7 @@ public final class GlobalParametersClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setLockTaskAllowlist(List<String> allowlist) {
         return call(() -> {
-            asInterface(mDlcService).setLockTaskAllowlist(allowlist);
+            asInterface(getService()).setLockTaskAllowlist(allowlist);
             return null;
         });
     }
@@ -121,7 +134,7 @@ public final class GlobalParametersClient extends DlcClient {
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Boolean> needCheckIn() {
-        return call(() -> asInterface(mDlcService).needCheckIn());
+        return call(() -> asInterface(getService()).needCheckIn());
     }
 
     /**
@@ -132,7 +145,7 @@ public final class GlobalParametersClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setNeedCheckIn(boolean needCheckIn) {
         return call(() -> {
-            asInterface(mDlcService).setNeedCheckIn(needCheckIn);
+            asInterface(getService()).setNeedCheckIn(needCheckIn);
             return null;
         });
     }
@@ -146,7 +159,7 @@ public final class GlobalParametersClient extends DlcClient {
     @Nullable
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getRegisteredDeviceId() {
-        return call(() -> asInterface(mDlcService).getRegisteredDeviceId());
+        return call(() -> asInterface(getService()).getRegisteredDeviceId());
     }
 
     /**
@@ -157,7 +170,7 @@ public final class GlobalParametersClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setRegisteredDeviceId(String registeredDeviceId) {
         return call(() -> {
-            asInterface(mDlcService).setRegisteredDeviceId(registeredDeviceId);
+            asInterface(getService()).setRegisteredDeviceId(registeredDeviceId);
             return null;
         });
     }
@@ -169,7 +182,7 @@ public final class GlobalParametersClient extends DlcClient {
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Boolean> isProvisionForced() {
-        return call(() -> asInterface(mDlcService).isProvisionForced());
+        return call(() -> asInterface(getService()).isProvisionForced());
     }
 
     /**
@@ -180,7 +193,7 @@ public final class GlobalParametersClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setProvisionForced(boolean isForced) {
         return call(() -> {
-            asInterface(mDlcService).setProvisionForced(isForced);
+            asInterface(getService()).setProvisionForced(isForced);
             return null;
         });
     }
@@ -193,7 +206,7 @@ public final class GlobalParametersClient extends DlcClient {
     @Nullable
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getEnrollmentToken() {
-        return call(() -> asInterface(mDlcService).getEnrollmentToken());
+        return call(() -> asInterface(getService()).getEnrollmentToken());
     }
 
     /**
@@ -204,7 +217,53 @@ public final class GlobalParametersClient extends DlcClient {
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Void> setEnrollmentToken(String token) {
         return call(() -> {
-            asInterface(mDlcService).setEnrollmentToken(token);
+            asInterface(getService()).setEnrollmentToken(token);
+            return null;
+        });
+    }
+
+    /**
+     * Get the kiosk app signature.
+     *
+     * @return the kiosk app signature.
+     */
+    @Nullable
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<String> getKioskSignature() {
+        return call(() -> asInterface(getService()).getKioskSignature());
+    }
+
+    /**
+     * Sets the kiosk app signature.
+     *
+     * @param signature Kiosk app signature.
+     */
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<Void> setKioskSignature(String signature) {
+        return call(() -> {
+            asInterface(getService()).setKioskSignature(signature);
+            return null;
+        });
+    }
+
+    /**
+     * Get the last received provision state determined by device lock server.
+     *
+     * @return one of {@link DeviceProvisionState}.
+     */
+    public ListenableFuture<Integer> getLastReceivedProvisionState() {
+        return call(() -> asInterface(getService()).getLastReceivedProvisionState());
+    }
+
+    /**
+     * Set the last received provision state determined by device lock server.
+     *
+     * @param provisionState The provision state determined by device lock server
+     */
+    public ListenableFuture<Void> setLastReceivedProvisionState(
+            @DeviceProvisionState int provisionState) {
+        return call(() -> {
+            asInterface(getService()).setLastReceivedProvisionState(provisionState);
             return null;
         });
     }

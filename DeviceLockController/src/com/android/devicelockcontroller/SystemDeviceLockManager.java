@@ -38,4 +38,39 @@ public interface SystemDeviceLockManager {
     void addFinancedDeviceKioskRole(@NonNull String packageName,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
+     * Remove the FINANCED_DEVICE_KIOSK role from the specified package.
+     *
+     * @param packageName package for the financed device kiosk app.
+     * @param executor the {@link Executor} on which to invoke the callback.
+     * @param callback this returns either success or an exception.
+     */
+    void removeFinancedDeviceKioskRole(@NonNull String packageName,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
+     * Set the Device Lock Controller exempt from restrictions about starting activities
+     * from the background (for the calling user).
+     *
+     * @param exempt true if the Controller should be exempt from the restriction.
+     * @param executor the {@link Executor} on which to invoke the callback.
+     * @param callback callback this returns either success or an exception.
+     */
+    void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
+     * Set the kiosk app exempt from hibernation (for the calling user).
+     *
+     * @param packageName kiosk app package name.
+     * @param exempt true if the Controller should be exempt from hibernation.
+     * @param executor the {@link Executor} on which to invoke the callback.
+     * @param callback callback this returns either success or an exception.
+     */
+    void setExemptFromHibernation(String packageName, boolean exempt,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
 }

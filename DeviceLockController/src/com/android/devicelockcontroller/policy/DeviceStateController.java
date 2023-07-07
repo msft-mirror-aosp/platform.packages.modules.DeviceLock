@@ -34,30 +34,49 @@ import java.lang.annotation.Target;
 @MainThread
 public interface DeviceStateController {
     /**
+     * Enforce all policies for the current device state.
+     */
+    ListenableFuture<Void> enforcePoliciesForCurrentState();
+
+    /**
      * Moves the device to a new state based on the input event
      */
     ListenableFuture<Void> setNextStateForEvent(@DeviceEvent int event);
 
-    /** Returns the current state of the device */
+    /**
+     * Returns the current state of the device
+     */
     @DeviceState
     int getState();
 
-    /** Returns true if the device is in locked state. */
+    /**
+     * Returns true if the device is in locked state.
+     */
     boolean isLocked();
 
-    /** Returns true if the device needs to check in with DeviceLock server */
+    /**
+     * Returns true if the device needs to check in with DeviceLock server
+     */
     boolean isCheckInNeeded();
 
-    /** Returns true if the device is in setup flow. */
+    /**
+     * Returns true if the device is in setup flow.
+     */
     boolean isInSetupState();
 
-    /** Register a callback to get notified on state change. */
+    /**
+     * Register a callback to get notified on state change.
+     */
     void addCallback(StateListener listener);
 
-    /** Remove a previously registered callback. */
+    /**
+     * Remove a previously registered callback.
+     */
     void removeCallback(StateListener listener);
 
-    /** Device state definitions */
+    /**
+     * Device state definitions
+     */
     @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
@@ -105,7 +124,40 @@ public interface DeviceStateController {
         int PSEUDO_UNLOCKED = 9;
     }
 
-    /** Device event definitions */
+    /**
+     * Get the corresponding string for input {@link DeviceState}.
+     */
+    static String stateToString(@DeviceState int state) {
+        switch (state) {
+            case DeviceState.UNPROVISIONED:
+                return "UNPROVISIONED";
+            case DeviceState.SETUP_IN_PROGRESS:
+                return "SETUP_IN_PROGRESS";
+            case DeviceState.SETUP_SUCCEEDED:
+                return "SETUP_SUCCEEDED";
+            case DeviceState.SETUP_FAILED:
+                return "SETUP_FAILED";
+            case DeviceState.KIOSK_SETUP:
+                return "KIOSK_SETUP";
+            case DeviceState.UNLOCKED:
+                return "UNLOCKED";
+            case DeviceState.LOCKED:
+                return "LOCKED";
+            case DeviceState.CLEARED:
+                return "CLEARED";
+            case DeviceState.PSEUDO_LOCKED:
+                return "PSEUDO_LOCKED";
+            case DeviceState.PSEUDO_UNLOCKED:
+                return "PSEUDO_UNLOCKED";
+            default:
+                return "UNKNOWN_STATE";
+        }
+    }
+
+
+    /**
+     * Device event definitions
+     */
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
             DeviceEvent.PROVISIONING_SUCCESS,
@@ -115,7 +167,6 @@ public interface DeviceStateController {
             DeviceEvent.LOCK_DEVICE,
             DeviceEvent.UNLOCK_DEVICE,
             DeviceEvent.CLEAR,
-            DeviceEvent.RESET,
     })
     @interface DeviceEvent {
 
@@ -139,14 +190,15 @@ public interface DeviceStateController {
 
         /* Clear device lock restrictions */
         int CLEAR = 6;
-
-        /* Reset the state machine from pseudo locked/unlocked state back to UNPROVISIONED */
-        int RESET = 7;
     }
 
-    /** Listener interface for state changes. */
+    /**
+     * Listener interface for state changes.
+     */
     interface StateListener {
-        /** Notified after the device transitions to a new state */
+        /**
+         * Notified after the device transitions to a new state
+         */
         ListenableFuture<Void> onStateChanged(@DeviceState int newState);
     }
 
@@ -170,8 +222,6 @@ public interface DeviceStateController {
                 return "UNLOCK_DEVICE";
             case DeviceEvent.CLEAR:
                 return "CLEAR";
-            case DeviceEvent.RESET:
-                return "RESET";
             default:
                 return "UNKNOWN_EVENT";
         }
