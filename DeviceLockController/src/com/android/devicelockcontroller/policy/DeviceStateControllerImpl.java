@@ -18,10 +18,17 @@ package com.android.devicelockcontroller.policy;
 
 import android.content.Context;
 
-import com.android.devicelockcontroller.setup.UserPreferences;
+import androidx.annotation.VisibleForTesting;
+
+import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -39,20 +46,38 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
      * @param context The context used for the state machine.
      */
     public DeviceStateControllerImpl(Context context) {
-        mState = UserPreferences.getDeviceState(context);
+        mState = UserParameters.getDeviceState(context);
         LogUtil.i(TAG, String.format(Locale.US, "Starting state is %d", mState));
         mContext = context;
     }
 
+    /**
+     * Enforce all policies for the current state.
+     * This method is used to initially enforce policies.
+     * Note that policies are also automatically enforced on state transitions.
+     */
     @Override
-    public void setNextStateForEvent(@DeviceEvent int event) throws StateTransitionException {
-        updateState(getNextState(event));
-        LogUtil.i(TAG, String.format(Locale.US, "handleEvent %d, newState %d", event, mState));
+    public ListenableFuture<Void> enforcePoliciesForCurrentState() {
+        final List<ListenableFuture<Void>> onStateChangedTasks = new ArrayList<>();
         synchronized (mListeners) {
             for (StateListener listener : mListeners) {
-                listener.onStateChanged(mState);
+                onStateChangedTasks.add(listener.onStateChanged(mState));
             }
         }
+        return Futures.whenAllSucceed(onStateChangedTasks).call((() -> null),
+                MoreExecutors.directExecutor());
+    }
+
+    @Override
+    public ListenableFuture<Void> setNextStateForEvent(@DeviceEvent int event) {
+        try {
+            updateState(getNextState(event));
+        } catch (StateTransitionException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+        LogUtil.i(TAG, String.format(Locale.US, "handleEvent %d, newState %d", event, mState));
+
+        return enforcePoliciesForCurrentState();
     }
 
     @Override
@@ -64,7 +89,6 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     public boolean isLocked() {
         return mState == DeviceState.SETUP_IN_PROGRESS
                 || mState == DeviceState.SETUP_SUCCEEDED
-                || mState == DeviceState.SETUP_FAILED
                 || mState == DeviceState.KIOSK_SETUP
                 || mState == DeviceState.LOCKED
                 || mState == DeviceState.PSEUDO_LOCKED;
@@ -72,7 +96,8 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
 
     @Override
     public boolean isCheckInNeeded() {
-        return mState == DeviceState.UNPROVISIONED && UserPreferences.needCheckIn(mContext);
+        return mState == DeviceState.UNPROVISIONED || mState == DeviceState.PSEUDO_LOCKED
+                || mState == DeviceState.PSEUDO_UNLOCKED;
     }
 
     @Override
@@ -96,35 +121,47 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
         }
     }
 
+    @VisibleForTesting
     @DeviceState
-    private int getNextState(@DeviceEvent int event) throws StateTransitionException {
-        // TODO: remove the following once state transitions for the LOCK_DEVICE/UNLOCK_DEVICE
-        // events are finalized.
-        final boolean forceLockUnlock = true;
-        // TODO: return proper next state.
+    int getNextState(@DeviceEvent int event) throws StateTransitionException {
         switch (event) {
             case DeviceEvent.PROVISIONING_SUCCESS:
+                if (mState == DeviceState.UNPROVISIONED || mState == DeviceState.SETUP_FAILED
+                        || mState == DeviceState.PSEUDO_LOCKED
+                        || mState == DeviceState.PSEUDO_UNLOCKED) {
+                    return DeviceState.SETUP_IN_PROGRESS;
+                }
                 break;
             case DeviceEvent.SETUP_SUCCESS:
+                if (mState == DeviceState.SETUP_IN_PROGRESS) {
+                    return DeviceState.SETUP_SUCCEEDED;
+                }
                 break;
             case DeviceEvent.SETUP_FAILURE:
+                if (mState == DeviceState.SETUP_IN_PROGRESS) {
+                    return DeviceState.SETUP_FAILED;
+                }
                 break;
             case DeviceEvent.SETUP_COMPLETE:
+                if (mState == DeviceState.SETUP_SUCCEEDED) {
+                    return DeviceState.KIOSK_SETUP;
+                }
                 break;
             case DeviceEvent.LOCK_DEVICE:
-                if (mState == DeviceState.UNPROVISIONED || mState == DeviceState.PSEUDO_UNLOCKED) {
+                if (mState == DeviceState.UNPROVISIONED || mState == DeviceState.PSEUDO_UNLOCKED
+                        || mState == DeviceState.PSEUDO_LOCKED) {
                     return DeviceState.PSEUDO_LOCKED;
                 }
-                if (mState == DeviceState.UNLOCKED || forceLockUnlock) {
+                if (mState == DeviceState.UNLOCKED || mState == DeviceState.LOCKED) {
                     return DeviceState.LOCKED;
                 }
                 break;
             case DeviceEvent.UNLOCK_DEVICE:
-                if (mState == DeviceState.PSEUDO_LOCKED) {
+                if (mState == DeviceState.PSEUDO_LOCKED || mState == DeviceState.PSEUDO_UNLOCKED) {
                     return DeviceState.PSEUDO_UNLOCKED;
                 }
-                if (mState == DeviceState.LOCKED || mState == DeviceState.KIOSK_SETUP
-                        || forceLockUnlock) {
+                if (mState == DeviceState.LOCKED || mState == DeviceState.UNLOCKED
+                        || mState == DeviceState.KIOSK_SETUP) {
                     return DeviceState.UNLOCKED;
                 }
                 break;
@@ -135,12 +172,6 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                     return DeviceState.CLEARED;
                 }
                 break;
-            case DeviceEvent.RESET:
-                if (mState == DeviceState.PSEUDO_LOCKED
-                        || mState == DeviceState.PSEUDO_UNLOCKED) {
-                    return DeviceState.UNPROVISIONED;
-                }
-                break;
             default:
                 break;
         }
@@ -149,7 +180,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     }
 
     private void updateState(@DeviceState int newState) {
-        UserPreferences.setDeviceState(mContext, newState);
+        UserParameters.setDeviceState(mContext, newState);
         mState = newState;
     }
 }

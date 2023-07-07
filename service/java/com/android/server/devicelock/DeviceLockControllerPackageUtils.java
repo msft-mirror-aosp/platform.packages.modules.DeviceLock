@@ -16,6 +16,8 @@
 
 package com.android.server.devicelock;
 
+import static com.android.internal.annotations.VisibleForTesting.Visibility.PACKAGE;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -40,8 +42,6 @@ public final class DeviceLockControllerPackageUtils {
     private static final String SERVICE_ACTION =
             "android.app.action.DEVICE_LOCK_CONTROLLER_SERVICE";
 
-    private static final UserHandle USER_HANDLE_SYSTEM = UserHandle.of(0);
-
     public DeviceLockControllerPackageUtils(Context context) {
         mContext = context;
     }
@@ -56,7 +56,7 @@ public final class DeviceLockControllerPackageUtils {
      * @param errorMessage Reason why the service could not be found.
      * @return Service information or null for an error.
      */
-    @VisibleForTesting
+    @VisibleForTesting(visibility = PACKAGE)
     @Nullable
     public synchronized ServiceInfo findService(@NonNull StringBuilder errorMessage) {
         errorMessage.setLength(0);
@@ -76,8 +76,9 @@ public final class DeviceLockControllerPackageUtils {
         errorMessage.setLength(0);
 
         final List<ResolveInfo> resolveInfoList = pm.queryIntentServicesAsUser(intent,
-                PackageManager.MATCH_DIRECT_BOOT_UNAWARE
-                        | PackageManager.MATCH_DIRECT_BOOT_AWARE, USER_HANDLE_SYSTEM);
+                PackageManager.MATCH_SYSTEM_ONLY | PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+                        | PackageManager.MATCH_DIRECT_BOOT_AWARE
+                        | PackageManager.MATCH_DISABLED_COMPONENTS, UserHandle.SYSTEM);
 
         if (resolveInfoList == null || resolveInfoList.isEmpty()) {
             errorMessage.append("Service with " + SERVICE_ACTION + " not found.");
@@ -101,6 +102,12 @@ public final class DeviceLockControllerPackageUtils {
             }
 
             resultServiceInfo = serviceInfo;
+        }
+
+        if (!resultServiceInfo.applicationInfo.isPrivilegedApp()) {
+            errorMessage.append("Device lock controller must be a privileged app");
+
+            return null;
         }
 
         return resultServiceInfo;

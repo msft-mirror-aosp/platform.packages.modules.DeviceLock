@@ -17,6 +17,8 @@
 package com.android.devicelockcontroller.provision.worker;
 
 import android.content.Context;
+import android.content.res.Resources;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
@@ -25,7 +27,11 @@ import androidx.work.WorkerParameters;
 
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
-import com.android.devicelockcontroller.setup.UserPreferences;
+import com.android.devicelockcontroller.storage.GlobalParametersClient;
+
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * A base class for workers that execute gRPC requests with DeviceLock backend server.
@@ -33,20 +39,23 @@ import com.android.devicelockcontroller.setup.UserPreferences;
 public abstract class AbstractCheckInWorker extends Worker {
 
     static final String TAG = "CheckInWorker";
-    final DeviceCheckInClient mClient;
+    final ListenableFuture<DeviceCheckInClient> mClient;
     final Context mContext;
 
     AbstractCheckInWorker(@NonNull Context context,
             @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
-        final String hostName = context.getResources().getString(
-                R.string.check_in_server_host_name);
-        final int portNumber = context.getResources().getInteger(
-                R.integer.check_in_server_port_number);
-        final String className = context.getResources().getString(
-                R.string.device_check_in_client_class_name);
-        mClient = DeviceCheckInClient.getInstance(className, hostName, portNumber,
-                UserPreferences.getRegisteredDeviceId(context));
+        Resources resources = context.getResources();
+        String hostName = resources.getString(R.string.check_in_server_host_name);
+        int portNumber = resources.getInteger(R.integer.check_in_server_port_number);
+        String className = resources.getString(R.string.device_check_in_client_class_name);
+        Pair<String, String> apikey = new Pair<>(
+                resources.getString(R.string.check_in_service_api_key_name),
+                resources.getString(R.string.check_in_service_api_key_value));
+        mClient = Futures.transform(GlobalParametersClient.getInstance().getRegisteredDeviceId(),
+                registeredId -> DeviceCheckInClient.getInstance(
+                        className, hostName, portNumber, apikey, registeredId),
+                MoreExecutors.directExecutor());
         mContext = context;
     }
 
@@ -54,7 +63,7 @@ public abstract class AbstractCheckInWorker extends Worker {
     AbstractCheckInWorker(@NonNull Context context,
             @NonNull WorkerParameters workerParameters, DeviceCheckInClient client) {
         super(context, workerParameters);
-        mClient = client;
+        mClient = Futures.immediateFuture(client);
         mContext = context;
     }
 }

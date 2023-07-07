@@ -16,6 +16,7 @@
 
 package com.android.devicelockcontroller.activities;
 
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -24,6 +25,7 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.util.LogUtil;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +45,7 @@ final class DevicePolicyGroupListAdapter extends
      * of {@link DevicePolicy} in each {@link DevicePolicyGroup} may variate.
      */
     private int mMaxDevicePolicy;
+    private String mProviderName;
 
     DevicePolicyGroupListAdapter() {
         super(new DiffUtil.ItemCallback<>() {
@@ -78,7 +81,13 @@ final class DevicePolicyGroupListAdapter extends
     @Override
     public void onBindViewHolder(DevicePolicyGroupViewHolder devicePolicyGroupViewHolder,
             int position) {
-        devicePolicyGroupViewHolder.bind(getItem(position), mMaxDevicePolicy);
+        if (!TextUtils.isEmpty(mProviderName)) {
+            devicePolicyGroupViewHolder.bind(getItem(position), mMaxDevicePolicy, mProviderName);
+        } else {
+            LogUtil.e(TAG,
+                    "Provider name is not set, call setProviderName(String) first before "
+                            + "submitList(List)");
+        }
     }
 
     @Override
@@ -92,5 +101,10 @@ final class DevicePolicyGroupListAdapter extends
             mMaxDevicePolicy = Math.max(mMaxDevicePolicy,
                     devicePolicyGroup.getDevicePolicyList().size());
         }
+    }
+
+    public void setProviderName(String providerName) {
+        mProviderName = providerName;
+        notifyDataSetChanged();
     }
 }

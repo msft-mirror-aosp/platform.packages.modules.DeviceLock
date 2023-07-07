@@ -17,9 +17,12 @@
 package com.android.devicelockcontroller.activities;
 
 import android.os.Bundle;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 
 import com.android.devicelockcontroller.R;
 
@@ -32,5 +35,17 @@ public final class LandingActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.landing_activity);
+
+        WindowInsetsController controller = getWindow().getInsetsController();
+        if (controller != null) {
+            controller.hide(WindowInsets.Type.systemBars());
+        }
+        if (savedInstanceState == null) {
+            Fragment fragment = new ProvisionInfoFragment();
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.fragment_container, fragment)
+                    .commit();
+        }
     }
 }

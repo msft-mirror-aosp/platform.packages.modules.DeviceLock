@@ -16,8 +16,6 @@
 
 package com.android.devicelockcontroller.activities;
 
-import android.os.Handler;
-import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Pair;
 
@@ -25,17 +23,19 @@ import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.android.devicelockcontroller.setup.SetupParametersClient;
+import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.List;
 
 /**
  * This class provides the resources and {@link ProvisionInfo} to render the
- * {@link ProvisionInfoFragment}.
+ * {@link ProvisionInfoFragment} and/or {@link ProvisionNotRequiredFragment}.
  */
 public abstract class ProvisionInfoViewModel extends ViewModel {
 
@@ -47,9 +47,10 @@ public abstract class ProvisionInfoViewModel extends ViewModel {
     final MutableLiveData<Integer> mSubheaderTextIdLiveData;
     final MutableLiveData<List<ProvisionInfo>> mProvisionInfoListLiveData;
     final MutableLiveData<String> mProviderNameLiveData;
+    final MutableLiveData<String> mTermsAndConditionsUrlLiveData;
+    final MutableLiveData<Boolean> mIsProvisionForcedLiveData;
     final MediatorLiveData<Pair<Integer, String>> mHeaderTextLiveData;
     final MediatorLiveData<Pair<Integer, String>> mSubHeaderTextLiveData;
-
 
     public ProvisionInfoViewModel() {
         mProvisionInfoListLiveData = new MutableLiveData<>();
@@ -57,6 +58,8 @@ public abstract class ProvisionInfoViewModel extends ViewModel {
         mHeaderTextIdLiveData = new MutableLiveData<>();
         mSubheaderTextIdLiveData = new MutableLiveData<>();
         mProviderNameLiveData = new MutableLiveData<>();
+        mTermsAndConditionsUrlLiveData = new MutableLiveData<>();
+        mIsProvisionForcedLiveData = new MutableLiveData<>();
         mHeaderTextLiveData = new MediatorLiveData<>();
         mHeaderTextLiveData.addSource(mHeaderTextIdLiveData,
                 id -> {
@@ -75,15 +78,15 @@ public abstract class ProvisionInfoViewModel extends ViewModel {
         mSubHeaderTextLiveData = new MediatorLiveData<>();
         mSubHeaderTextLiveData.addSource(mSubheaderTextIdLiveData,
                 id -> {
-                    Pair<Integer, String> oldValue = mHeaderTextLiveData.getValue();
-                    mHeaderTextLiveData.setValue(oldValue == null
+                    Pair<Integer, String> oldValue = mSubHeaderTextLiveData.getValue();
+                    mSubHeaderTextLiveData.setValue(oldValue == null
                             ? new Pair<>(id, PROVIDER_NAME_PLACEHOLDER)
                             : new Pair<>(id, oldValue.second));
                 });
         mSubHeaderTextLiveData.addSource(mProviderNameLiveData,
                 providerName -> {
-                    Pair<Integer, String> oldValue = mHeaderTextLiveData.getValue();
-                    mHeaderTextLiveData.setValue(oldValue == null
+                    Pair<Integer, String> oldValue = mSubHeaderTextLiveData.getValue();
+                    mSubHeaderTextLiveData.setValue(oldValue == null
                             ? new Pair<>(TEXT_ID_PLACEHOLDER, providerName)
                             : new Pair<>(oldValue.first, providerName));
                 });
@@ -97,14 +100,45 @@ public abstract class ProvisionInfoViewModel extends ViewModel {
                             LogUtil.e(TAG, "Device provider name is empty, should not reach here.");
                             return;
                         }
-                        mProviderNameLiveData.setValue(providerName);
+                        mProviderNameLiveData.postValue(providerName);
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
                         LogUtil.e(TAG, "Failed to get Kiosk app provider name", t);
                     }
-                },
-                command -> new Handler(Looper.getMainLooper()).post(command));
+                }, MoreExecutors.directExecutor());
+
+        Futures.addCallback(
+                SetupParametersClient.getInstance().getTermsAndConditionsUrl(),
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(String termsAndConditionsUrl) {
+                        if (TextUtils.isEmpty(termsAndConditionsUrl)) {
+                            LogUtil.e(TAG,
+                                    "Terms and Conditions URL is empty, should not reach here.");
+                            return;
+                        }
+                        mTermsAndConditionsUrlLiveData.postValue(termsAndConditionsUrl);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        LogUtil.e(TAG, "Failed to get Terms and Conditions URL", t);
+                    }
+                }, MoreExecutors.directExecutor());
+
+        Futures.addCallback(GlobalParametersClient.getInstance().isProvisionForced(),
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(Boolean isProvisionForced) {
+                        mIsProvisionForcedLiveData.postValue(isProvisionForced);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        LogUtil.e(TAG, "Failed to get if provision should be forced", t);
+                    }
+                }, MoreExecutors.directExecutor());
     }
 }

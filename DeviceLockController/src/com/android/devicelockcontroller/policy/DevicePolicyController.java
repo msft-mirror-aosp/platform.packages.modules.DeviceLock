@@ -16,6 +16,10 @@
 
 package com.android.devicelockcontroller.policy;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
+import java.time.Duration;
+
 /**
  * Interface for the policy controller that is responsible for applying policies based
  * on state.
@@ -23,19 +27,39 @@ package com.android.devicelockcontroller.policy;
 public interface DevicePolicyController {
     /**
      * Launches an activity in locked mode. The specific activity is resolved based on the current
-     * device state.Returns false if package containing the activity is not in the allowlist.
+     * device state. Returns false if package containing the activity is not in the allowlist.
      */
-    boolean launchActivityInLockedMode();
+    ListenableFuture<Boolean> launchActivityInLockedMode();
 
     /**
-     * Enqueue a worker to start lock task mode and launch corresponding activity. The work will be
-     * retried until device is in lock task mode.
+     * Similar to
+     * {@link DevicePolicyController#enqueueStartLockTaskModeWorkerWithDelay(boolean, Duration)}
+     * but with zero delay.
+     *
+     * @param isMandatory whether starting lock task mode is mandatory at the time of request.
      */
-    void enqueueStartLockTaskModeWorker();
+    void enqueueStartLockTaskModeWorker(boolean isMandatory);
+
+    /**
+     * Enqueue a worker to start lock task mode and launch corresponding activity with a delay of
+     * certain {@link Duration}.
+     * The work will be retried until device is in lock task mode.
+     *
+     * @param isMandatory whether starting lock task mode is mandatory at the time of request.
+     * @param delay       The {@link Duration} that should be delayed before device enters lock
+     *                    task mode.
+     */
+    void enqueueStartLockTaskModeWorkerWithDelay(boolean isMandatory, Duration delay);
+
 
     /**
      * Factory resets the device when the setup has failed and cannot continue.
      * Returns true if action was successful.
      */
     boolean wipeData();
+
+    /**
+     * Get the State Controller associated with this Policy Controller.
+     */
+    DeviceStateController getStateController();
 }

@@ -16,21 +16,26 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION_START_DEVICE_FINANCING_DEFERRED_PROVISIONING;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION_START_DEVICE_FINANCING_PROVISIONING;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION_START_DEVICE_FINANCING_SECONDARY_USER_PROVISIONING;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION_START_DEVICE_SUBSIDY_DEFERRED_PROVISIONING;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION_START_DEVICE_SUBSIDY_PROVISIONING;
 import static com.android.devicelockcontroller.policy.PolicyHandler.SUCCESS;
 
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
+import android.app.AppOpsManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.os.SystemProperties;
+import android.os.Build;
 import android.os.UserManager;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.work.BackoffPolicy;
 import androidx.work.ExistingWorkPolicy;
@@ -41,12 +46,16 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.android.devicelockcontroller.DeviceLockControllerApplication;
+import com.android.devicelockcontroller.SystemDeviceLockManagerImpl;
 import com.android.devicelockcontroller.common.DeviceLockConstants;
+import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisioningType;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
-import com.android.devicelockcontroller.setup.SetupParametersClient;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -55,6 +64,9 @@ import java.util.Locale;
 
 /**
  * Class that listens to state changes and applies the corresponding policies.
+ * <p>
+ * Note that some APIs return a listenable future because the underlying calls to
+ * SetupParameterClient return a listenable future for inter process calls.
  */
 public final class DevicePolicyControllerImpl
         implements DevicePolicyController, DeviceStateController.StateListener {
@@ -86,48 +98,60 @@ public final class DevicePolicyControllerImpl
         mStateController = stateController;
         mLockTaskHandler = new LockTaskModePolicyHandler(context, dpm);
 
-        final boolean isDebug = SystemProperties.getInt("ro.debuggable", 0) == 1;
         mPolicyList.add(new UserRestrictionsPolicyHandler(dpm,
-                context.getSystemService(UserManager.class), isDebug));
+                context.getSystemService(UserManager.class), Build.isDebuggable()));
+        mPolicyList.add(new AppOpsPolicyHandler(context, SystemDeviceLockManagerImpl.getInstance(),
+                context.getSystemService(AppOpsManager.class)));
         mPolicyList.add(mLockTaskHandler);
-        mPolicyList.add(new KioskAppPolicyHandler(dpm));
+        mPolicyList.add(new PackagePolicyHandler(context, dpm));
+        mPolicyList.add(new RolePolicyHandler(context, SystemDeviceLockManagerImpl.getInstance()));
         stateController.addCallback(this);
     }
 
     @Override
-    public boolean launchActivityInLockedMode() {
-        final Intent launchIntent = getLockedActivity();
+    public ListenableFuture<Boolean> launchActivityInLockedMode() {
+        return Futures.transform(getLockedActivity(), launchIntent -> {
+            if (launchIntent == null) {
+                LogUtil.e(TAG, "Failed to get the locked activity");
+                return false;
+            }
 
-        if (launchIntent == null) {
-            LogUtil.w(TAG, "Failed to get the locked activity");
-            return false;
-        }
+            final ComponentName activity = launchIntent.getComponent();
+            if (activity == null || !mLockTaskHandler.setPreferredActivityForHome(activity)) {
+                LogUtil.e(TAG, "Failed to set preferred activity");
+                return false;
+            }
 
-        final ComponentName activity = launchIntent.getComponent();
-        if (activity == null || !mLockTaskHandler.setPreferredActivityForHome(activity)) {
-            LogUtil.w(TAG, "Failed to set preferred activity");
-            return false;
-        }
-
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        LogUtil.i(TAG, String.format(Locale.US, "Launching activity: %s", activity));
-        mContext.startActivity(launchIntent,
-                ActivityOptions.makeBasic().setLockTaskEnabled(true).toBundle());
-        return true;
+            launchIntent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            LogUtil.i(TAG, String.format(Locale.US, "Launching activity: %s", activity));
+            mContext.startActivity(launchIntent,
+                    ActivityOptions.makeBasic().setLockTaskEnabled(true).toBundle());
+            return true;
+        }, mContext.getMainExecutor());
     }
 
     @Override
-    public void enqueueStartLockTaskModeWorker() {
-        final OneTimeWorkRequest startLockTaskModeRequest =
+    public void enqueueStartLockTaskModeWorker(boolean isMandatory) {
+        enqueueStartLockTaskModeWorkerWithDelay(isMandatory, Duration.ZERO);
+    }
+
+    @Override
+    public void enqueueStartLockTaskModeWorkerWithDelay(boolean isMandatory, Duration delay) {
+        final OneTimeWorkRequest.Builder startLockTaskModeRequestBuilder =
                 new OneTimeWorkRequest.Builder(StartLockTaskModeWorker.class)
+                        .setInitialDelay(delay)
                         .setBackoffCriteria(BackoffPolicy.LINEAR,
-                                Duration.ofSeconds(START_LOCK_TASK_MODE_WORKER_INTERVAL))
-                        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                        .build();
+                                Duration.ofSeconds(START_LOCK_TASK_MODE_WORKER_INTERVAL));
+        if (isMandatory) {
+            startLockTaskModeRequestBuilder
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
+        }
+
         WorkManager.getInstance(mContext)
                 .enqueueUniqueWork(START_LOCK_TASK_MODE_WORK_NAME,
                         ExistingWorkPolicy.APPEND_OR_REPLACE,
-                        startLockTaskModeRequest);
+                        startLockTaskModeRequestBuilder.build());
     }
 
     @Override
@@ -147,104 +171,135 @@ public final class DevicePolicyControllerImpl
     }
 
     @Override
-    public void onStateChanged(@DeviceState int newState) {
+    public ListenableFuture<Void> onStateChanged(@DeviceState int newState) {
         LogUtil.d(TAG, String.format(Locale.US, "onStateChanged (%d)", newState));
 
+        List<ListenableFuture<Void>> futures = new ArrayList<>();
         for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
             PolicyHandler policy = mPolicyList.get(i);
-            if (newState == DeviceState.SETUP_IN_PROGRESS) {
-                final String kioskPackage = Futures.getUnchecked(
-                        SetupParametersClient.getInstance().getKioskPackage());
-                if (kioskPackage == null) {
-                    throw new NullPointerException(
-                            "SetupParameters must be present before finalization.");
-                }
-                policy.setSetupParametersValid();
-            }
-
-            try {
-                LogUtil.d(TAG, String.format(Locale.US, "setPolicyForState (%s)", policy));
-                if (SUCCESS != policy.setPolicyForState(newState)) {
-                    LogUtil.e(TAG, String.format(Locale.US, "Failed to set %s policy", policy));
-                }
-            } catch (SecurityException e) {
-                LogUtil.e(TAG, "Exception when setting policy", e);
-            }
+            futures.add(Futures.transform(
+                    policy.setPolicyForState(newState), result -> {
+                        if (SUCCESS != result) {
+                            throw new RuntimeException(
+                                    String.format(Locale.US, "Failed to set %s policy", policy));
+                        }
+                        return null;
+                    }, mContext.getMainExecutor()));
         }
+        return Futures.whenAllSucceed(futures).call(() -> null, mContext.getMainExecutor());
     }
 
-    @Nullable
-    private Intent getLockedActivity() {
+    @Override
+    public DeviceStateController getStateController() {
+        return mStateController;
+    }
+
+    private ListenableFuture<Intent> getLockedActivity() {
         @DeviceState int state = mStateController.getState();
 
         switch (state) {
             case DeviceState.SETUP_IN_PROGRESS:
             case DeviceState.SETUP_SUCCEEDED:
-            case DeviceState.SETUP_FAILED:
-                return new Intent().setComponent(ComponentName.unflattenFromString(
-                        DeviceLockConstants.PROVISIONING_ACTIVITY));
+                return getLandingActivityIntent();
             case DeviceState.KIOSK_SETUP:
                 return getKioskSetupActivityIntent();
             case DeviceState.LOCKED:
                 return getLockScreenActivityIntent();
+            case DeviceState.SETUP_FAILED:
             case DeviceState.UNLOCKED:
             case DeviceState.CLEARED:
             case DeviceState.UNPROVISIONED:
                 LogUtil.w(TAG, String.format(Locale.US, "%d is not a locked state", state));
-                return null;
+                return Futures.immediateFuture(null);
             default:
                 LogUtil.w(TAG, String.format(Locale.US, "%d is an invalid state", state));
-                return null;
+                return Futures.immediateFuture(null);
         }
     }
 
-    @Nullable
-    private Intent getLockScreenActivityIntent() {
+    private ListenableFuture<Intent> getLandingActivityIntent() {
+        SetupParametersClient client = SetupParametersClient.getInstance();
+        ListenableFuture<Boolean> isMandatoryTask = client.isProvisionMandatory();
+        ListenableFuture<@ProvisioningType Integer> provisioningTypeTask =
+                client.getProvisioningType();
+        return Futures.whenAllSucceed(isMandatoryTask, provisioningTypeTask).call(
+                () -> {
+                    Intent resultIntent = new Intent()
+                            .setComponent(ComponentName.unflattenFromString(
+                                    DeviceLockConstants.getLandingActivity(mContext)));
+                    boolean isMandatory = Futures.getDone(isMandatoryTask);
+                    switch (Futures.getDone(provisioningTypeTask)) {
+                        case ProvisioningType.TYPE_FINANCED:
+                            if (!mContext.getUser().isSystem()) {
+                                return resultIntent.setAction(
+                                        ACTION_START_DEVICE_FINANCING_SECONDARY_USER_PROVISIONING);
+                            }
+                            return resultIntent.setAction(
+                                    isMandatory ? ACTION_START_DEVICE_FINANCING_PROVISIONING
+                                            : ACTION_START_DEVICE_FINANCING_DEFERRED_PROVISIONING);
+                        case ProvisioningType.TYPE_SUBSIDY:
+                            return resultIntent.setAction(
+                                    isMandatory ? ACTION_START_DEVICE_SUBSIDY_PROVISIONING
+                                            : ACTION_START_DEVICE_SUBSIDY_DEFERRED_PROVISIONING);
+                        case ProvisioningType.TYPE_UNDEFINED:
+                        default:
+                            throw new IllegalArgumentException("Provisioning type is unknown!");
+                    }
+                }, MoreExecutors.directExecutor());
+    }
+
+    private ListenableFuture<Intent> getLockScreenActivityIntent() {
         final PackageManager packageManager = mContext.getPackageManager();
-        final String kioskPackage = Futures.getUnchecked(
-                SetupParametersClient.getInstance().getKioskPackage());
-        if (kioskPackage == null) {
-            LogUtil.e(TAG, "Missing kiosk package parameter");
-            return null;
-        }
+        return Futures.transform(SetupParametersClient.getInstance().getKioskPackage(),
+                kioskPackage -> {
+                    if (kioskPackage == null) {
+                        LogUtil.e(TAG, "Missing kiosk package parameter");
+                        return null;
+                    }
 
-        final Intent homeIntent =
-                new Intent(Intent.ACTION_MAIN)
-                        .addCategory(Intent.CATEGORY_HOME)
-                        .setPackage(kioskPackage);
-        final ResolveInfo resolvedInfo =
-                packageManager
-                        .resolveActivity(
-                                homeIntent,
-                                PackageManager.MATCH_DEFAULT_ONLY);
-        if (resolvedInfo != null && resolvedInfo.activityInfo != null) {
-            return homeIntent.setComponent(
-                    new ComponentName(kioskPackage, resolvedInfo.activityInfo.name));
-        }
-        // Kiosk app does not have an activity to handle the default home intent. Fall back to the
-        // launch activity.
-        // Note that in this case, Kiosk App can't be effectively set as the default home activity.
-        final Intent launchIntent = packageManager.getLaunchIntentForPackage(kioskPackage);
-        if (launchIntent == null) {
-            LogUtil.e(TAG,
-                    String.format(Locale.US, "Failed to get launch intent for %s", kioskPackage));
-            return null;
-        }
+                    final Intent homeIntent =
+                            new Intent(Intent.ACTION_MAIN)
+                                    .addCategory(Intent.CATEGORY_HOME)
+                                    .setPackage(kioskPackage);
+                    final ResolveInfo resolvedInfo =
+                            packageManager
+                                    .resolveActivity(
+                                            homeIntent,
+                                            PackageManager.MATCH_DEFAULT_ONLY);
+                    if (resolvedInfo != null && resolvedInfo.activityInfo != null) {
+                        return homeIntent.setComponent(
+                                new ComponentName(kioskPackage,
+                                        resolvedInfo.activityInfo.name));
+                    }
+                    // Kiosk app does not have an activity to handle the default home intent.
+                    // Fall back to the
+                    // launch activity.
+                    // Note that in this case, Kiosk App can't be effectively set as the
+                    // default home activity.
+                    final Intent launchIntent = packageManager.getLaunchIntentForPackage(
+                            kioskPackage);
+                    if (launchIntent == null) {
+                        LogUtil.e(TAG,
+                                String.format(Locale.US, "Failed to get launch intent for %s",
+                                        kioskPackage));
+                        return null;
+                    }
 
-        return launchIntent;
+                    return launchIntent;
+                }, mContext.getMainExecutor());
     }
 
-    @Nullable
-    private Intent getKioskSetupActivityIntent() {
-        final String setupActivity = Futures.getUnchecked(
-                SetupParametersClient.getInstance().getKioskSetupActivity());
+    private ListenableFuture<Intent> getKioskSetupActivityIntent() {
+        return Futures.transform(SetupParametersClient.getInstance().getKioskSetupActivity(),
+                setupActivity -> {
+                    if (setupActivity == null) {
+                        LogUtil.e(TAG, "Failed to get setup Activity");
+                        return null;
+                    }
 
-        if (setupActivity == null) {
-            LogUtil.e(TAG, "Failed to get setup Activity");
-            return null;
-        }
-
-        return new Intent().setComponent(ComponentName.unflattenFromString(setupActivity));
+                    return new Intent().setComponent(
+                            ComponentName.unflattenFromString(setupActivity));
+                }, mContext.getMainExecutor());
     }
 
     /**
@@ -270,8 +325,8 @@ public final class DevicePolicyControllerImpl
                 return Result.success();
             }
 
-            if (!((PolicyObjectsInterface) context).getPolicyController()
-                    .launchActivityInLockedMode()) {
+            if (!Futures.getUnchecked(((PolicyObjectsInterface) context).getPolicyController()
+                    .launchActivityInLockedMode())) {
                 LogUtil.i(TAG, "failed entering lock task mode");
                 return Result.failure();
             }

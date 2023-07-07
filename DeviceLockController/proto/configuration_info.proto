@@ -24,6 +24,7 @@ option java_multiple_files = true;
 enum ConfigurationType {
   CONFIGURATION_TYPE_UNSPECIFIED = 0;
   CONFIGURATION_TYPE_FINANCED = 1;
+  CONFIGURATION_TYPE_SUBSIDY = 2;
 }
 
 enum ConfigurationStatus {
@@ -70,4 +71,10 @@ message ConfigurationInfo {
   // Whether installing application from unknown sources is disallowed on this device once
   // provisioned.
   optional bool disallow_installing_from_unknown_sources = 9;
+
+  // The URL to the Terms and Conditions of the partner for enrolling in a Device Lock program.
+  optional string terms_and_conditions_url = 10;
+
+  // The URL to the support page the user can use to get help.
+  optional string support_url = 11;
 }
