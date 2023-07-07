@@ -19,13 +19,19 @@ package com.android.devicelockcontroller.receivers;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserManager;
 
 import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
-import com.android.devicelockcontroller.provision.checkin.DeviceCheckInHelper;
+import com.android.devicelockcontroller.provision.worker.DeviceCheckInHelper;
+import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
+
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * Boot completed broadcast receiver to enqueue the check-in work for provision when device boots
@@ -41,8 +47,20 @@ public final class CheckInBootCompletedReceiver extends BroadcastReceiver {
     static void checkInIfNeeded(DeviceStateController stateController,
             DeviceCheckInHelper checkInHelper) {
         if (stateController.isCheckInNeeded()) {
-            // The boot time check-in request does not need to be expedited.
-            checkInHelper.enqueueDeviceCheckInWork(/* isExpedited= */ false);
+            Futures.addCallback(GlobalParametersClient.getInstance().needCheckIn(),
+                    new FutureCallback<>() {
+                        @Override
+                        public void onSuccess(Boolean needCheckIn) {
+                            if (needCheckIn) {
+                                checkInHelper.enqueueDeviceCheckInWork(/* isExpedited= */ false);
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t) {
+                            LogUtil.e(TAG, "Failed to know if we need to perform check-in!", t);
+                        }
+                    }, MoreExecutors.directExecutor());
         }
     }
 
@@ -51,6 +69,13 @@ public final class CheckInBootCompletedReceiver extends BroadcastReceiver {
         if (!intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED)) return;
 
         LogUtil.i(TAG, "Received boot completed intent");
+
+        final boolean isUserProfile =
+                context.getSystemService(UserManager.class).isProfile();
+
+        if (isUserProfile) {
+            return;
+        }
 
         checkInIfNeeded(
                 ((PolicyObjectsInterface) context.getApplicationContext()).getStateController(),
