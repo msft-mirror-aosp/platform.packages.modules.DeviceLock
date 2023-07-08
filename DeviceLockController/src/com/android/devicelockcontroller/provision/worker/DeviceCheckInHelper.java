@@ -176,17 +176,8 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                         policies.getStateController(),
                         policies.getPolicyController());
             case RETRY_CHECK_IN:
-                Instant nextCheckinTime = response.getNextCheckInTime();
-
-                final Duration delay = Duration.between(Instant.now(),
-                        Instant.ofEpochSecond(
-                                nextCheckinTime.getEpochSecond(),
-                                nextCheckinTime.getNano()));
-                //TODO: Figure out whether there should be a minimum delay?
-                if (delay.isNegative()) {
-                    LogUtil.w(TAG, "Next check in date is not in the future");
-                    return false;
-                }
+                Duration delay = Duration.between(Instant.now(), response.getNextCheckInTime());
+                delay = delay.isNegative() ? Duration.ZERO : delay;
                 enqueueDeviceCheckInWork(false, delay);
                 return true;
             case STOP_CHECK_IN:

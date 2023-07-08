@@ -18,9 +18,11 @@ package com.android.devicelockcontroller.activities;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 
 import androidx.core.app.NotificationCompat;
@@ -35,6 +37,10 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
+
 /**
  * A utility class used to send notification.
  */
@@ -45,6 +51,16 @@ public final class DeviceLockNotificationManager {
     private static final String PROVISION_NOTIFICATION_CHANNEL_ID = "devicelock-provision";
     private static final String DEVICE_RESET_NOTIFICATION_TAG = "devicelock-device-reset";
     private static final int DEVICE_RESET_NOTIFICATION_ID = 0;
+    private static final int DEFER_ENROLLMENT_NOTIFICATION_ID = 1;
+
+    /**
+     * Similar to {@link #sendDeviceResetNotification(Context, int)}, except that:
+     * 1. The number of days to reset is always one.
+     * 2. The notification is ongoing.
+     */
+    public static void sendDeviceResetInOneDayOngoingNotification(Context context) {
+        sendDeviceResetNotification(context, /* days= */ 1, /* ongoing= */ true);
+    }
 
     /**
      * Send the device reset notification. The call is thread safe and can be called from any
@@ -54,12 +70,16 @@ public final class DeviceLockNotificationManager {
      * @param days    the number of days the reset will happen
      */
     public static void sendDeviceResetNotification(Context context, int days) {
+        sendDeviceResetNotification(context, days, /* ongoing= */ false);
+    }
+
+    private static void sendDeviceResetNotification(Context context, int days, boolean ongoing) {
         // TODO: check/request permission first
 
         // re-creating the same notification channel is essentially no-op
         createNotificationChannel(context);
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-        Futures.addCallback(createDeviceResetNotification(context, days),
+        Futures.addCallback(createDeviceResetNotification(context, days, ongoing),
                 new FutureCallback<>() {
                     @Override
                     public void onSuccess(Notification notification) {
@@ -75,13 +95,34 @@ public final class DeviceLockNotificationManager {
                 }, context.getMainExecutor());
     }
 
+    // Already requested POST_NOTIFICATION permission in ProvisionInfoFragment
+    @SuppressLint("MissingPermission")
+    public static void sendDeferredEnrollmentNotification(Context context,
+            Instant resumeTime, PendingIntent pendingIntent) {
+        createNotificationChannel(context);
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT);
+        String enrollmentResumeTime = timeFormatter.format(resumeTime);
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(
+                context, PROVISION_NOTIFICATION_CHANNEL_ID)
+                .setContentTitle(context.getString(R.string.device_enrollment_header_text))
+                .setContentText(context.getString(R.string.device_enrollment_notification_body_text,
+                        enrollmentResumeTime))
+                .setSmallIcon(R.drawable.ic_action_lock)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true);
+        NotificationManagerCompat notificationManager =
+                NotificationManagerCompat.from(context);
+        notificationManager.notify(DEFER_ENROLLMENT_NOTIFICATION_ID, notificationBuilder.build());
+    }
+
     private static ListenableFuture<Notification> createDeviceResetNotification(Context context,
-            int days) {
+            int days, boolean onging) {
         return Futures.transform(SetupParametersClient.getInstance().getKioskAppProviderName(),
                 providerName ->
                         // TODO: update the icon
                         new NotificationCompat.Builder(context, PROVISION_NOTIFICATION_CHANNEL_ID)
                                 .setSmallIcon(R.drawable.ic_action_lock)
+                                .setOngoing(onging)
                                 .setContentTitle(StringUtil.getPluralString(context, days,
                                         R.string.device_reset_in_days_notification_title))
                                 .setContentText(context.getString(

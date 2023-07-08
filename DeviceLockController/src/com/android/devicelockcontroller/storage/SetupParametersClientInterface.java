@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,18 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.policy;
+package com.android.devicelockcontroller.storage;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 /**
- * Interface to retrieve singleton objects.
+ * Interface for SetupParametersClient.
  */
-public interface PolicyObjectsInterface {
-    /** Returns an instance of DeviceStateController. */
-    DeviceStateController getStateController();
-
-    /** Returns an instance of DevicePolicyController. */
-    DevicePolicyController getPolicyController();
-
-    /** Returns an instance of SetupController. */
-    SetupController getSetupController();
-
-    /** Destroy all the singleton objects */
-    void destroyObjects();
+public interface SetupParametersClientInterface {
+    /**
+     * Get the name of the package implementing the kiosk app.
+     *
+     * @return kiosk app package name.
+     */
+    ListenableFuture<String> getKioskPackage();
 }

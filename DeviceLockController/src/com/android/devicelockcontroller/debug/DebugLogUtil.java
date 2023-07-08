@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.policy;
+package com.android.devicelockcontroller.debug;
+
+import com.android.devicelockcontroller.util.LogUtil;
 
 /**
- * Interface to retrieve singleton objects.
+ * Utility class to log stack trace for debugging purpose
  */
-public interface PolicyObjectsInterface {
-    /** Returns an instance of DeviceStateController. */
-    DeviceStateController getStateController();
+public final class DebugLogUtil {
+    private DebugLogUtil() {
+    }
 
-    /** Returns an instance of DevicePolicyController. */
-    DevicePolicyController getPolicyController();
-
-    /** Returns an instance of SetupController. */
-    SetupController getSetupController();
-
-    /** Destroy all the singleton objects */
-    void destroyObjects();
+    static <T> T logAndReturn(String tag, T result) {
+        String methodName = new Throwable().getStackTrace()[1].getMethodName();
+        LogUtil.d(tag, methodName + ": " + result);
+        return result;
+    }
 }

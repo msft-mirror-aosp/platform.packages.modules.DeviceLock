@@ -16,10 +16,13 @@
 
 package com.android.devicelockcontroller.provision.grpc;
 
+import android.os.Build;
+import android.os.SystemProperties;
 import android.util.Pair;
 
-import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
+
+import com.android.devicelockcontroller.util.LogUtil;
 
 import io.grpc.Status;
 
@@ -28,9 +31,10 @@ import io.grpc.Status;
  * Device finalize service.
  */
 public abstract class DeviceFinalizeClient {
-    private static final Object sInstanceLock = new Object();
-    @GuardedBy("sInstanceLock")
-    private static DeviceFinalizeClient sClient;
+    public static final String TAG = "DeviceFinalizeClient";
+    public static final String DEVICE_FINALIZE_CLIENT_DEBUG_CLASS_NAME =
+            "com.android.devicelockcontroller.debug.DeviceFinalizeClientDebug";
+    private static volatile DeviceFinalizeClient sClient;
     protected static String sEnrollmentToken = "";
     protected static String sRegisteredId = "";
     protected static String sHostName = "";
@@ -48,22 +52,32 @@ public abstract class DeviceFinalizeClient {
             Pair<String, String> apiKey,
             String registeredId,
             String enrollmentToken) {
-        synchronized (sInstanceLock) {
-            if (sClient == null) {
+        if (sClient == null) {
+            synchronized (DeviceFinalizeClient.class) {
+                // In case the initialization is already done by other thread use existing
+                // instance.
+                if (sClient != null) {
+                    return sClient;
+                }
                 sHostName = hostName;
                 sPortNumber = portNumber;
                 sRegisteredId = registeredId;
                 sEnrollmentToken = enrollmentToken;
                 sApiKey = apiKey;
                 try {
+                    if (Build.isDebuggable() && SystemProperties.getBoolean(
+                            "debug.devicelock.finalize", true)) {
+                        className = DEVICE_FINALIZE_CLIENT_DEBUG_CLASS_NAME;
+                    }
+                    LogUtil.d(TAG, "Creating instance for " + className);
                     Class<?> clazz = Class.forName(className);
                     sClient = (DeviceFinalizeClient) clazz.getDeclaredConstructor().newInstance();
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to get DeviceFinalizeClient instance", e);
                 }
             }
-            return sClient;
         }
+        return sClient;
     }
 
     /**

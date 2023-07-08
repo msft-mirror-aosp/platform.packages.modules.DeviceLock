@@ -54,4 +54,12 @@ public abstract class ReportDeviceProvisionStateGrpcResponse extends DeviceCheck
      */
     @Nullable
     public abstract String getEnrollmentToken();
+
+    /**
+     * Get the number of days left until the device should factory reset because of a failed
+     * provision. This number will be used to show a dismissible notification to the user.
+     *
+     * @return a non-negative number of days
+     */
+    public abstract int getDaysLeftUntilReset();
 }

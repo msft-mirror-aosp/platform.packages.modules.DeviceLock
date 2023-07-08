@@ -25,6 +25,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.Manifest;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -45,10 +46,14 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.provision.worker.PauseProvisioningWorker;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -62,8 +67,7 @@ public final class ProvisionInfoFragment extends Fragment {
             registerForActivityResult(new ActivityResultContracts.RequestPermission(),
                     isGranted -> {
                             if (isGranted) {
-                                // TODO(b/279608060): Add code to send sticky notification.
-                                getActivity().finish();
+                                createNotificationAndCloseActivity();
                             } else {
                                 Toast.makeText(getActivity(),
                                         R.string.toast_message_grant_notification_permission,
@@ -182,13 +186,16 @@ public final class ProvisionInfoFragment extends Fragment {
                     if (!isProvisionForced) {
                         previous.setOnClickListener(
                                 v -> {
+                                    WorkManager workManager =
+                                            WorkManager.getInstance(requireContext());
+                                    PauseProvisioningWorker
+                                            .reportProvisionPausedByUser(workManager);
                                     int notificationPermission = ContextCompat.checkSelfPermission(
                                             requireContext(),
                                             Manifest.permission.POST_NOTIFICATIONS);
                                     if (PackageManager.PERMISSION_GRANTED
                                             == notificationPermission) {
-                                        // TODO(b/279608060): Add code to send sticky notification.
-                                        getActivity().finish();
+                                        createNotificationAndCloseActivity();
                                     } else {
                                         requestPermissionLauncher.launch(
                                                 Manifest.permission.POST_NOTIFICATIONS);
@@ -196,5 +203,17 @@ public final class ProvisionInfoFragment extends Fragment {
                                 });
                     }
                 });
+    }
+
+    private void createNotificationAndCloseActivity() {
+        PendingIntent intent = PendingIntent.getActivity(
+                requireContext(),
+                /* requestCode= */ 0,
+                getActivity().getIntent(),
+                PendingIntent.FLAG_IMMUTABLE);
+        Instant resumeTime = Instant.now().plus(Duration.ofHours(1));
+        DeviceLockNotificationManager.sendDeferredEnrollmentNotification(requireContext(),
+                resumeTime, intent);
+        getActivity().finish();
     }
 }
