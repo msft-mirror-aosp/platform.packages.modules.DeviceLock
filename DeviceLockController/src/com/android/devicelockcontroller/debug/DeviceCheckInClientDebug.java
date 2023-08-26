@@ -153,7 +153,7 @@ public final class DeviceCheckInClientDebug extends DeviceCheckInClient {
      * Reports the current provision state of the device.
      */
     @Override
-    public ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(int reasonOfFailure,
+    public ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
             int lastReceivedProvisionState, boolean isSuccessful) {
         return new ReportDeviceProvisionStateGrpcResponse() {
             @Override
@@ -162,13 +162,6 @@ public final class DeviceCheckInClientDebug extends DeviceCheckInClient {
                 return DebugLogUtil.logAndReturn(TAG, SystemProperties.getInt(
                         "debug.devicelock.checkin.next-provision-state",
                         PROVISION_STATE_UNSPECIFIED));
-            }
-
-            @Nullable
-            @Override
-            public String getEnrollmentToken() {
-                // Not useful in local testing setup.
-                return null;
             }
 
             @Override
