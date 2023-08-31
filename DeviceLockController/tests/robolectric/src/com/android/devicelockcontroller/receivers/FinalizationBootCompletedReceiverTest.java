@@ -16,36 +16,43 @@
 
 package com.android.devicelockcontroller.receivers;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.Intent;
+import android.os.UserManager;
 
-import androidx.test.core.app.ApplicationProvider;
-
-import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
+import com.android.devicelockcontroller.DeviceLockControllerApplication;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 
 @RunWith(RobolectricTestRunner.class)
-public final class TimeChangedBroadcastReceiverTest {
-    private TestDeviceLockControllerApplication mTestApp;
-    private TimeChangedBroadcastReceiver mReceiver;
+public final class FinalizationBootCompletedReceiverTest {
+
+    public static final Intent INTENT = new Intent(Intent.ACTION_BOOT_COMPLETED);
+
+    @Mock
+    private DeviceLockControllerApplication mApp;
+    private FinalizationBootCompletedReceiver mReceiver;
 
     @Before
     public void setUp() {
-        mTestApp = ApplicationProvider.getApplicationContext();
-        mReceiver = new TimeChangedBroadcastReceiver();
+        MockitoAnnotations.initMocks(this);
+        when(mApp.getSystemService(UserManager.class)).thenReturn(mock(UserManager.class));
+        when(mApp.getApplicationContext()).thenReturn(mApp);
+        mReceiver = new FinalizationBootCompletedReceiver();
     }
 
     @Test
-    public void onReceive_shouldNotifySchedulerTimeChanged() {
-        // WHEN time changed broadcast received
-        mReceiver.onReceive(mTestApp, new Intent(Intent.ACTION_TIME_CHANGED));
+    public void onReceive_initializeFinalizationController() {
+        mReceiver.onReceive(mApp, INTENT);
 
-        // THEN should should notify scheduler time changed.
-        verify(mTestApp.getDeviceLockControllerScheduler()).notifyTimeChanged();
+        verify(mApp).getFinalizationController();
     }
 }

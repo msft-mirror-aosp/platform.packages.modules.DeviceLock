@@ -21,35 +21,27 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.UserManager;
 
-import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
-import com.android.devicelockcontroller.util.LogUtil;
+import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
 
 /**
- * Handle {@link Intent#ACTION_TIME_CHANGED}. This receiver runs for every user.
- * <p>
- * This receiver is responsible handle system time change and make corrections to the "expected to
- * run" time for scheduled work / alarm.
+ * Boot complete receiver to initialize finalization state on device.
  */
-public final class TimeChangedBroadcastReceiver extends BroadcastReceiver {
-
-    private static final String TAG = "TimeChangedBroadcastReceiver";
+public final class FinalizationBootCompletedReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (!intent.getAction().equals(Intent.ACTION_TIME_CHANGED)) {
-            return;
-        }
-
-        LogUtil.d(TAG, "Time changed.");
+        if (!intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED)) return;
 
         final boolean isUserProfile =
                 context.getSystemService(UserManager.class).isProfile();
+
         if (isUserProfile) {
+            // Not needed as the receiver will run in the parent user
             return;
         }
-        DeviceLockControllerSchedulerProvider schedulerProvider =
-                (DeviceLockControllerSchedulerProvider) context.getApplicationContext();
 
-        schedulerProvider.getDeviceLockControllerScheduler().notifyTimeChanged();
+        // Initialize finalization controller to apply device finalization state
+        ((PolicyObjectsInterface) context.getApplicationContext())
+                .getFinalizationController();
     }
 }
