@@ -30,9 +30,7 @@ import static com.android.devicelockcontroller.policy.ProvisionStateController.P
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_SUCCEEDED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
 
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.provider.Settings;
@@ -41,10 +39,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.work.WorkManager;
 
-import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
-import com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
@@ -123,7 +118,6 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
                             currentState -> {
                                 int newState = getNextState(currentState, event);
                                 UserParameters.setProvisionState(mContext, newState);
-                                handleNewState(newState);
                                 return newState;
                             }, mBgExecutor);
             // To prevent exception propagate to future state transitions, catch any exceptions
@@ -159,22 +153,6 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
                 throw new RuntimeException(t);
             }
         };
-    }
-
-    private void handleNewState(@ProvisionState int state) {
-        if (state == PROVISION_SUCCEEDED) {
-            ReportDeviceProvisionStateWorker.reportSetupCompleted(
-                    WorkManager.getInstance(mContext));
-        } else if (state == PROVISION_FAILED) {
-            ReportDeviceProvisionStateWorker.reportSetupFailed(
-                    WorkManager.getInstance(mContext));
-        } else if (state == PROVISION_IN_PROGRESS) {
-            mContext.getPackageManager().setComponentEnabledSetting(
-                    new ComponentName(mContext, LockedBootCompletedReceiver.class),
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
-        } else if (state == PROVISION_PAUSED) {
-            LogUtil.i(TAG, "Successfully handled new state");
-        }
     }
 
     @VisibleForTesting
