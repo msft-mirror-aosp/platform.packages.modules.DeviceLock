@@ -114,7 +114,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     public ListenableFuture<Boolean> isLocked() {
         return Futures.transformAsync(mProvisionStateController.getState(),
                 provisionState -> {
-                    if (provisionState == UNDEFINED) {
+                    if (provisionState == UNPROVISIONED) {
                         // Used for CTS compliance.
                         return Futures.immediateFuture(mPseudoDeviceState == LOCKED);
                     } else {
