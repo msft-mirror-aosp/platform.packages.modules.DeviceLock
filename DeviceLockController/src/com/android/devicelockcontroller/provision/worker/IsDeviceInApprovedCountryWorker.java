@@ -17,13 +17,13 @@
 package com.android.devicelockcontroller.provision.worker;
 
 import android.content.Context;
+import android.telephony.TelephonyManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.work.Data;
 import androidx.work.WorkerParameters;
 
-import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.IsDeviceInApprovedCountryGrpcResponse;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
@@ -33,22 +33,17 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Objects;
+
 /**
  * A worker class dedicated to check whether device is in approved country.
  * Note that this worker always returns {@link androidx.work.ListenableWorker.Result.Success}
  * regardless of the success of the underlying rpc.
- *
- * Child workers or observers should check input/output data for a boolean value associated with
- * {@link KEY_IS_IN_APPROVED_COUNTRY}:
- * - If a true boolean value presents, then device is in approved country;
- * - If a false boolean value presents, then device is not in approved country and provision should
- * fail due to {@link ProvisionFailureReason#NOT_IN_ELIGIBLE_COUNTRY};
- * - If no boolean value presents, then device country info is unavailable and provision should fail
- * due to {@link ProvisionFailureReason#COUNTRY_INFO_UNAVAILABLE};
+ * This worker only returns a successful result if it gets the country eligibility information from
+ * the server.
  */
 public final class IsDeviceInApprovedCountryWorker extends AbstractCheckInWorker {
 
-    public static final String KEY_CARRIER_INFO = "carrier-info";
     public static final String KEY_IS_IN_APPROVED_COUNTRY = "is-in-approved-country";
 
     public IsDeviceInApprovedCountryWorker(@NonNull Context context,
@@ -67,7 +62,8 @@ public final class IsDeviceInApprovedCountryWorker extends AbstractCheckInWorker
     @Override
     public ListenableFuture<Result> startWork() {
         return Futures.transform(mClient, client -> {
-            String carrierInfo = getInputData().getString(KEY_CARRIER_INFO);
+            String carrierInfo = Objects.requireNonNull(
+                    mContext.getSystemService(TelephonyManager.class)).getSimOperator();
             IsDeviceInApprovedCountryGrpcResponse response =
                     client.isDeviceInApprovedCountry(carrierInfo);
             ((StatsLoggerProvider) mContext.getApplicationContext()).getStatsLogger()
@@ -82,7 +78,7 @@ public final class IsDeviceInApprovedCountryWorker extends AbstractCheckInWorker
                 return Result.success(builder.putBoolean(KEY_IS_IN_APPROVED_COUNTRY,
                         response.isDeviceInApprovedCountry()).build());
             }
-            return Result.success();
+            return Result.failure();
         }, mExecutorService);
     }
 }

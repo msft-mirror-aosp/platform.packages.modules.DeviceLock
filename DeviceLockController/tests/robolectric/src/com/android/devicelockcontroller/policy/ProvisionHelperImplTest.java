@@ -17,12 +17,10 @@
 package com.android.devicelockcontroller.policy;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.PLAY_INSTALLATION_FAILED;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.UNKNOWN_REASON;
-import static com.android.devicelockcontroller.policy.ProvisionHelperImpl.INSTALLATION_TASKS_NAME;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_KIOSK;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_PAUSE;
+import static com.android.devicelockcontroller.provision.worker.IsDeviceInApprovedCountryWorker.KEY_IS_IN_APPROVED_COUNTRY;
 import static com.android.devicelockcontroller.provision.worker.PauseProvisioningWorker.REPORT_PROVISION_PAUSED_BY_USER_WORK;
 import static com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker.KEY_PROVISION_FAILURE_REASON;
 
@@ -59,6 +57,7 @@ import androidx.work.testing.WorkManagerTestInitHelper;
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.activities.ProvisioningProgress;
 import com.android.devicelockcontroller.activities.ProvisioningProgressController;
+import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
 import com.android.devicelockcontroller.provision.worker.IsDeviceInApprovedCountryWorker;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
 import com.android.devicelockcontroller.shadows.ShadowBuild;
@@ -128,18 +127,22 @@ public final class ProvisionHelperImplTest {
     }
 
     @Test
-    public void startProvisionFlow_isKioskAppPreinstalled_debuggableBuild()
-            throws ExecutionException, InterruptedException {
+    public void startProvisionFlow_kioskAppPreinstalled_inApprovedCountry_debuggableBuild()
+            throws Exception {
         // GIVEN build is debuggable build and kiosk app is installed.
         ShadowBuild.setIsDebuggable(true);
         setupSetupParameters();
         installKioskApp();
         setupLifecycle();
+        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.success(
+                new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, true).build()));
 
         // WHEN installation is executed
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
         shadowOf(Looper.getMainLooper()).idle();
+
+        executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
 
         // THEN go through correct ProvisioningProgress and advance to next state.
         verify(mProgressController, times(3)).setProvisioningProgress(
@@ -153,19 +156,57 @@ public final class ProvisionHelperImplTest {
     }
 
     @Test
+    public void startProvisionFlow_kioskAppPreinstalled_notInApprovedCountry_debuggableBuild()
+            throws Exception {
+        // GIVEN build is debuggable build and kiosk app is installed.
+        ShadowBuild.setIsDebuggable(true);
+        setupSetupParameters();
+        installKioskApp();
+        setupLifecycle();
+        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.success(
+                new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, false).build()));
+
+        // WHEN installation is executed
+        mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
+                mProgressController, /* isProvisionMandatory= */ true);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
+
+        // THEN report failure immediately and go through correct progresses and scheduled device
+        // reset alarm.
+        ListenableFuture<List<WorkInfo>> reportWorkFuture = WorkManager.getInstance(mTestApp)
+                .getWorkInfosForUniqueWork(
+                        ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME);
+        List<WorkInfo> reportWork = Futures.getChecked(reportWorkFuture, Exception.class);
+        assertThat(reportWork).isNotEmpty();
+
+        verify(mProgressController, times(2)).setProvisioningProgress(
+                mProvisioningProgressArgumentCaptor.capture());
+        List<ProvisioningProgress> allValues = mProvisioningProgressArgumentCaptor.getAllValues();
+        assertThat(allValues).containsExactlyElementsIn(
+                Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
+                        ProvisioningProgress.MANDATORY_FAILED_PROVISION));
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
+    }
+
+    @Test
     public void startProvisionFlow_nonDebuggableBuild_playInstall()
             throws Exception {
         // GIVEN build is non-debuggable build
         ShadowBuild.setIsDebuggable(false);
         setupSetupParameters();
         setupLifecycle();
+        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.success(
+                new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, true).build()));
 
         // WHEN installation is scheduled and successfully executed.
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
         shadowOf(Looper.getMainLooper()).idle();
 
-        executeInstallationWorks();
+        executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
+        executeWork(mTestApp.getPlayInstallPackageTaskClass().getSimpleName());
 
         // THEN should go through correct provisioning progress and advance to next state
         verify(mProgressController, times(3)).setProvisioningProgress(
@@ -185,13 +226,16 @@ public final class ProvisionHelperImplTest {
         ShadowBuild.setIsDebuggable(true);
         setupSetupParameters();
         setupLifecycle();
+        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.success(
+                new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, true).build()));
 
         // WHEN installation is scheduled and successfully executed.
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
         shadowOf(Looper.getMainLooper()).idle();
 
-        executeInstallationWorks();
+        executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
+        executeWork(mTestApp.getPlayInstallPackageTaskClass().getSimpleName());
 
         // THEN go through correct provisioning progress and advance to next state
         verify(mProgressController, times(3)).setProvisioningProgress(
@@ -239,6 +283,8 @@ public final class ProvisionHelperImplTest {
         ShadowBuild.setIsDebuggable(false);
         setupSetupParameters();
         setupLifecycle();
+        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.success(
+                new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, true).build()));
         mTestWorkerFactory.setPlayInstallTaskResult(Result.failure());
 
         // WHEN mandatory provisioning installation fails
@@ -246,7 +292,8 @@ public final class ProvisionHelperImplTest {
                 mProgressController, /* isProvisionMandatory= */ true);
         shadowOf(Looper.getMainLooper()).idle();
 
-        executeInstallationWorks();
+        executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
+        executeWork(mTestApp.getPlayInstallPackageTaskClass().getSimpleName());
 
         // THEN report failure immediately and go through correct progresses and scheduled device
         // reset alarm.
@@ -274,6 +321,8 @@ public final class ProvisionHelperImplTest {
         ShadowBuild.setIsDebuggable(false);
         setupSetupParameters();
         setupLifecycle();
+        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.success(
+                new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, true).build()));
         mTestWorkerFactory.setPlayInstallTaskResult(Result.failure(
                 new Data.Builder().putInt(KEY_PROVISION_FAILURE_REASON,
                         PLAY_INSTALLATION_FAILED).build()));
@@ -283,7 +332,8 @@ public final class ProvisionHelperImplTest {
                 mProgressController, /* isProvisionMandatory= */ false);
         shadowOf(Looper.getMainLooper()).idle();
 
-        executeInstallationWorks();
+        executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
+        executeWork(mTestApp.getPlayInstallPackageTaskClass().getSimpleName());
 
         // THEN failure is not reported and reset alarm is not scheduled and go through correct
         // provisioning progress.
@@ -305,37 +355,30 @@ public final class ProvisionHelperImplTest {
     }
 
     @Test
-    public void
-            fetchGeoEligibilityFailed_nonMandatory_doNotReportProvisionFailureAndScheduleReset()
+    public void fetchGeoEligibilityFailed_nonMandatory_doNotReportProvisionFailureAndScheduleReset()
             throws Exception {
         // GIVEN build is not debuggable and country info is unavailable.
         ShadowBuild.setIsDebuggable(false);
         setupSetupParameters();
         setupLifecycle();
-        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.failure(
-                new Data.Builder().putInt(KEY_PROVISION_FAILURE_REASON,
-                        COUNTRY_INFO_UNAVAILABLE).build()));
+        mTestWorkerFactory.setIsDeviceInApprovedCountryResult(Result.failure());
 
         // WHEN non-mandatory provisioning installation fails.
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
         shadowOf(Looper.getMainLooper()).idle();
 
-        executeInstallationWorks();
+        executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
 
         // THEN should go through correct progresses and not report failure and not schedule device
         // reset alarm.
-        verify(mProgressController, times(3)).setProvisioningProgress(
+        verify(mProgressController, times(2)).setProvisioningProgress(
                 mProvisioningProgressArgumentCaptor.capture());
         List<ProvisioningProgress> allValues = mProvisioningProgressArgumentCaptor.getAllValues();
         assertThat(allValues).containsExactlyElementsIn(
                 Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
-                        ProvisioningProgress.INSTALLING_KIOSK_APP,
                         ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
-                                /* Intended to use UNKNOWN_REASON instead of
-                                COUNTRY_INFO_UNAVAILABLE, because output data does not pass
-                                through work chain when fails */
-                                UNKNOWN_REASON)));
+                                ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE)));
         ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mTestApp)
                 .getWorkInfosForUniqueWork(
                         ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME);
@@ -345,14 +388,13 @@ public final class ProvisionHelperImplTest {
                 never()).scheduleMandatoryResetDeviceAlarm();
     }
 
-    private void executeInstallationWorks() throws Exception {
+    private void executeWork(String uniqueWorkName) throws Exception {
         ListenableFuture<List<WorkInfo>> installationWorksFuture = WorkManager.getInstance(
-                mTestApp).getWorkInfosForUniqueWork(INSTALLATION_TASKS_NAME);
+                mTestApp).getWorkInfosForUniqueWork(uniqueWorkName);
         List<WorkInfo> installationWorks = Futures.getChecked(installationWorksFuture,
                 Exception.class);
-        assertThat(installationWorks.size()).isEqualTo(2);
+        assertThat(installationWorks.size()).isEqualTo(1);
         mTestDriver.setAllConstraintsMet(installationWorks.get(0).getId());
-        mTestDriver.setAllConstraintsMet(installationWorks.get(1).getId());
         ShadowLooper.runUiThreadTasks();
     }
 
