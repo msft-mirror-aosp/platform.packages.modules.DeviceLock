@@ -162,17 +162,23 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
 
     @Override
     public ListenableFuture<Void> enforceCurrentPolicies() {
-        return Futures.transformAsync(enforceCurrentPoliciesWithoutStartingLockTaskMode(
+        return Futures.transform(enforceCurrentPoliciesWithoutStartingLockTaskMode(
                         /* failure= */ false),
-                this::startLockTaskModeIfNeeded,
+                mode -> {
+                    startLockTaskModeIfNeeded(mode);
+                    return null;
+                },
                 mBgExecutor);
     }
 
     @Override
     public ListenableFuture<Void> enforceCurrentPoliciesForCriticalFailure() {
-        return Futures.transformAsync(enforceCurrentPoliciesWithoutStartingLockTaskMode(
+        return Futures.transform(enforceCurrentPoliciesWithoutStartingLockTaskMode(
                         /* failure= */ true),
-                this::startLockTaskModeIfNeeded,
+                mode -> {
+                    startLockTaskModeIfNeeded(mode);
+                    return null;
+                },
                 mBgExecutor);
     }
 
@@ -427,22 +433,33 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
     @Override
     public ListenableFuture<Void> onUserUnlocked() {
         return Futures.transformAsync(mProvisionStateController.onUserUnlocked(),
-                unused -> Futures.transformAsync(getCurrentEnforcedLockTaskType(),
-                        this::startLockTaskModeIfNeeded,
+                unused -> Futures.transform(getCurrentEnforcedLockTaskType(),
+                        mode -> {
+                            startLockTaskModeIfNeeded(mode);
+                            return null;
+                        },
                         mBgExecutor),
                 mBgExecutor);
     }
 
     @Override
+    public ListenableFuture<Void> onUserSetupCompleted() {
+        return mProvisionStateController.onUserSetupCompleted();
+    }
+
+    @Override
     public ListenableFuture<Void> onKioskAppCrashed() {
-        return Futures.transformAsync(getCurrentEnforcedLockTaskType(),
-                this::startLockTaskModeIfNeeded,
+        return Futures.transform(getCurrentEnforcedLockTaskType(),
+                mode -> {
+                    startLockTaskModeIfNeeded(mode);
+                    return null;
+                },
                 mBgExecutor);
     }
 
-    private ListenableFuture<Void> startLockTaskModeIfNeeded(@LockTaskType Integer type) {
+    private void startLockTaskModeIfNeeded(@LockTaskType Integer type) {
         if (type == LockTaskType.NOT_IN_LOCK_TASK || !mUserManager.isUserUnlocked()) {
-            return Futures.immediateVoidFuture();
+            return;
         }
         WorkManager workManager = WorkManager.getInstance(mContext);
         OneTimeWorkRequest startLockTask = new OneTimeWorkRequest.Builder(
@@ -451,8 +468,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                 .setBackoffCriteria(BackoffPolicy.LINEAR,
                         START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS)
                 .build();
-        return Futures.transform(workManager.enqueueUniqueWork(
-                START_LOCK_TASK_MODE_WORK_NAME, ExistingWorkPolicy.REPLACE,
-                startLockTask).getResult(), unused -> null, MoreExecutors.directExecutor());
+        workManager.enqueueUniqueWork(START_LOCK_TASK_MODE_WORK_NAME, ExistingWorkPolicy.REPLACE,
+                startLockTask);
     }
 }

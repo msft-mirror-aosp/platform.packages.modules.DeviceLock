@@ -17,21 +17,18 @@
 package com.android.devicelockcontroller.receivers;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 
 import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
-import com.android.devicelockcontroller.storage.GlobalParametersClient;
-import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -63,39 +60,34 @@ public final class CheckInBootCompletedReceiver extends BroadcastReceiver {
         LogUtil.i(TAG, "Received boot completed intent");
 
         if (!context.getUser().isSystem()) {
-            throw new IllegalStateException(
-                    "This receiver should not run on anything besides the system user");
+            // This is not *supposed* to happen since the receiver is marked systemUserOnly but
+            // there seems to be some edge case where it does. See b/304318606.
+            // In this case, we'll just disable and return early.
+            LogUtil.w(TAG, "Called check in boot receiver on non-system user!");
+            disableCheckInBootCompletedReceiver(context);
+            return;
         }
-        Context applicationContext = context.getApplicationContext();
-        DeviceLockControllerSchedulerProvider schedulerProvider =
-                (DeviceLockControllerSchedulerProvider) applicationContext;
-        DeviceLockControllerScheduler scheduler =
-                schedulerProvider.getDeviceLockControllerScheduler();
-        ListenableFuture<Boolean> needReschedule = Futures.transformAsync(
-                Futures.submit(() -> UserParameters.needInitialCheckIn(context), mExecutor),
-                needCheckIn -> {
-                    if (needCheckIn) {
-                        scheduler.scheduleInitialCheckInWork();
-                        return Futures.immediateFuture(false);
-                    } else {
-                        return Futures.transform(
-                                GlobalParametersClient.getInstance().isProvisionReady(),
-                                ready -> !ready, MoreExecutors.directExecutor());
-                    }
-                }, mExecutor);
-        Futures.addCallback(needReschedule,
-                new FutureCallback<>() {
-                    @Override
-                    public void onSuccess(Boolean result) {
-                        if (result) {
-                            scheduler.notifyNeedRescheduleCheckIn();
-                        }
-                    }
 
-                    @Override
-                    public void onFailure(Throwable t) {
-                        throw new RuntimeException(t);
-                    }
-                }, mExecutor);
+        final DeviceLockControllerSchedulerProvider schedulerProvider =
+                (DeviceLockControllerSchedulerProvider) context.getApplicationContext();
+        final DeviceLockControllerScheduler scheduler =
+                schedulerProvider.getDeviceLockControllerScheduler();
+
+        ListenableFuture<Void> scheduleCheckIn = scheduler.maybeScheduleInitialCheckIn();
+
+        final PendingResult pendingResult = goAsync();
+
+        scheduleCheckIn.addListener(pendingResult::finish, mExecutor);
+    }
+
+    /**
+     * Disable the receiver for the current user
+     *
+     * @param context context of current user
+     */
+    public static void disableCheckInBootCompletedReceiver(Context context) {
+        context.getPackageManager().setComponentEnabledSetting(
+                new ComponentName(context, CheckInBootCompletedReceiver.class),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
     }
 }

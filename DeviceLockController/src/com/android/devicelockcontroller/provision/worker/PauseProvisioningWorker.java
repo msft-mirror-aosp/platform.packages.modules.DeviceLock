@@ -23,6 +23,7 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
@@ -33,14 +34,13 @@ import androidx.work.WorkerParameters;
 
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.PauseDeviceProvisioningGrpcResponse;
+import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.util.LogUtil;
-import com.android.devicelockcontroller.stats.StatsLogger;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * Despite the naming, this worker class is only to report provision has been paused by user to
@@ -67,6 +67,7 @@ public final class PauseProvisioningWorker extends AbstractCheckInWorker {
         OneTimeWorkRequest work =
                 new OneTimeWorkRequest.Builder(PauseProvisioningWorker.class)
                         .setConstraints(constraints)
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY)
                         .setInputData(inputData)
                         .build();
         workManager.enqueueUniqueWork(REPORT_PROVISION_PAUSED_BY_USER_WORK,
@@ -95,14 +96,16 @@ public final class PauseProvisioningWorker extends AbstractCheckInWorker {
                     REASON_UNSPECIFIED);
             PauseDeviceProvisioningGrpcResponse response = client.pauseDeviceProvisioning(reason);
             if (response.hasRecoverableError()) {
+                LogUtil.w(TAG, "Report paused provisioning failed w/ recoverable error" + response
+                        + "\nRetrying...");
                 return Result.retry();
             }
             if (response.isSuccessful()) {
                 mStatsLogger.logPauseDeviceProvisioning();
                 return Result.success();
             }
-            LogUtil.w(TAG, "Pause provisioning request failed: " + response);
+            LogUtil.e(TAG, "Pause provisioning request failed: " + response);
             return Result.failure();
-        }, MoreExecutors.directExecutor());
+        }, mExecutorService);
     }
 }

@@ -188,10 +188,15 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     DeviceLockServiceImpl(@NonNull Context context) {
+        this(context, context.getSystemService(TelephonyManager.class));
+    }
+
+    @VisibleForTesting
+    DeviceLockServiceImpl(@NonNull Context context, TelephonyManager telephonyManager) {
         mContext = context;
+        mTelephonyManager = telephonyManager;
 
         mRoleManager = context.getSystemService(RoleManager.class);
-        mTelephonyManager = context.getSystemService(TelephonyManager.class);
         mAppOpsManager = context.getSystemService(AppOpsManager.class);
 
         mDeviceLockControllerConnectors = new ArrayMap<>();
@@ -291,6 +296,22 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                     @Override
                     public void onError(Exception ex) {
                         Slog.e(TAG, "Exception reporting user unlocked for: " + userHandle, ex);
+                    }
+                });
+    }
+
+    void onUserSetupCompleted(UserHandle userHandle) {
+        getDeviceLockControllerConnector(userHandle).onUserSetupCompleted(
+                new OutcomeReceiver<>() {
+                    @Override
+                    public void onResult(Void ignored) {
+                        Slog.i(TAG, "User set up complete reported for: " + userHandle);
+                    }
+
+                    @Override
+                    public void onError(Exception ex) {
+                        Slog.e(TAG, "Exception reporting user setup complete for: " + userHandle,
+                                ex);
                     }
                 });
     }

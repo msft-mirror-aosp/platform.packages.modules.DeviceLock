@@ -15,6 +15,7 @@
  */
 
 package com.android.devicelockcontroller.stats;
+
 import com.android.devicelockcontroller.DevicelockStatsLog;
 
 /**
@@ -35,15 +36,16 @@ public interface StatsLogger {
     void logPauseDeviceProvisioning();
 
     /**
-     * Logs the analytics event of successfully completing the device provisioning.
-     */
-    void logReportDeviceProvisioningComplete();
-
-    /**
      * Logs the analytics event of successfully reporting the device provisioning state to the
      * server.
      */
     void logReportDeviceProvisionState();
+
+    /**
+     * Logs the analytics event of receiving a result from the server of the
+     * IsDeviceInApprovedCountry gRPC call.
+     */
+    void logIsDeviceInApprovedCountry();
 
     /**
      * Logs the analytics event of receiving a request from the Kisok app.
@@ -51,4 +53,16 @@ public interface StatsLogger {
      * @param uid The UID of the Kiosk app, which can be acquired from the PackageManager.
      */
     void logKioskAppRequest(int uid);
+
+    /**
+     * Logs the analytics event of starting the provisioning process, starting the Kiosk app, and
+     * the time elapsed in between.
+     */
+    void logProvisioningComplete(long timeSpentInProvisioningMillis);
+
+    /**
+     * Logs the analytics event of resetting the device due to a failed provisioning.
+     * @param isProvisioningMandatory True if the provision is mandatory, false otherwise.
+     */
+    void logDeviceReset(boolean isProvisioningMandatory);
 }

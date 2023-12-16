@@ -48,8 +48,9 @@
     <string name="device_provided_by_provider" msgid="290593329676291991">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> നൽകിയ ഉപകരണമാണിത്"</string>
     <string name="download_kiosk_app" msgid="1845089944897502656">"കിയോസ്‌ക് ആപ്പ് സ്വയമേവ ഡൗൺലോഡ് ചെയ്ത് ഇൻസ്റ്റാൾ ചെയ്യും"</string>
     <string name="install_kiosk_app_secondary_user" msgid="49911908012320834">"ഈ ഉപയോക്താവിന് കിയോസ്‌ക് ആപ്പ് ഇൻസ്‌റ്റാൾ ചെയ്യും"</string>
-    <string name="restrict_device_if_missing_payment" msgid="2907880869705064855">"നിങ്ങൾ ഒരു പേയ്‌മെന്റ് വിട്ടുപോയാൽ <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> എന്നതിന് ഈ ഉപകരണം നിയന്ത്രിക്കാനാകും"</string>
+    <string name="restrict_device_if_missing_payment" msgid="8883980285859496904">"നിങ്ങൾ ഒരു പേയ്‌മെന്റ് വിട്ടുപോയാൽ <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> എന്നതിന് ഈ ഉപകരണം നിയന്ത്രിക്കാനാകും. വിശദാംശങ്ങൾക്ക്, <xliff:g id="TERMS_AND_CONDITIONS_LINK_START">&lt;a href=%2$s&gt;</xliff:g>നിബന്ധനകളും വ്യവസ്ഥകളും<xliff:g id="TERMS_AND_CONDITIONS_LINK_END">&lt;/a&gt;</xliff:g> കാണുക."</string>
     <string name="restrict_device_if_dont_make_payment" msgid="1619095674945507015">"നിങ്ങൾ ആവശ്യമായ പേയ്‌മെന്റുകൾ നടത്തുന്നില്ലെങ്കിൽ <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> എന്നതിന് ഈ ഉപകരണം നിയന്ത്രിക്കാനാകും. വിശദാംശങ്ങൾക്ക്, <xliff:g id="TERMS_AND_CONDITIONS_LINK_START">&lt;a href=%2$s&gt;</xliff:g>നിബന്ധനകളും വ്യവസ്ഥകളും<xliff:g id="TERMS_AND_CONDITIONS_LINK_END">&lt;/a&gt;</xliff:g> കാണുക."</string>
+    <string name="contact_provider_for_help" msgid="3872028089834808884">"സഹായത്തിന് <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g>എന്നതിനെ ബന്ധപ്പെടുക<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="previous" msgid="5241891780917802570">"മുമ്പത്തേത്"</string>
     <string name="next" msgid="8248291863254324326">"അടുത്തത്"</string>
     <string name="start" msgid="2842214844667658537">"ആരംഭിക്കുക"</string>
@@ -115,6 +116,14 @@
     <string name="settings_restrictions_removed_preference_key" msgid="7741933477145197391">"settings_restrictions_removed_preference_key"</string>
     <string name="settings_uninstall_kiosk_app" msgid="2611134364295637875">"നിങ്ങൾക്ക് <xliff:g id="KIOSK_APP">%1$s</xliff:g> ആപ്പ് അൺഇൻസ്‌റ്റാൾ ചെയ്യാം"</string>
     <string name="settings_uninstall_kiosk_app_preference_key" msgid="5578103644009268125">"settings_uninstall_kiosk_app_preference_key"</string>
+    <!-- no translation found for settings_support_category (7210906871924935770) -->
+    <skip />
+    <!-- no translation found for settings_support_category_preference_key (1818953199283261021) -->
+    <skip />
+    <!-- no translation found for settings_contact_provider (2481819956474692039) -->
+    <skip />
+    <!-- no translation found for settings_contact_provider_preference_key (2703619536229342624) -->
+    <skip />
     <string name="provision_notification_channel_name" msgid="6123500714047647805">"പ്രൊവിഷൻ"</string>
     <string name="device_reset_in_days_notification_title" msgid="920859483535317727">"{count,plural, =1{ഒരു ദിവസത്തിനുള്ളിൽ ഉപകരണം റീസെറ്റ് ചെയ്യും}other{# ദിവസത്തിനുള്ളിൽ ഉപകരണം റീസെറ്റ് ചെയ്യും}}"</string>
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"<xliff:g id="TIMER">%s</xliff:g>-നുള്ളിൽ ഉപകരണം റീസെറ്റ് ചെയ്യും"</string>

@@ -48,8 +48,9 @@
     <string name="device_provided_by_provider" msgid="290593329676291991">"Thiết bị này do <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> cung cấp"</string>
     <string name="download_kiosk_app" msgid="1845089944897502656">"Ứng dụng Kiosk sẽ tự động được tải xuống và cài đặt"</string>
     <string name="install_kiosk_app_secondary_user" msgid="49911908012320834">"Ứng dụng Kiosk sẽ được cài đặt cho người dùng này"</string>
-    <string name="restrict_device_if_missing_payment" msgid="2907880869705064855">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> có thể hạn chế thiết bị này nếu bạn không thanh toán kịp thời"</string>
+    <string name="restrict_device_if_missing_payment" msgid="8883980285859496904">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> có thể hạn chế thiết bị này nếu bạn không thanh toán kịp thời. Để biết thông tin chi tiết, hãy xem <xliff:g id="TERMS_AND_CONDITIONS_LINK_START">&lt;a href=%2$s&gt;</xliff:g>Điều khoản và điều kiện<xliff:g id="TERMS_AND_CONDITIONS_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="restrict_device_if_dont_make_payment" msgid="1619095674945507015">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> có thể hạn chế thiết bị này nếu bạn không thanh toán những khoản cần thiết. Để biết thông tin chi tiết, hãy xem <xliff:g id="TERMS_AND_CONDITIONS_LINK_START">&lt;a href=%2$s&gt;</xliff:g>Điều khoản và điều kiện<xliff:g id="TERMS_AND_CONDITIONS_LINK_END">&lt;/a&gt;</xliff:g>."</string>
+    <string name="contact_provider_for_help" msgid="3872028089834808884">"Để được trợ giúp, hãy <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>liên hệ với <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="previous" msgid="5241891780917802570">"Trước"</string>
     <string name="next" msgid="8248291863254324326">"Tiếp theo"</string>
     <string name="start" msgid="2842214844667658537">"Bắt đầu"</string>
@@ -115,6 +116,14 @@
     <string name="settings_restrictions_removed_preference_key" msgid="7741933477145197391">"settings_restrictions_removed_preference_key"</string>
     <string name="settings_uninstall_kiosk_app" msgid="2611134364295637875">"Bạn có thể gỡ cài đặt ứng dụng <xliff:g id="KIOSK_APP">%1$s</xliff:g>"</string>
     <string name="settings_uninstall_kiosk_app_preference_key" msgid="5578103644009268125">"settings_uninstall_kiosk_app_preference_key"</string>
+    <!-- no translation found for settings_support_category (7210906871924935770) -->
+    <skip />
+    <!-- no translation found for settings_support_category_preference_key (1818953199283261021) -->
+    <skip />
+    <!-- no translation found for settings_contact_provider (2481819956474692039) -->
+    <skip />
+    <!-- no translation found for settings_contact_provider_preference_key (2703619536229342624) -->
+    <skip />
     <string name="provision_notification_channel_name" msgid="6123500714047647805">"Cấp vốn"</string>
     <string name="device_reset_in_days_notification_title" msgid="920859483535317727">"{count,plural, =1{Thiết bị sẽ đặt lại sau 1 ngày}other{Thiết bị sẽ đặt lại sau # ngày}}"</string>
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Thiết bị sẽ đặt lại sau <xliff:g id="TIMER">%s</xliff:g>"</string>

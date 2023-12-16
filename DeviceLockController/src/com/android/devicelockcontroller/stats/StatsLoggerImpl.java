@@ -17,14 +17,30 @@
 package com.android.devicelockcontroller.stats;
 
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__GET_DEVICE_CHECK_IN_STATUS;
+import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__IS_DEVICE_IN_APPROVED_COUNTRY;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__PAUSE_DEVICE_PROVISIONING;
-import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__REPORT_DEVICE_PROVISIONING_COMPLETE;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__REPORT_DEVICE_PROVISION_STATE;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_KIOSK_APP_REQUEST_REPORTED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISIONING_COMPLETE_REPORTED;
 
 import com.android.devicelockcontroller.DevicelockStatsLog;
 
+import com.android.modules.expresslog.Counter;
+
+import java.util.concurrent.TimeUnit;
+
 public final class StatsLoggerImpl implements StatsLogger{
+    // The Telemetry Express metric ID for the counter of device reset due to failure of mandatory
+    // provisioning. As defined in
+    // platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_DEVICE_RESET_PROVISION_MANDATORY =
+            "device_lock.value_resets_unsuccessful_provisioning_mandatory";
+    // The Telemetry Express metric ID for the counter of device reset due to failure of deferred
+    // provisioning. As defined in
+    // platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_DEVICE_RESET_PROVISION_DEFERRED =
+            "device_lock.value_resets_unsuccessful_provisioning_deferred";
+
     @Override
     public void logGetDeviceCheckInStatus() {
         DevicelockStatsLog.write(DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED,
@@ -38,19 +54,34 @@ public final class StatsLoggerImpl implements StatsLogger{
     }
 
     @Override
-    public void logReportDeviceProvisioningComplete() {
-        DevicelockStatsLog.write(DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED,
-                DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__REPORT_DEVICE_PROVISIONING_COMPLETE);
-    }
-
-    @Override
     public void logReportDeviceProvisionState() {
         DevicelockStatsLog.write(DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED,
                 DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__REPORT_DEVICE_PROVISION_STATE);
     }
 
     @Override
+    public void logIsDeviceInApprovedCountry() {
+        DevicelockStatsLog.write(DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED,
+                DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__IS_DEVICE_IN_APPROVED_COUNTRY);
+    }
+
+    @Override
     public void logKioskAppRequest(int uid) {
         DevicelockStatsLog.write(DEVICE_LOCK_KIOSK_APP_REQUEST_REPORTED, uid);
+    }
+
+    @Override
+    public void logProvisioningComplete(long timeSpentInProvisioningMillis) {
+        DevicelockStatsLog.write(DEVICE_LOCK_PROVISIONING_COMPLETE_REPORTED,
+                TimeUnit.MILLISECONDS.toSeconds(timeSpentInProvisioningMillis));
+    }
+
+    @Override
+    public void logDeviceReset(boolean isProvisioningMandatory) {
+        if (isProvisioningMandatory) {
+            Counter.logIncrement(TEX_ID_DEVICE_RESET_PROVISION_MANDATORY);
+        } else {
+            Counter.logIncrement(TEX_ID_DEVICE_RESET_PROVISION_DEFERRED);
+        }
     }
 }
