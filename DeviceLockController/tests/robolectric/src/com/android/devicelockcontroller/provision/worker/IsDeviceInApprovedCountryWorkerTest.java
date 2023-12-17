@@ -119,10 +119,10 @@ public final class IsDeviceInApprovedCountryWorkerTest {
     }
 
     @Test
-    public void doWork_responseIsNotSuccessful_successResultAndLog() {
+    public void doWork_responseIsNotSuccessful_failureResultAndLog() {
         when(mResponse.isSuccessful()).thenReturn(false);
         when(mResponse.isDeviceInApprovedCountry()).thenReturn(false);
-        Result expected = Result.success();
+        Result expected = Result.failure();
 
         Result actual = Futures.getUnchecked(mWorker.startWork());
 
