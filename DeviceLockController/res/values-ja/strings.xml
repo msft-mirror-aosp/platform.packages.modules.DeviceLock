@@ -20,7 +20,7 @@
     <string name="app_name" msgid="5655878067457216814">"DeviceLockController"</string>
     <string name="next_button" msgid="1856423430963548653">"次へ"</string>
     <string name="reset_button" msgid="4649354411129240809">"リセット"</string>
-    <string name="setup_more_button" msgid="4456370972302510109">"その他"</string>
+    <string name="setup_more_button" msgid="4456370972302510109">"続きを見る"</string>
     <string name="setup_info_title_text" msgid="299562193092219293">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> がこのデバイスを管理する仕組み"</string>
     <string name="setup_failed_title_text" msgid="9045111389981992536">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> アプリをインストールできません"</string>
     <string name="setup_failed_reset_device_text" msgid="178419033440060908">"デバイスをリセットしてもう一度お試しください。"</string>
