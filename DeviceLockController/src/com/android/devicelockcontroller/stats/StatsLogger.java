@@ -26,7 +26,8 @@ import com.android.devicelockcontroller.DevicelockStatsLog;
  */
 public interface StatsLogger {
     /**
-     * Logs the analytics event of successfully getting device check in status from the server.
+     * Logs the analytics event of attempting to get device check in status from the server,
+     * regardless if the result is successful.
      */
     void logGetDeviceCheckInStatus();
 
