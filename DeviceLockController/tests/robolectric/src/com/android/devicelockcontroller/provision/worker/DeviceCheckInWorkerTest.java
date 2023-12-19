@@ -124,6 +124,7 @@ public class DeviceCheckInWorkerTest {
         assertThat(result).isEqualTo(Result.success());
         // THEN check in request was logged
         verify(mStatsLogger).logGetDeviceCheckInStatus();
+        verify(mStatsLogger).logSuccessfulCheckIn();
     }
 
     @Test
@@ -142,6 +143,7 @@ public class DeviceCheckInWorkerTest {
         assertThat(result).isEqualTo(Result.retry());
         // THEN check in request was logged
         verify(mStatsLogger).logGetDeviceCheckInStatus();
+        verify(mStatsLogger).logSuccessfulCheckIn();
     }
 
     @Test
@@ -160,6 +162,7 @@ public class DeviceCheckInWorkerTest {
         assertThat(result).isEqualTo(Result.retry());
         // THEN check in request was NOT logged
         verify(mStatsLogger, never()).logGetDeviceCheckInStatus();
+        verify(mStatsLogger, never()).logSuccessfulCheckIn();
     }
 
     @Test
@@ -184,6 +187,7 @@ public class DeviceCheckInWorkerTest {
         verify(scheduler).scheduleRetryCheckInWork(eq(RETRY_ON_FAILURE_DELAY));
         // THEN check in request was NOT logged
         verify(mStatsLogger, never()).logGetDeviceCheckInStatus();
+        verify(mStatsLogger, never()).logSuccessfulCheckIn();
     }
 
     @Test

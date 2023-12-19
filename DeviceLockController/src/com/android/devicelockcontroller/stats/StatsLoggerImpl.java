@@ -40,6 +40,11 @@ public final class StatsLoggerImpl implements StatsLogger{
     // platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
     static final String TEX_ID_DEVICE_RESET_PROVISION_DEFERRED =
             "device_lock.value_resets_unsuccessful_provisioning_deferred";
+    // The Telemetry Express metric ID for the counter of a successful check in request. As
+    // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_SUCCESSFUL_CHECK_IN_RESPONSE_COUNT =
+            "device_lock.value_successful_check_in_response_count";
+    private static final String TAG = "StatsLogger";
 
     @Override
     public void logGetDeviceCheckInStatus() {
@@ -83,5 +88,10 @@ public final class StatsLoggerImpl implements StatsLogger{
         } else {
             Counter.logIncrement(TEX_ID_DEVICE_RESET_PROVISION_DEFERRED);
         }
+    }
+
+    @Override
+    public void logSuccessfulCheckIn() {
+        Counter.logIncrement(TEX_ID_SUCCESSFUL_CHECK_IN_RESPONSE_COUNT);
     }
 }

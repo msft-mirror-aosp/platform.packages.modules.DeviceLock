@@ -98,6 +98,7 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         }
                         if (response.isSuccessful()) {
                             mStatsLogger.logGetDeviceCheckInStatus();
+                            mStatsLogger.logSuccessfulCheckIn();
                             return mCheckInHelper.handleGetDeviceCheckInStatusResponse(response,
                                     scheduler)
                                     ? Result.success()

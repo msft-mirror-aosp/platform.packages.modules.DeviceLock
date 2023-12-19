@@ -65,4 +65,9 @@ public interface StatsLogger {
      * @param isProvisioningMandatory True if the provision is mandatory, false otherwise.
      */
     void logDeviceReset(boolean isProvisioningMandatory);
+
+    /**
+     * Logs the analytics event of receiving a successful check in response.
+     */
+    void logSuccessfulCheckIn();
 }
