@@ -155,6 +155,10 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
                                     UserParameters.setProvisioningStartTimeMillis(mContext,
                                             SystemClock.elapsedRealtime());
                                 }
+                                if (PROVISION_SUCCESS == event) {
+                                    ((StatsLoggerProvider) mContext.getApplicationContext())
+                                            .getStatsLogger().logSuccessfulProvisioning();
+                                }
                                 return newState;
                             }, mBgExecutor);
             // To prevent exception propagate to future state transitions, catch any exceptions

@@ -44,6 +44,10 @@ public final class StatsLoggerImpl implements StatsLogger{
     // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
     static final String TEX_ID_SUCCESSFUL_CHECK_IN_RESPONSE_COUNT =
             "device_lock.value_successful_check_in_response_count";
+    // The Telemetry Express metric ID for the counter of a successful provisioning. As
+    // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_SUCCESSFUL_PROVISIONING_COUNT =
+            "device_lock.value_successful_provisioning_count";
     private static final String TAG = "StatsLogger";
 
     @Override
@@ -93,5 +97,10 @@ public final class StatsLoggerImpl implements StatsLogger{
     @Override
     public void logSuccessfulCheckIn() {
         Counter.logIncrement(TEX_ID_SUCCESSFUL_CHECK_IN_RESPONSE_COUNT);
+    }
+
+    @Override
+    public void logSuccessfulProvisioning() {
+        Counter.logIncrement(TEX_ID_SUCCESSFUL_PROVISIONING_COUNT);
     }
 }

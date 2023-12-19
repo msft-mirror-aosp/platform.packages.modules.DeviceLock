@@ -71,4 +71,9 @@ public interface StatsLogger {
      * Logs the analytics event of receiving a successful check in response.
      */
     void logSuccessfulCheckIn();
+
+    /**
+     * Logs the analytics event of provisioning is successfully completed.
+     */
+    void logSuccessfulProvisioning();
 }
