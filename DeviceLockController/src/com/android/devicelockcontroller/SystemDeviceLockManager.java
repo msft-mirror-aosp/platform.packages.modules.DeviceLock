@@ -95,6 +95,24 @@ public interface SystemDeviceLockManager {
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
     /**
+     * Enable controller keepalive, making sure DLC is restarted on crash.
+     *
+     * @param executor the {@link Executor} on which to invoke the callback.
+     * @param callback callback this returns either success or an exception.
+     */
+    void enableControllerKeepalive(@CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
+     * Disable controller keepalive.
+     *
+     * @param executor the {@link Executor} on which to invoke the callback.
+     * @param callback callback this returns either success or an exception.
+     */
+    void disableControllerKeepalive(@CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
      * Set whether device is finalized so that system service knows when to keep the Device Lock
      * Controller enabled.
      *

@@ -72,9 +72,9 @@ public interface DevicePolicyController {
 
     /**
      * Called by {@link com.android.devicelockcontroller.DeviceLockControllerService} when the
-     * kiosk app crashed.
+     * controller or kiosk app crashed.
      */
-    ListenableFuture<Void> onKioskAppCrashed();
+    ListenableFuture<Void> onAppCrashed(boolean isKiosk);
 
     @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)

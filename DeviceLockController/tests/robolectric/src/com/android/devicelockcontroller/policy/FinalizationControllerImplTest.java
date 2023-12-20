@@ -176,6 +176,18 @@ public final class FinalizationControllerImplTest {
         }
 
         @Override
+        public void enableControllerKeepalive(Executor executor,
+                @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
+
+        @Override
+        public void disableControllerKeepalive(Executor executor,
+                @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
+
+        @Override
         public void setDeviceFinalized(boolean finalized, Executor executor,
                 @NonNull OutcomeReceiver<Void, Exception> callback) {
             executor.execute(() -> callback.onResult(null));
