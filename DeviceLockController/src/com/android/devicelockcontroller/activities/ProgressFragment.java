@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.activities;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_FAILURE;
+import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_FAILED;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -46,6 +47,10 @@ import com.android.devicelockcontroller.policy.ProvisionHelper;
 import com.android.devicelockcontroller.policy.ProvisionHelperImpl;
 import com.android.devicelockcontroller.policy.ProvisionStateController;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
+import com.android.devicelockcontroller.util.LogUtil;
+
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 
 import java.util.concurrent.TimeUnit;
 
@@ -53,6 +58,8 @@ import java.util.concurrent.TimeUnit;
  * A screen which always displays a progress bar.
  */
 public final class ProgressFragment extends Fragment {
+
+    private static final String TAG = ProgressFragment.class.getSimpleName();
 
     private ProvisionHelper mProvisionHelper;
 
@@ -139,14 +146,31 @@ public final class ProgressFragment extends Fragment {
 
                         Button exitButton = bottomView.findViewById(R.id.button_exit);
                         checkNotNull(exitButton);
+                        FutureCallback<Integer> getProvisionStateCallback =
+                                new FutureCallback<>() {
+                                    @Override
+                                    public void onSuccess(Integer result) {
+                                        if (result == PROVISION_FAILED) {
+                                            // Already reported set up failure. Finish normally
+                                            getActivity().finish();
+                                            return;
+                                        }
+                                        ReportDeviceProvisionStateWorker.reportSetupFailed(
+                                                WorkManager.getInstance(requireContext()),
+                                                provisioningProgress.mFailureReason);
+                                        provisionStateController.postSetNextStateForEventRequest(
+                                                PROVISION_FAILURE);
+                                    }
+
+                                    @Override
+                                    public void onFailure(Throwable t) {
+                                        LogUtil.e(TAG, "Failed to get provision state", t);
+                                    }
+                                };
                         exitButton.setOnClickListener(
-                                view -> {
-                                    ReportDeviceProvisionStateWorker.reportSetupFailed(
-                                            WorkManager.getInstance(requireContext()),
-                                            provisioningProgress.mFailureReason);
-                                    provisionStateController.postSetNextStateForEventRequest(
-                                            PROVISION_FAILURE);
-                                });
+                                view -> Futures.addCallback(provisionStateController.getState(),
+                                        getProvisionStateCallback,
+                                        context.getMainExecutor()));
                     } else {
                         bottomView.setVisibility(View.GONE);
                     }

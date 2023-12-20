@@ -32,10 +32,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.text.Html;
 import android.text.SpannableString;
@@ -65,6 +67,7 @@ import androidx.work.testing.WorkManagerTestInitHelper;
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.policy.ProvisionHelper;
+import com.android.devicelockcontroller.policy.ProvisionStateController;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
 
 import com.google.common.truth.Truth;
@@ -136,6 +139,11 @@ public final class ProgressFragmentTest {
         WorkManagerTestInitHelper.initializeTestWorkManager(applicationContext,
                 new Configuration.Builder().setWorkerFactory(getWorkerFactory()).build());
 
+        ProvisionStateController provisionStateController =
+                applicationContext.getProvisionStateController();
+        when(provisionStateController.getState()).thenReturn(Futures.immediateFuture(
+                ProvisionStateController.ProvisionState.PROVISION_IN_PROGRESS));
+
         ActivityController<EmptyTestFragmentActivity> activityController =
                 Robolectric.buildActivity(
                         EmptyTestFragmentActivity.class);
@@ -202,8 +210,8 @@ public final class ProgressFragmentTest {
             verify(mMockProvisionHelper).scheduleKioskAppInstallation(any(), any(), eq(false));
 
             ((Button) activity.findViewById(R.id.button_exit)).performClick();
-            verify(applicationContext.getProvisionStateController())
-                    .postSetNextStateForEventRequest(eq(PROVISION_FAILURE));
+            Shadows.shadowOf(Looper.getMainLooper()).idle();
+            verify(provisionStateController).postSetNextStateForEventRequest(eq(PROVISION_FAILURE));
             WorkManager workManager = WorkManager.getInstance(applicationContext);
             List<WorkInfo> workInfos = workManager.getWorkInfosForUniqueWork(
                     REPORT_PROVISION_STATE_WORK_NAME).get();
