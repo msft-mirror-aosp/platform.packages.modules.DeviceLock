@@ -91,13 +91,14 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         GetDeviceCheckInStatusGrpcResponse response =
                                 client.getDeviceCheckInStatus(
                                         deviceIds, carrierInfo, fcmToken);
+                        mStatsLogger.logGetDeviceCheckInStatus();
                         if (response.hasRecoverableError()) {
                             LogUtil.w(TAG, "Check-in failed w/ recoverable error" + response
                                     + "\nRetrying...");
                             return Result.retry();
                         }
                         if (response.isSuccessful()) {
-                            mStatsLogger.logGetDeviceCheckInStatus();
+                            mStatsLogger.logSuccessfulCheckIn();
                             return mCheckInHelper.handleGetDeviceCheckInStatusResponse(response,
                                     scheduler)
                                     ? Result.success()
