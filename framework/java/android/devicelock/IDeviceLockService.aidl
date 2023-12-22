@@ -98,6 +98,16 @@ oneway interface IDeviceLockService {
      void disableKioskKeepalive(in RemoteCallback remoteCallback);
 
     /**
+     * Enable controller keepalive.
+     */
+     void enableControllerKeepalive(in RemoteCallback remoteCallback);
+
+    /**
+     * Disable controller keepalive.
+     */
+     void disableControllerKeepalive(in RemoteCallback remoteCallback);
+
+    /**
      * Set device finalized.
      */
      void setDeviceFinalized(in boolean finalized, in RemoteCallback remoteCallback);
