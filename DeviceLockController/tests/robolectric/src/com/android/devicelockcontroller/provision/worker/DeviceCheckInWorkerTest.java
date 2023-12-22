@@ -124,6 +124,7 @@ public class DeviceCheckInWorkerTest {
         assertThat(result).isEqualTo(Result.success());
         // THEN check in request was logged
         verify(mStatsLogger).logGetDeviceCheckInStatus();
+        verify(mStatsLogger).logSuccessfulCheckIn();
     }
 
     @Test
@@ -142,10 +143,11 @@ public class DeviceCheckInWorkerTest {
         assertThat(result).isEqualTo(Result.retry());
         // THEN check in request was logged
         verify(mStatsLogger).logGetDeviceCheckInStatus();
+        verify(mStatsLogger).logSuccessfulCheckIn();
     }
 
     @Test
-    public void checkIn_allInfoAvailable_checkInResponseHasRecoverableError_retryAndNotLogged() {
+    public void checkIn_allInfoAvailable_checkInResponseHasRecoverableError_retryAndLogCheckIn() {
         // GIVEN all device info available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
@@ -158,12 +160,13 @@ public class DeviceCheckInWorkerTest {
 
         // THEN work succeeded
         assertThat(result).isEqualTo(Result.retry());
-        // THEN check in request was NOT logged
-        verify(mStatsLogger, never()).logGetDeviceCheckInStatus();
+        // THEN attempt of check in request WAS logged, but the successful check in was NOT logged.
+        verify(mStatsLogger).logGetDeviceCheckInStatus();
+        verify(mStatsLogger, never()).logSuccessfulCheckIn();
     }
 
     @Test
-    public void checkIn_allInfoAvailable_checkInResponseHasNonRecoverableError_failureAndNotLogged() {
+    public void checkIn_allInfoAvailable_checkInResponseHasNonRecoverableError_failAndLogCheckIn() {
         // GIVEN all device info available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
@@ -182,8 +185,9 @@ public class DeviceCheckInWorkerTest {
                 ((TestDeviceLockControllerApplication) ApplicationProvider.getApplicationContext())
                         .getDeviceLockControllerScheduler();
         verify(scheduler).scheduleRetryCheckInWork(eq(RETRY_ON_FAILURE_DELAY));
-        // THEN check in request was NOT logged
-        verify(mStatsLogger, never()).logGetDeviceCheckInStatus();
+        // THEN attempt of check in request WAS logged, but the successful check in was NOT logged.
+        verify(mStatsLogger).logGetDeviceCheckInStatus();
+        verify(mStatsLogger, never()).logSuccessfulCheckIn();
     }
 
     @Test

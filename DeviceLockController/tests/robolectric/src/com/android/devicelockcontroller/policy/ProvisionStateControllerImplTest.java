@@ -44,6 +44,7 @@ import com.android.devicelockcontroller.policy.ProvisionStateController.Provisio
 import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState;
 import com.android.devicelockcontroller.policy.ProvisionStateControllerImpl.StateTransitionException;
 import com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver;
+import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 
@@ -75,6 +76,7 @@ public final class ProvisionStateControllerImplTest {
 
     private TestDeviceLockControllerApplication mTestApp;
     private ProvisionStateController mProvisionStateController;
+    private StatsLogger mStatsLogger;
 
     @Before
     public void setUp() {
@@ -83,6 +85,7 @@ public final class ProvisionStateControllerImplTest {
         mProvisionStateController = new ProvisionStateControllerImpl(mTestApp,
                 mMockPolicyController, mMockDeviceStateController,
                 Executors.newSingleThreadExecutor());
+        mStatsLogger = mTestApp.getStatsLogger();
     }
 
     @Test
@@ -150,6 +153,18 @@ public final class ProvisionStateControllerImplTest {
 
         assertThat(UserParameters.getProvisioningStartTimeMillis(mTestApp))
                 .isEqualTo(SystemClock.elapsedRealtime());
+    }
+
+    @Test
+    public void setNextStateForEvent_shouldLogSuccessfulProvisioning_whenProvisionSuccess()
+            throws ExecutionException, InterruptedException {
+        when(mMockPolicyController.enforceCurrentPolicies()).thenReturn(
+                Futures.immediateVoidFuture());
+        UserParameters.setProvisionState(mTestApp, ProvisionState.KIOSK_PROVISIONED);
+
+        mProvisionStateController.setNextStateForEvent(ProvisionEvent.PROVISION_SUCCESS).get();
+
+        verify(mStatsLogger).logSuccessfulProvisioning();
     }
 
     @Test

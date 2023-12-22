@@ -24,6 +24,8 @@ import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_KI
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISIONING_COMPLETE_REPORTED;
 import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_DEVICE_RESET_PROVISION_DEFERRED;
 import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_DEVICE_RESET_PROVISION_MANDATORY;
+import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCCESSFUL_CHECK_IN_RESPONSE_COUNT;
+import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCCESSFUL_PROVISIONING_COUNT;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
 import com.android.modules.expresslog.Counter;
@@ -106,5 +108,19 @@ public final class StatsLoggerImplTest {
         mStatsLogger.logDeviceReset(/* isProvisionMandatory */false);
 
         verify(() -> Counter.logIncrement(TEX_ID_DEVICE_RESET_PROVISION_DEFERRED));
+    }
+
+    @Test
+    public void logSuccessfulCheckIn_shouldLogToTelemetryExpress() {
+        mStatsLogger.logSuccessfulCheckIn();
+
+        verify(() -> Counter.logIncrement(TEX_ID_SUCCESSFUL_CHECK_IN_RESPONSE_COUNT));
+    }
+
+    @Test
+    public void logSuccessfulProvisioning_shouldLogToTelemetryExpress() {
+        mStatsLogger.logSuccessfulProvisioning();
+
+        verify(() -> Counter.logIncrement(TEX_ID_SUCCESSFUL_PROVISIONING_COUNT));
     }
 }
