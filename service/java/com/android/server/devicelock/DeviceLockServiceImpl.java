@@ -73,7 +73,7 @@ import java.util.List;
 final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     private static final String TAG = "DeviceLockServiceImpl";
 
-    private static final String ACTION_DEVICE_LOCK_KIOSK_KEEPALIVE =
+    private static final String ACTION_DEVICE_LOCK_KEEPALIVE =
             "com.android.devicelock.action.KEEPALIVE";
 
     // Workaround for timeout while adding the kiosk app as role holder for financing.
@@ -97,8 +97,12 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     private final ServiceInfo mServiceInfo;
 
     // Map user id -> ServiceConnection for kiosk keepalive.
-    private final ArrayMap<Integer, KioskKeepaliveServiceConnection>
+    private final ArrayMap<Integer, KeepaliveServiceConnection>
             mKioskKeepaliveServiceConnections;
+
+    // Map user id -> ServiceConnection for controller keepalive.
+    private final ArrayMap<Integer, KeepaliveServiceConnection>
+            mControllerKeepaliveServiceConnections;
 
     private final DeviceLockPersistentStore mPersistentStore;
 
@@ -202,6 +206,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         mDeviceLockControllerConnectors = new ArrayMap<>();
 
         mKioskKeepaliveServiceConnections = new ArrayMap<>();
+        mControllerKeepaliveServiceConnections = new ArrayMap<>();
 
         mPackageUtils = new DeviceLockControllerPackageUtils(context);
 
@@ -671,15 +676,19 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                 remoteCallback);
     }
 
-    private class KioskKeepaliveServiceConnection implements ServiceConnection {
+    private class KeepaliveServiceConnection implements ServiceConnection {
+        final boolean mIsKiosk;
+        final String mPackageName;
         final UserHandle mUserHandle;
 
         final Intent mService;
 
-        KioskKeepaliveServiceConnection(String packageName, UserHandle userHandle) {
+        KeepaliveServiceConnection(boolean isKiosk, String packageName, UserHandle userHandle) {
             super();
+            mIsKiosk = isKiosk;
+            mPackageName = packageName;
             mUserHandle = userHandle;
-            mService = new Intent(ACTION_DEVICE_LOCK_KIOSK_KEEPALIVE).setPackage(packageName);
+            mService = new Intent(ACTION_DEVICE_LOCK_KEEPALIVE).setPackage(packageName);
         }
 
         private boolean bind() {
@@ -693,15 +702,15 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
             if (bound) {
                 getDeviceLockControllerConnector(mUserHandle)
-                        .onKioskAppCrashed(new OutcomeReceiver<>() {
+                        .onAppCrashed(mIsKiosk, new OutcomeReceiver<>() {
                             @Override
                             public void onResult(Void result) {
-                                Slog.i(TAG, "Notified controller about kiosk app crash");
+                                Slog.i(TAG, "Notified controller about " + mPackageName + " crash");
                             }
 
                             @Override
                             public void onError(Exception ex) {
-                                Slog.e(TAG, "On kiosk app crashed error: ", ex);
+                                Slog.e(TAG, "On " + mPackageName + " crashed error: ", ex);
                             }
                 });
             }
@@ -711,15 +720,17 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            Slog.i(TAG, "Kiosk keepalive successful for user " + mUserHandle);
+            Slog.i(TAG, mPackageName + " keepalive successful for user " + mUserHandle);
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             if (rebind()) {
-                Slog.i(TAG, "onServiceDisconnected rebind successful for user " + mUserHandle);
+                Slog.i(TAG, "onServiceDisconnected rebind successful for " + mPackageName + " user "
+                        + mUserHandle);
             } else {
-                Slog.e(TAG, "onServiceDisconnected rebind failed for user " + mUserHandle);
+                Slog.e(TAG, "onServiceDisconnected rebind failed for " + mPackageName + " user "
+                        + mUserHandle);
             }
         }
 
@@ -727,29 +738,55 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         public void onBindingDied(ComponentName name) {
             ServiceConnection.super.onBindingDied(name);
             if (rebind()) {
-                Slog.i(TAG, "onBindingDied rebind successful for user " + mUserHandle);
+                Slog.i(TAG, "onBindingDied rebind successful for " + mPackageName + " user "
+                        + mUserHandle);
             } else {
-                Slog.e(TAG, "onBindingDied rebind failed for user " + mUserHandle);
+                Slog.e(TAG, "onBindingDied rebind failed for " + mPackageName + " user "
+                        + mUserHandle);
             }
         }
     }
 
     @Override
     public void enableKioskKeepalive(String packageName, @NonNull RemoteCallback remoteCallback) {
+        enableKeepalive(true /* forKiosk */, packageName, remoteCallback);
+    }
+
+    @Override
+    public void disableKioskKeepalive(@NonNull RemoteCallback remoteCallback) {
+        disableKeepalive(true /* forKiosk */, remoteCallback);
+    }
+
+    @Override
+    public void enableControllerKeepalive(@NonNull RemoteCallback remoteCallback) {
+        enableKeepalive(false /* forKiosk */, mServiceInfo.packageName, remoteCallback);
+    }
+
+    @Override
+    public void disableControllerKeepalive(@NonNull RemoteCallback remoteCallback) {
+        disableKeepalive(false /* forKiosk */, remoteCallback);
+    }
+
+    private void enableKeepalive(boolean forKiosk, String packageName,
+            @NonNull RemoteCallback remoteCallback) {
         final UserHandle controllerUserHandle = Binder.getCallingUserHandle();
         final int controllerUserId = controllerUserHandle.getIdentifier();
         boolean keepaliveEnabled = false;
+        final ArrayMap<Integer, KeepaliveServiceConnection> keepaliveServiceConnections =
+                forKiosk ? mKioskKeepaliveServiceConnections
+                        : mControllerKeepaliveServiceConnections;
+
         synchronized (this) {
-            if (mKioskKeepaliveServiceConnections.get(controllerUserId) == null) {
-                final KioskKeepaliveServiceConnection serviceConnection =
-                        new KioskKeepaliveServiceConnection(packageName, controllerUserHandle);
+            if (keepaliveServiceConnections.get(controllerUserId) == null) {
+                final KeepaliveServiceConnection serviceConnection =
+                        new KeepaliveServiceConnection(forKiosk, packageName, controllerUserHandle);
                 final long identity = Binder.clearCallingIdentity();
                 if (serviceConnection.bind()) {
-                    mKioskKeepaliveServiceConnections.put(controllerUserId, serviceConnection);
+                    keepaliveServiceConnections.put(controllerUserId, serviceConnection);
                     keepaliveEnabled = true;
                 } else {
-                    Slog.w(TAG, "enableKioskKeepalive: failed to bind to keepalive service for "
-                            + "user " + controllerUserHandle);
+                    Slog.w(TAG, "enableKeepalive: failed to bind to keepalive service "
+                            + " for package: " + packageName + " user:" + controllerUserHandle);
                     mContext.unbindService(serviceConnection);
                 }
                 Binder.restoreCallingIdentity(identity);
@@ -764,14 +801,16 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         remoteCallback.sendResult(result);
     }
 
-    @Override
-    public void disableKioskKeepalive(@NonNull RemoteCallback remoteCallback) {
+    private void disableKeepalive(boolean isKiosk, @NonNull RemoteCallback remoteCallback) {
         final UserHandle controllerUserHandle = Binder.getCallingUserHandle();
         final int controllerUserId = controllerUserHandle.getIdentifier();
-        final KioskKeepaliveServiceConnection serviceConnection;
+        final KeepaliveServiceConnection serviceConnection;
+        final ArrayMap<Integer, KeepaliveServiceConnection> keepaliveServiceConnections =
+                isKiosk ? mKioskKeepaliveServiceConnections
+                        : mControllerKeepaliveServiceConnections;
 
         synchronized (this) {
-            serviceConnection = mKioskKeepaliveServiceConnections.remove(controllerUserId);
+            serviceConnection = keepaliveServiceConnections.remove(controllerUserId);
         }
 
         if (serviceConnection != null) {
@@ -779,8 +818,9 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             mContext.unbindService(serviceConnection);
             Binder.restoreCallingIdentity(identity);
         } else {
-            Slog.e(TAG, "disableKioskKeepalive: Service connection not found for user "
-                    + controllerUserHandle);
+            final String target = isKiosk ? "kiosk" : "controller";
+            Slog.e(TAG, "disableKeepalive: Service connection to " + target
+                    + " not found for user: " + controllerUserHandle);
         }
 
         final Bundle result = new Bundle();

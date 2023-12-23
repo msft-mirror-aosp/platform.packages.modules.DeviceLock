@@ -188,7 +188,7 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
                         if (keepaliveEnabled) {
                             callback.onResult(null /* result */);
                         } else {
-                            callback.onError(new Exception("Failed to enable keepalive "
+                            callback.onError(new Exception("Failed to enable kiosk keepalive "
                                     + "for package: " + packageName));
                         }
                     }), new Handler(Looper.getMainLooper())));
@@ -212,7 +212,55 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
                         if (keepaliveDisabled) {
                             callback.onResult(null /* result */);
                         } else {
-                            callback.onError(new Exception("Failed to disable keepalive"));
+                            callback.onError(new Exception("Failed to disable kiosk keepalive"));
+                        }
+                    }), new Handler(Looper.getMainLooper())));
+        } catch (RemoteException e) {
+            executor.execute(() -> callback.onError(new RuntimeException(e)));
+        }
+    }
+
+    @Override
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    public void enableControllerKeepalive(Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback) {
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        try {
+            mIDeviceLockService.enableControllerKeepalive(
+                    new RemoteCallback(result -> executor.execute(() -> {
+                        final boolean keepaliveEnabled = result.getBoolean(
+                                IDeviceLockService.KEY_REMOTE_CALLBACK_RESULT);
+                        if (keepaliveEnabled) {
+                            callback.onResult(null /* result */);
+                        } else {
+                            callback.onError(new Exception("Failed to enable controller "
+                                    + "keepalive"));
+                        }
+                    }), new Handler(Looper.getMainLooper())));
+        } catch (RemoteException e) {
+            executor.execute(() -> callback.onError(new RuntimeException(e)));
+        }
+    }
+
+    @Override
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    public void disableControllerKeepalive(Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback) {
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        try {
+            mIDeviceLockService.disableControllerKeepalive(
+                    new RemoteCallback(result -> executor.execute(() -> {
+                        final boolean keepaliveDisabled = result.getBoolean(
+                                IDeviceLockService.KEY_REMOTE_CALLBACK_RESULT);
+                        if (keepaliveDisabled) {
+                            callback.onResult(null /* result */);
+                        } else {
+                            callback.onError(new Exception("Failed to disable controller "
+                                    + "keepalive"));
                         }
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {

@@ -71,7 +71,7 @@ public class DeviceLockControllerConnectorStub implements DeviceLockControllerCo
     }
 
     @Override
-    public void onKioskAppCrashed(OutcomeReceiver<Void, Exception> callback) {
+    public void onAppCrashed(boolean isKiosk, OutcomeReceiver<Void, Exception> callback) {
         setException(callback);
     }
 

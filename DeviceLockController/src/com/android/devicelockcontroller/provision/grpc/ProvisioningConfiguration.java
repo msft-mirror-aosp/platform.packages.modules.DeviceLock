@@ -83,7 +83,7 @@ public final class ProvisioningConfiguration {
     public Bundle toBundle() {
         final Bundle bundle = new Bundle();
         bundle.putString(EXTRA_KIOSK_PACKAGE, mKioskAppPackageName);
-        bundle.putBoolean(EXTRA_KIOSK_DISABLE_OUTGOING_CALLS, mKioskAppEnableOutgoingCalls);
+        bundle.putBoolean(EXTRA_KIOSK_DISABLE_OUTGOING_CALLS, !mKioskAppEnableOutgoingCalls);
         bundle.putBoolean(EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE,
                 mKioskAppEnableEnableNotifications);
         bundle.putStringArrayList(EXTRA_KIOSK_ALLOWLIST,
