@@ -118,6 +118,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                 new PackagePolicyHandler(context, devicePolicyManager, bgExecutor),
                 new RolePolicyHandler(systemDeviceLockManager, bgExecutor),
                 new KioskKeepAlivePolicyHandler(systemDeviceLockManager, bgExecutor),
+                new ControllerKeepAlivePolicyHandler(systemDeviceLockManager, bgExecutor),
                 provisionStateController,
                 bgExecutor);
     }
@@ -132,6 +133,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             PackagePolicyHandler packagePolicyHandler,
             RolePolicyHandler rolePolicyHandler,
             KioskKeepAlivePolicyHandler kioskKeepAlivePolicyHandler,
+            ControllerKeepAlivePolicyHandler controllerKeepAlivePolicyHandler,
             ProvisionStateController provisionStateController,
             Executor bgExecutor) {
         mContext = context;
@@ -145,6 +147,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
         mPolicyList.add(packagePolicyHandler);
         mPolicyList.add(rolePolicyHandler);
         mPolicyList.add(kioskKeepAlivePolicyHandler);
+        mPolicyList.add(controllerKeepAlivePolicyHandler);
     }
 
     @Override
@@ -448,7 +451,10 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
     }
 
     @Override
-    public ListenableFuture<Void> onKioskAppCrashed() {
+    public ListenableFuture<Void> onAppCrashed(boolean isKiosk) {
+        final String crashedApp = isKiosk ? "kiosk" : "dlc";
+        LogUtil.i(TAG, "Controller notified about " + crashedApp
+                + " having crashed while in lock task mode");
         return Futures.transform(getCurrentEnforcedLockTaskType(),
                 mode -> {
                     startLockTaskModeIfNeeded(mode);

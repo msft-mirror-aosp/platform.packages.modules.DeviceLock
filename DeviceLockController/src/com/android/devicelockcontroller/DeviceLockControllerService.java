@@ -129,8 +129,8 @@ public final class DeviceLockControllerService extends Service {
                 }
 
                 @Override
-                public void onKioskAppCrashed(RemoteCallback remoteCallback) {
-                    Futures.addCallback(mPolicyController.onKioskAppCrashed(),
+                public void onAppCrashed(boolean isKiosk, RemoteCallback remoteCallback) {
+                    Futures.addCallback(mPolicyController.onAppCrashed(isKiosk),
                             remoteCallbackWrapper(remoteCallback),
                             MoreExecutors.directExecutor());
                 }
