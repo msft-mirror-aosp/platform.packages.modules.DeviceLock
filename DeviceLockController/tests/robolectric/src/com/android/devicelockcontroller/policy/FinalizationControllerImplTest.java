@@ -164,6 +164,12 @@ public final class FinalizationControllerImplTest {
         }
 
         @Override
+        public void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
+                Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
+
+        @Override
         public void enableKioskKeepalive(String packageName, Executor executor,
                 @NonNull OutcomeReceiver<Void, Exception> callback) {
 

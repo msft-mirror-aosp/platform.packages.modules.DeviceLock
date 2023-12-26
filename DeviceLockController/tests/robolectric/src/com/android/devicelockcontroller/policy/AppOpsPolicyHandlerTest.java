@@ -85,10 +85,20 @@ public final class AppOpsPolicyHandlerTest {
                 .setExemptFromHibernation(anyString(), anyBoolean(),
                         any(Executor.class),
                         any());
+
+        doAnswer((Answer<Boolean>) invocation -> {
+            OutcomeReceiver<Void, Exception> callback = invocation.getArgument(3 /* callback */);
+            callback.onResult(null /* result */);
+
+            return null;
+        }).when(mSystemDeviceLockManagerMock)
+                .setExemptFromBatteryUsageRestriction(anyString(), anyBoolean(),
+                        any(Executor.class),
+                        any());
     }
 
     @Test
-    public void onProvisioned_shouldExemptBackgroundStartAndHibernation()
+    public void onProvisioned_shouldExemptBackgroundStartAndHibernationAndBatteryUsage()
             throws ExecutionException, InterruptedException {
         mHandler.onProvisioned().get();
 
@@ -98,14 +108,16 @@ public final class AppOpsPolicyHandlerTest {
                         any(Executor.class),
                         any());
         verify(mSystemDeviceLockManagerMock)
-                .setExemptFromHibernation(anyString(),
+                .setExemptFromHibernation(eq(TEST_PACKAGE),
                         eq(true),
                         any(Executor.class),
                         any());
+        verify(mSystemDeviceLockManagerMock).setExemptFromBatteryUsageRestriction(eq(TEST_PACKAGE),
+                eq(true), any(Executor.class), any());
     }
 
     @Test
-    public void onProvisionInProgress_shouldExemptBackgroundStartNotHibernation()
+    public void onProvisionInProgress_shouldExemptBackgroundStartNotHibernationOrBatteryUsage()
             throws ExecutionException, InterruptedException {
         mHandler.onProvisionInProgress().get();
 
@@ -119,6 +131,9 @@ public final class AppOpsPolicyHandlerTest {
                         eq(true),
                         any(Executor.class),
                         any());
+        verify(mSystemDeviceLockManagerMock, never())
+                .setExemptFromBatteryUsageRestriction(eq(TEST_PACKAGE), eq(true),
+                        any(Executor.class), any());
     }
 
     @Test
@@ -134,7 +149,7 @@ public final class AppOpsPolicyHandlerTest {
     }
 
     @Test
-    public void onCleared_shouldBanBackgroundStartAndHibernation()
+    public void onCleared_shouldBanBackgroundStartAndHibernationAndBatteryUsage()
             throws ExecutionException, InterruptedException {
         mHandler.onCleared().get();
 
@@ -144,14 +159,17 @@ public final class AppOpsPolicyHandlerTest {
                         any(Executor.class),
                         any());
         verify(mSystemDeviceLockManagerMock)
-                .setExemptFromHibernation(anyString(),
+                .setExemptFromHibernation(eq(TEST_PACKAGE),
                         eq(false),
                         any(Executor.class),
                         any());
+        verify(mSystemDeviceLockManagerMock)
+                .setExemptFromBatteryUsageRestriction(eq(TEST_PACKAGE),
+                        eq(false), any(Executor.class), any());
     }
 
     @Test
-    public void onLocked_shouldExemptBackgroundStartAndHibernation()
+    public void onLocked_shouldExemptBackgroundStartAndHibernationAndBatteryUsage()
             throws ExecutionException, InterruptedException {
         mHandler.onLocked().get();
         verify(mSystemDeviceLockManagerMock)
@@ -160,14 +178,18 @@ public final class AppOpsPolicyHandlerTest {
                         any(Executor.class),
                         any());
         verify(mSystemDeviceLockManagerMock)
-                .setExemptFromHibernation(anyString(),
+                .setExemptFromHibernation(eq(TEST_PACKAGE),
                         eq(true),
                         any(Executor.class),
                         any());
+        verify(mSystemDeviceLockManagerMock)
+                .setExemptFromBatteryUsageRestriction(eq(TEST_PACKAGE),
+                        eq(true), any(Executor.class), any());
+
     }
 
     @Test
-    public void onUnlocked_shouldExemptHibernationNotBackgroundStart()
+    public void onUnlocked_shouldExemptHibernationAndBatteryUsageNotBackgroundStart()
             throws ExecutionException, InterruptedException {
         mHandler.onUnlocked().get();
         verify(mSystemDeviceLockManagerMock, never())
@@ -176,9 +198,12 @@ public final class AppOpsPolicyHandlerTest {
                         any(Executor.class),
                         any());
         verify(mSystemDeviceLockManagerMock)
-                .setExemptFromHibernation(anyString(),
+                .setExemptFromHibernation(eq(TEST_PACKAGE),
                         eq(true),
                         any(Executor.class),
                         any());
+        verify(mSystemDeviceLockManagerMock)
+                .setExemptFromBatteryUsageRestriction(eq(TEST_PACKAGE),
+                        eq(true), any(Executor.class), any());
     }
 }
