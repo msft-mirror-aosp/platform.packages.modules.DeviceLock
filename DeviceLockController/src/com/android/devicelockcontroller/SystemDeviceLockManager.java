@@ -32,8 +32,8 @@ public interface SystemDeviceLockManager {
      * Add the FINANCED_DEVICE_KIOSK role to the specified package.
      *
      * @param packageName package for the financed device kiosk app.
-     * @param executor the {@link Executor} on which to invoke the callback.
-     * @param callback this returns either success or an exception.
+     * @param executor    the {@link Executor} on which to invoke the callback.
+     * @param callback    this returns either success or an exception.
      */
     void addFinancedDeviceKioskRole(@NonNull String packageName,
             @CallbackExecutor Executor executor,
@@ -43,8 +43,8 @@ public interface SystemDeviceLockManager {
      * Remove the FINANCED_DEVICE_KIOSK role from the specified package.
      *
      * @param packageName package for the financed device kiosk app.
-     * @param executor the {@link Executor} on which to invoke the callback.
-     * @param callback this returns either success or an exception.
+     * @param executor    the {@link Executor} on which to invoke the callback.
+     * @param callback    this returns either success or an exception.
      */
     void removeFinancedDeviceKioskRole(@NonNull String packageName,
             @CallbackExecutor Executor executor,
@@ -54,7 +54,7 @@ public interface SystemDeviceLockManager {
      * Set the Device Lock Controller exempt from restrictions about starting activities
      * from the background (for the calling user).
      *
-     * @param exempt true if the Controller should be exempt from the restriction.
+     * @param exempt   true if the Controller should be exempt from the restriction.
      * @param executor the {@link Executor} on which to invoke the callback.
      * @param callback callback this returns either success or an exception.
      */
@@ -66,11 +66,23 @@ public interface SystemDeviceLockManager {
      * Set the kiosk app exempt from hibernation (for the calling user).
      *
      * @param packageName kiosk app package name.
-     * @param exempt true if the Controller should be exempt from hibernation.
-     * @param executor the {@link Executor} on which to invoke the callback.
-     * @param callback callback this returns either success or an exception.
+     * @param exempt      true if kiosk app should be exempt from hibernation.
+     * @param executor    the {@link Executor} on which to invoke the callback.
+     * @param callback    callback this returns either success or an exception.
      */
     void setExemptFromHibernation(String packageName, boolean exempt,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
+     * Set the kiosk app exempt from battery usage restriction (for the calling user).
+     *
+     * @param packageName kiosk app package name.
+     * @param exempt      true if the kiosk app should be exempt from hibernation.
+     * @param executor    the {@link Executor} on which to invoke the callback.
+     * @param callback    callback this returns either success or an exception.
+     */
+    void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
@@ -78,8 +90,8 @@ public interface SystemDeviceLockManager {
      * Enable kiosk keepalive, making sure the kiosk app is restarted on crash.
      *
      * @param packageName kiosk app package name.
-     * @param executor the {@link Executor} on which to invoke the callback.
-     * @param callback callback this returns either success or an exception.
+     * @param executor    the {@link Executor} on which to invoke the callback.
+     * @param callback    callback this returns either success or an exception.
      */
     void enableKioskKeepalive(String packageName,
             @CallbackExecutor Executor executor,
@@ -117,8 +129,8 @@ public interface SystemDeviceLockManager {
      * Controller enabled.
      *
      * @param finalized true if device is finalized and DLC should not be enabled.
-     * @param executor the {@link Executor} on which to invoke the callback.
-     * @param callback callback this returns either success or an exception.
+     * @param executor  the {@link Executor} on which to invoke the callback.
+     * @param callback  callback this returns either success or an exception.
      */
     void setDeviceFinalized(boolean finalized, @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
