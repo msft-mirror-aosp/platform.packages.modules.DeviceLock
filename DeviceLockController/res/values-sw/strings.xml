@@ -96,7 +96,7 @@
     <string name="settings_developer_options_preference_key" msgid="6807036808722582954">"settings_developer_options_preference_key"</string>
     <string name="settings_credit_provider_capabilities_category" msgid="1274440595211820868">"Kifaa chako kikipata hitilafu, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> inaweza:"</string>
     <string name="settings_credit_provider_capabilities_category_preference_key" msgid="4571685720898641262">"settings_credit_provider_capabilities_category_preference_key"</string>
-    <string name="settings_IMEI" msgid="697965824361262506">"Kufikia nambari yako ya IMEI"</string>
+    <string name="settings_IMEI" msgid="697965824361262506">"Kufikia namba yako ya IMEI"</string>
     <string name="settings_IMEI_preference_key" msgid="608809590948249412">"settings_IMEI_preference_key"</string>
     <string name="settings_factory_reset" msgid="418045189048067625">"Kurejesha mipangilio ambayo kifaa chako kilitoka nayo kiwandani"</string>
     <string name="settings_factory_reset_preference_key" msgid="2168528486393635382">"settings_factory_reset_preference_key"</string>
