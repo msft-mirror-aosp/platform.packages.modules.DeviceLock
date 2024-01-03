@@ -21,13 +21,9 @@ import android.os.OutcomeReceiver;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 
 import com.android.devicelockcontroller.SystemDeviceLockManager;
-import com.android.devicelockcontroller.storage.SetupParametersClient;
-import com.android.devicelockcontroller.storage.SetupParametersClientInterface;
 import com.android.devicelockcontroller.util.LogUtil;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.concurrent.Executor;
 

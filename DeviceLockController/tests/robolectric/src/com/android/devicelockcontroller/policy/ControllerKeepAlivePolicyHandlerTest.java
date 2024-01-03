@@ -52,7 +52,7 @@ public final class ControllerKeepAlivePolicyHandlerTest {
     private ControllerKeepAlivePolicyHandler mHandler;
 
     @Before
-    public void setUp() throws ExecutionException, InterruptedException {
+    public void setUp() {
         mHandler = new ControllerKeepAlivePolicyHandler(mSystemDeviceLockManager,
                 Executors.newSingleThreadExecutor());
     }
