@@ -108,9 +108,11 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
     private boolean mUseStubConnector = false;
 
-    // The following should be a SystemApi on AppOpsManager.
+    // The following string constants should be a SystemApi on AppOpsManager.
     private static final String OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION =
             "android:system_exempt_from_activity_bg_start_restriction";
+    private static final String OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS =
+            "android:system_exempt_from_power_restrictions";
 
     // Stopgap: this receiver should be replaced by an API on DeviceLockManager.
     private final class DeviceLockClearReceiver extends BroadcastReceiver {
@@ -587,7 +589,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                         addFinancedDeviceKioskRoleInternal(packageName, remoteCallback, userHandle,
                                 identity, remainingTries - 1);
                     }
-            });
+                });
     }
 
     @Override
@@ -638,6 +640,26 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         remoteCallback.sendResult(result);
     }
 
+    private int getKioskUid(String packageName,
+            @NonNull RemoteCallback remoteCallback) {
+        final UserHandle controllerUserHandle = Binder.getCallingUserHandle();
+        final int controllerUserId = controllerUserHandle.getIdentifier();
+        final PackageManager packageManager = mContext.getPackageManager();
+        int kioskUid;
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            kioskUid = packageManager.getPackageUidAsUser(packageName, PackageInfoFlags.of(0),
+                    controllerUserId);
+        } catch (NameNotFoundException e) {
+            Binder.restoreCallingIdentity(identity);
+            Slog.e(TAG, "Failed to set hibernation appop", e);
+            reportErrorToCaller(remoteCallback);
+            return -1;
+        }
+        Binder.restoreCallingIdentity(identity);
+        return kioskUid;
+    }
+
     @Override
     public void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
             @NonNull RemoteCallback remoteCallback) {
@@ -656,24 +678,26 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             return;
         }
 
-        final UserHandle controllerUserHandle = Binder.getCallingUserHandle();
-        final int controllerUserId = controllerUserHandle.getIdentifier();
-        final PackageManager packageManager = mContext.getPackageManager();
-        int kioskUid;
-        final long identity = Binder.clearCallingIdentity();
-        try {
-            kioskUid = packageManager.getPackageUidAsUser(packageName, PackageInfoFlags.of(0),
-                    controllerUserId);
-        } catch (NameNotFoundException e) {
-            Binder.restoreCallingIdentity(identity);
-            Slog.e(TAG, "Failed to set hibernation appop", e);
-            reportErrorToCaller(remoteCallback);
-            return;
-        }
-        Binder.restoreCallingIdentity(identity);
+        int kioskUid = getKioskUid(packageName, remoteCallback);
+        if (kioskUid == -1) return;
 
         setExemption(packageName, kioskUid, OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION, exempt,
                 remoteCallback);
+    }
+
+    @Override
+    public void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
+            @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
+        int kioskUid = getKioskUid(packageName, remoteCallback);
+        if (kioskUid == -1) return;
+
+        setExemption(packageName, kioskUid,
+                OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS,
+                exempt, remoteCallback);
     }
 
     private class KeepaliveServiceConnection implements ServiceConnection {
@@ -712,7 +736,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                             public void onError(Exception ex) {
                                 Slog.e(TAG, "On " + mPackageName + " crashed error: ", ex);
                             }
-                });
+                        });
             }
 
             return bound;

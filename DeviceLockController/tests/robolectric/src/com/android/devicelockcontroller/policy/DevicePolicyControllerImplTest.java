@@ -135,8 +135,8 @@ public final class DevicePolicyControllerImplTest {
                 bgExecutor);
         ControllerKeepAlivePolicyHandler controllerKeepAlivePolicyHandler =
                 new ControllerKeepAlivePolicyHandler(
-                mMockSystemDeviceLockManager,
-                bgExecutor);
+                        mMockSystemDeviceLockManager,
+                        bgExecutor);
         mDevicePolicyController =
                 new DevicePolicyControllerImpl(mContext,
                         mMockDpm,
@@ -1158,6 +1158,15 @@ public final class DevicePolicyControllerImplTest {
             return null;
         }).when(mMockSystemDeviceLockManager)
                 .setExemptFromHibernation(anyString(), anyBoolean(),
+                        any(Executor.class),
+                        any());
+
+        doAnswer((Answer<Boolean>) invocation -> {
+            OutcomeReceiver<Void, Exception> callback = invocation.getArgument(3 /* callback */);
+            callback.onResult(null /* result */);
+            return null;
+        }).when(mMockSystemDeviceLockManager)
+                .setExemptFromBatteryUsageRestriction(anyString(), anyBoolean(),
                         any(Executor.class),
                         any());
     }

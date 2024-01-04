@@ -82,9 +82,15 @@ oneway interface IDeviceLockService {
         in RemoteCallback remoteCallback);
 
     /**
-     * Exampt kiosk app from hibernation.
+     * Exempt kiosk app from hibernation.
      */
     void setExemptFromHibernation(in String packageName, in boolean exempt,
+        in RemoteCallback remoteCallback);
+
+    /**
+     * Exempt kiosk app from battery usage restriction.
+     */
+    void setExemptFromBatteryUsageRestriction(in String packageName, in boolean exempt,
         in RemoteCallback remoteCallback);
 
     /**
