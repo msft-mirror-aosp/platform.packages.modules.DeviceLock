@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.policy;
 
 import android.os.OutcomeReceiver;
 
+import androidx.annotation.NonNull;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 
 import com.android.devicelockcontroller.SystemDeviceLockManager;
@@ -83,7 +84,9 @@ final class AppOpsPolicyHandler implements PolicyHandler {
                                                     LogUtil.e(TAG,
                                                             "Cannot set exempt from hibernation",
                                                             error);
-                                                    completer.set(false);
+                                                    // Also returns true here to make sure state
+                                                    // transition success.
+                                                    completer.set(true);
                                                 }
                                             });
                                     // Used only for debugging.
@@ -91,21 +94,52 @@ final class AppOpsPolicyHandler implements PolicyHandler {
                                 }), MoreExecutors.directExecutor());
     }
 
-    private ListenableFuture<Boolean> getExemptFromBackgroundStartAndHibernationFuture(
-            boolean exempt) {
+    private ListenableFuture<Boolean> getExemptFromBatteryUsageRestrictionFuture(boolean exempt) {
+        return Futures.transformAsync(SetupParametersClient.getInstance().getKioskPackage(),
+                kioskPackageName -> kioskPackageName == null
+                        ? Futures.immediateFuture(true)
+                        : CallbackToFutureAdapter.getFuture(completer -> {
+                            mSystemDeviceLockManager.setExemptFromBatteryUsageRestriction(
+                                    kioskPackageName, exempt, mBgExecutor,
+                                    new OutcomeReceiver<>() {
+                                        @Override
+                                        public void onResult(Void result) {
+                                            completer.set(true);
+                                        }
+
+                                        @Override
+                                        public void onError(@NonNull Exception error) {
+                                            LogUtil.e(TAG,
+                                                    "Cannot set exempt from battery usage "
+                                                            + "restrictions",
+                                                    error);
+                                            // Also returns true here to make sure state
+                                            // transition success.
+                                            completer.set(true);
+                                        }
+                                    });
+                            // Used only for debugging.
+                            return "getExemptFromBatteryUsageRestrictionFuture";
+                        }), MoreExecutors.directExecutor());
+    }
+
+    private ListenableFuture<Boolean> getExemptFromAllFutures(boolean exempt) {
         final ListenableFuture<Boolean> backgroundFuture =
-                getExemptFromBackgroundStartRestrictionsFuture(exempt /* exempt */);
+                getExemptFromBackgroundStartRestrictionsFuture(exempt);
         final ListenableFuture<Boolean> hibernationFuture =
-                getExemptFromHibernationFuture(exempt /* exempt */);
-        return Futures.whenAllSucceed(backgroundFuture, hibernationFuture)
+                getExemptFromHibernationFuture(exempt);
+        final ListenableFuture<Boolean> batteryUsageFuture =
+                getExemptFromBatteryUsageRestrictionFuture(exempt);
+        return Futures.whenAllSucceed(backgroundFuture, hibernationFuture, batteryUsageFuture)
                 .call(() -> Futures.getDone(backgroundFuture)
-                                && Futures.getDone(hibernationFuture),
+                                && Futures.getDone(hibernationFuture)
+                                && Futures.getDone(batteryUsageFuture),
                         MoreExecutors.directExecutor());
     }
 
     @Override
     public ListenableFuture<Boolean> onProvisioned() {
-        return getExemptFromBackgroundStartAndHibernationFuture(/* exempt= */ true);
+        return getExemptFromAllFutures(/* exempt= */ true);
     }
 
     @Override
@@ -120,20 +154,28 @@ final class AppOpsPolicyHandler implements PolicyHandler {
 
     @Override
     public ListenableFuture<Boolean> onCleared() {
-        return getExemptFromBackgroundStartAndHibernationFuture(/* exempt= */ false);
+        return getExemptFromAllFutures(/* exempt= */ false);
     }
 
     // Due to some reason, AppOpsManager does not persist exemption after reboot, therefore we
     // need to always set them from our end.
     @Override
     public ListenableFuture<Boolean> onLocked() {
-        return getExemptFromBackgroundStartAndHibernationFuture(/* exempt= */ true);
+        return getExemptFromAllFutures(/* exempt= */ true);
     }
 
     // Due to some reason, AppOpsManager does not persist exemption after reboot, therefore we
     // need to always set them from our end.
     @Override
     public ListenableFuture<Boolean> onUnlocked() {
-        return getExemptFromHibernationFuture(/* exempt= */ true);
+        ListenableFuture<Boolean> hibernationFuture =
+                getExemptFromHibernationFuture(/* exempt= */ true);
+        ListenableFuture<Boolean> batteryUsageRestrictionFuture =
+                getExemptFromBatteryUsageRestrictionFuture(/* exempt= */ true);
+        return Futures.whenAllSucceed(hibernationFuture,
+                batteryUsageRestrictionFuture).call(() ->
+                        Futures.getDone(hibernationFuture)
+                                && Futures.getDone(batteryUsageRestrictionFuture),
+                MoreExecutors.directExecutor());
     }
 }

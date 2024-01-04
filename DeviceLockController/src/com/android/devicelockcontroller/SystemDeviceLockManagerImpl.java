@@ -173,6 +173,32 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
+    public void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
+            Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
+        Objects.requireNonNull(packageName);
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        try {
+            mIDeviceLockService.setExemptFromBatteryUsageRestriction(packageName,
+                    exempt, new RemoteCallback(result -> executor.execute(() -> {
+                        final boolean restrictionChanged = result.getBoolean(
+                                IDeviceLockService.KEY_REMOTE_CALLBACK_RESULT);
+                        if (restrictionChanged) {
+                            callback.onResult(null /* result */);
+                        } else {
+                            callback.onError(new Exception("Failed to change exempt from "
+                                    + "hibernation to: "
+                                    + (exempt ? "exempt" : "non exempt") + " for package: "
+                                    + packageName));
+                        }
+                    }), new Handler(Looper.getMainLooper())));
+        } catch (RemoteException e) {
+            executor.execute(() -> callback.onError(new RuntimeException(e)));
+        }
+    }
+
+    @Override
     @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void enableKioskKeepalive(String packageName, Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
