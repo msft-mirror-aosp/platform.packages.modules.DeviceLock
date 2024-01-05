@@ -93,7 +93,8 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                         // Do not apply any policies
                         return Futures.immediateVoidFuture();
                     } else {
-                        throw new RuntimeException("User has not been provisioned!");
+                        throw new RuntimeException(
+                                "User has not been provisioned! Current state " + provisionState);
                     }
                     return Futures.transformAsync(maybeSetProvisioningSuccess,
                             unused -> Futures.transformAsync(isCleared(),
