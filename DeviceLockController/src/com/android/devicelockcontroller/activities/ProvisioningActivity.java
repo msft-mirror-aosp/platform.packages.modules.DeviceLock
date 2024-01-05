@@ -75,9 +75,11 @@ public final class ProvisioningActivity extends AppCompatActivity {
             viewModel.setProvisioningProgress(
                     ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(UNKNOWN_REASON));
         }
-        getSupportFragmentManager()
-                .beginTransaction()
-                .add(R.id.fragment_container, new DevicePoliciesFragment())
-                .commit();
+        if (savedInstanceState == null) {
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.fragment_container, new DevicePoliciesFragment())
+                    .commit();
+        }
     }
 }
