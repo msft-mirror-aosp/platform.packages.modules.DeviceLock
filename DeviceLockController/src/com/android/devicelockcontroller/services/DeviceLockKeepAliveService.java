@@ -31,7 +31,7 @@ import com.android.devicelockcontroller.util.LogUtil;
  */
 public final class DeviceLockKeepAliveService extends Service {
     private static final String TAG = "DeviceLockKeepAliveService";
-    final IBinder mBinder = new Binder();
+    private final IBinder mBinder = new Binder();
 
     @Nullable
     @Override
