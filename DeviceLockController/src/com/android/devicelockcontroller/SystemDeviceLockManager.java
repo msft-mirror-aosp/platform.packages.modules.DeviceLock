@@ -17,6 +17,7 @@
 package com.android.devicelockcontroller;
 
 import android.annotation.CallbackExecutor;
+import android.annotation.RequiresPermission;
 import android.os.OutcomeReceiver;
 
 import androidx.annotation.NonNull;
@@ -28,6 +29,10 @@ import java.util.concurrent.Executor;
  * Stopgap: these should have been SystemApis on DeviceLockManager.
  */
 public interface SystemDeviceLockManager {
+    String MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER =
+            "com.android.devicelockcontroller.permission."
+                    + "MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER";
+
     /**
      * Add the FINANCED_DEVICE_KIOSK role to the specified package.
      *
@@ -35,6 +40,7 @@ public interface SystemDeviceLockManager {
      * @param executor    the {@link Executor} on which to invoke the callback.
      * @param callback    this returns either success or an exception.
      */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     void addFinancedDeviceKioskRole(@NonNull String packageName,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
@@ -46,43 +52,35 @@ public interface SystemDeviceLockManager {
      * @param executor    the {@link Executor} on which to invoke the callback.
      * @param callback    this returns either success or an exception.
      */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     void removeFinancedDeviceKioskRole(@NonNull String packageName,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
     /**
-     * Set the Device Lock Controller exempt from restrictions about starting activities
-     * from the background (for the calling user).
+     * Set the exemption state for activity background start restriction for dlc.
      *
-     * @param exempt   true if the Controller should be exempt from the restriction.
-     * @param executor the {@link Executor} on which to invoke the callback.
-     * @param callback callback this returns either success or an exception.
+     * @param exempt if true, dlc will be set to exempt from activity background start
+     *               restriction; false, the exemption state will be set to default.
      */
-    void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    void setDlcExemptFromActivityBgStartRestrictionState(boolean exempt,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
     /**
-     * Set the kiosk app exempt from hibernation (for the calling user).
+     * Set the exemption state of app restrictions (e.g. hibernation, battery and data usage) for
+     * kiosk app.
      *
      * @param packageName kiosk app package name.
-     * @param exempt      true if kiosk app should be exempt from hibernation.
+     * @param exempt      if true, the given uid will be set to exempt from app restrictions (e.g.
+     *                    hibernation, battery and data usage restriction); false, the exemption
+     *                    state will be set to default.
      * @param executor    the {@link Executor} on which to invoke the callback.
      * @param callback    callback this returns either success or an exception.
      */
-    void setExemptFromHibernation(String packageName, boolean exempt,
-            @CallbackExecutor Executor executor,
-            @NonNull OutcomeReceiver<Void, Exception> callback);
-
-    /**
-     * Set the kiosk app exempt from battery usage restriction (for the calling user).
-     *
-     * @param packageName kiosk app package name.
-     * @param exempt      true if the kiosk app should be exempt from hibernation.
-     * @param executor    the {@link Executor} on which to invoke the callback.
-     * @param callback    callback this returns either success or an exception.
-     */
-    void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    void setKioskAppExemptFromRestrictionsState(String packageName, boolean exempt,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
@@ -93,8 +91,8 @@ public interface SystemDeviceLockManager {
      * @param executor    the {@link Executor} on which to invoke the callback.
      * @param callback    callback this returns either success or an exception.
      */
-    void enableKioskKeepalive(String packageName,
-            @CallbackExecutor Executor executor,
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    void enableKioskKeepalive(String packageName, @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
     /**
@@ -103,6 +101,7 @@ public interface SystemDeviceLockManager {
      * @param executor the {@link Executor} on which to invoke the callback.
      * @param callback callback this returns either success or an exception.
      */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     void disableKioskKeepalive(@CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
@@ -112,6 +111,7 @@ public interface SystemDeviceLockManager {
      * @param executor the {@link Executor} on which to invoke the callback.
      * @param callback callback this returns either success or an exception.
      */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     void enableControllerKeepalive(@CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
@@ -121,6 +121,7 @@ public interface SystemDeviceLockManager {
      * @param executor the {@link Executor} on which to invoke the callback.
      * @param callback callback this returns either success or an exception.
      */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     void disableControllerKeepalive(@CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
@@ -132,6 +133,7 @@ public interface SystemDeviceLockManager {
      * @param executor  the {@link Executor} on which to invoke the callback.
      * @param callback  callback this returns either success or an exception.
      */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     void setDeviceFinalized(boolean finalized, @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
 }

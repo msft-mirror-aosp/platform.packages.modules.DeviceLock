@@ -39,7 +39,6 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.pm.PackageManager.PackageInfoFlags;
 import android.content.pm.ServiceInfo;
 import android.devicelock.DeviceId.DeviceIdType;
 import android.devicelock.DeviceLockManager;
@@ -49,6 +48,7 @@ import android.devicelock.IGetKioskAppsCallback;
 import android.devicelock.IIsDeviceLockedCallback;
 import android.devicelock.ILockUnlockDeviceCallback;
 import android.devicelock.ParcelableException;
+import android.net.NetworkPolicyManager;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -64,6 +64,7 @@ import android.util.Slog;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -73,6 +74,10 @@ import java.util.List;
 final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     private static final String TAG = "DeviceLockServiceImpl";
 
+    // Keep this in sync with NetworkPolicyManager#POLICY_NONE.
+    private static final int POLICY_NONE = 0x0;
+    //Keep this in sync with NetworkPolicyManager#POLICY_ALLOW_METERED_BACKGROUND.
+    private static final int POLICY_ALLOW_METERED_BACKGROUND = 0x4;
     private static final String ACTION_DEVICE_LOCK_KEEPALIVE =
             "com.android.devicelock.action.KEEPALIVE";
 
@@ -97,8 +102,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     private final ServiceInfo mServiceInfo;
 
     // Map user id -> ServiceConnection for kiosk keepalive.
-    private final ArrayMap<Integer, KeepaliveServiceConnection>
-            mKioskKeepaliveServiceConnections;
+    private final ArrayMap<Integer, KeepaliveServiceConnection> mKioskKeepaliveServiceConnections;
 
     // Map user id -> ServiceConnection for controller keepalive.
     private final ArrayMap<Integer, KeepaliveServiceConnection>
@@ -132,8 +136,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
             final PendingResult pendingResult = goAsync();
 
-            getDeviceLockControllerConnector(userHandle)
-                    .clearDeviceRestrictions(new OutcomeReceiver<>() {
+            getDeviceLockControllerConnector(userHandle).clearDeviceRestrictions(
+                    new OutcomeReceiver<>() {
 
                         private void setResult(int resultCode) {
                             pendingResult.setResultCode(resultCode);
@@ -253,8 +257,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         final PackageManager controllerPackageManager = controllerContext.getPackageManager();
 
-        final int enableState = enabled ? COMPONENT_ENABLED_STATE_DEFAULT
-                : COMPONENT_ENABLED_STATE_DISABLED;
+        final int enableState =
+                enabled ? COMPONENT_ENABLED_STATE_DEFAULT : COMPONENT_ENABLED_STATE_DISABLED;
         // We cannot check if user control is disabled since
         // DevicePolicyManager.getUserControlDisabledPackages() acts on the calling user.
         // Additionally, we would have to catch SecurityException anyways to avoid TOCTOU bugs
@@ -278,49 +282,45 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     void onUserSwitching(@NonNull UserHandle userHandle) {
-        getDeviceLockControllerConnector(userHandle).onUserSwitching(
-                new OutcomeReceiver<>() {
-                    @Override
-                    public void onResult(Void ignored) {
-                        Slog.i(TAG, "User switching reported for: " + userHandle);
-                    }
+        getDeviceLockControllerConnector(userHandle).onUserSwitching(new OutcomeReceiver<>() {
+            @Override
+            public void onResult(Void ignored) {
+                Slog.i(TAG, "User switching reported for: " + userHandle);
+            }
 
-                    @Override
-                    public void onError(Exception ex) {
-                        Slog.e(TAG, "Exception reporting user switching for: " + userHandle, ex);
-                    }
-                });
+            @Override
+            public void onError(Exception ex) {
+                Slog.e(TAG, "Exception reporting user switching for: " + userHandle, ex);
+            }
+        });
     }
 
     void onUserUnlocked(@NonNull UserHandle userHandle) {
-        getDeviceLockControllerConnector(userHandle).onUserUnlocked(
-                new OutcomeReceiver<>() {
-                    @Override
-                    public void onResult(Void ignored) {
-                        Slog.i(TAG, "User unlocked reported for: " + userHandle);
-                    }
+        getDeviceLockControllerConnector(userHandle).onUserUnlocked(new OutcomeReceiver<>() {
+            @Override
+            public void onResult(Void ignored) {
+                Slog.i(TAG, "User unlocked reported for: " + userHandle);
+            }
 
-                    @Override
-                    public void onError(Exception ex) {
-                        Slog.e(TAG, "Exception reporting user unlocked for: " + userHandle, ex);
-                    }
-                });
+            @Override
+            public void onError(Exception ex) {
+                Slog.e(TAG, "Exception reporting user unlocked for: " + userHandle, ex);
+            }
+        });
     }
 
     void onUserSetupCompleted(UserHandle userHandle) {
-        getDeviceLockControllerConnector(userHandle).onUserSetupCompleted(
-                new OutcomeReceiver<>() {
-                    @Override
-                    public void onResult(Void ignored) {
-                        Slog.i(TAG, "User set up complete reported for: " + userHandle);
-                    }
+        getDeviceLockControllerConnector(userHandle).onUserSetupCompleted(new OutcomeReceiver<>() {
+            @Override
+            public void onResult(Void ignored) {
+                Slog.i(TAG, "User set up complete reported for: " + userHandle);
+            }
 
-                    @Override
-                    public void onError(Exception ex) {
-                        Slog.e(TAG, "Exception reporting user setup complete for: " + userHandle,
-                                ex);
-                    }
-                });
+            @Override
+            public void onError(Exception ex) {
+                Slog.e(TAG, "Exception reporting user setup complete for: " + userHandle, ex);
+            }
+        });
     }
 
     private boolean checkCallerPermission() {
@@ -359,8 +359,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     private ParcelableException getParcelableException(Exception exception) {
-        return exception instanceof ParcelableException
-                ? (ParcelableException) exception
+        return exception instanceof ParcelableException ? (ParcelableException) exception
                 : new ParcelableException(exception);
     }
 
@@ -578,8 +577,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             @NonNull RemoteCallback remoteCallback, @NonNull UserHandle userHandle, long identity,
             int remainingTries) {
         mRoleManager.addRoleHolderAsUser(RoleManager.ROLE_FINANCED_DEVICE_KIOSK, packageName,
-                MANAGE_HOLDERS_FLAG_DONT_KILL_APP, userHandle,
-                mContext.getMainExecutor(), accepted -> {
+                MANAGE_HOLDERS_FLAG_DONT_KILL_APP, userHandle, mContext.getMainExecutor(),
+                accepted -> {
                     if (accepted || remainingTries == 1) {
                         reportResult(accepted, identity, remoteCallback);
                     } else {
@@ -602,8 +601,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         final UserHandle userHandle = Binder.getCallingUserHandle();
         final long identity = Binder.clearCallingIdentity();
 
-        addFinancedDeviceKioskRoleInternal(packageName, remoteCallback, userHandle,
-                identity, MAX_ADD_ROLE_HOLDER_TRIES);
+        addFinancedDeviceKioskRoleInternal(packageName, remoteCallback, userHandle, identity,
+                MAX_ADD_ROLE_HOLDER_TRIES);
 
         Binder.restoreCallingIdentity(identity);
     }
@@ -625,79 +624,96 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         Binder.restoreCallingIdentity(identity);
     }
 
-    private void setExemption(String packageName, int uid, String appOp, boolean exempt,
-            @NonNull RemoteCallback remoteCallback) {
-        final long identity = Binder.clearCallingIdentity();
+    /**
+     * @param uid     The uid whose AppOps mode needs to change.
+     * @param appOps  A list of appOps to change
+     * @param allowed If true, the mode would be set to {@link AppOpsManager#MODE_ALLOWED}; false,
+     *                the mode would be set to {@link AppOpsManager#MODE_DEFAULT}.
+     * @return a boolean value indicates whether the app ops modes have been changed to the
+     * requested value.
+     */
+    private boolean setAppOpsModes(int uid, String[] appOps, boolean allowed) {
+        final int mode = allowed ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_DEFAULT;
 
-        final int mode = exempt ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_DEFAULT;
-
-        mAppOpsManager.setMode(appOp, uid, packageName, mode);
-
+        String[] packageNames = mContext.getPackageManager().getPackagesForUid(uid);
+        if (packageNames == null || packageNames.length < 1) {
+            Slog.e(TAG, "Can not find package name for given uid: " + uid);
+            return false;
+        }
+        long identity = Binder.clearCallingIdentity();
+        for (String appOp : appOps) {
+            mAppOpsManager.setMode(appOp, uid, packageNames[0], mode);
+        }
         Binder.restoreCallingIdentity(identity);
+        return true;
+    }
 
-        final Bundle result = new Bundle();
-        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, true);
+    /**
+     * Set the exemption state for activity background start restriction for the calling uid.
+     * Caller must hold the {@link MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER} permission.
+     *
+     * @param exempt if true, the calling uid will be set to exempt from activity background start
+     *               restriction; false, the exemption state will be set to default.
+     */
+    @Override
+    public void setCallerExemptFromActivityBgStartRestrictionState(boolean exempt,
+            @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+        Bundle result = new Bundle();
+        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, setAppOpsModes(Binder.getCallingUid(),
+                new String[]{OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION}, exempt));
         remoteCallback.sendResult(result);
     }
 
-    private int getKioskUid(String packageName,
-            @NonNull RemoteCallback remoteCallback) {
-        final UserHandle controllerUserHandle = Binder.getCallingUserHandle();
-        final int controllerUserId = controllerUserHandle.getIdentifier();
-        final PackageManager packageManager = mContext.getPackageManager();
-        int kioskUid;
-        final long identity = Binder.clearCallingIdentity();
+    /**
+     * @param uid   The uid whose network policy needs to change.
+     * @param allow whether to allow background data usage in metered data mode.
+     * @return a boolean value indicates whether the policy change is a success.
+     */
+    private boolean setNetworkPolicyForUid(int uid, boolean allow) {
+        boolean result;
+        long caller = Binder.clearCallingIdentity();
         try {
-            kioskUid = packageManager.getPackageUidAsUser(packageName, PackageInfoFlags.of(0),
-                    controllerUserId);
-        } catch (NameNotFoundException e) {
-            Binder.restoreCallingIdentity(identity);
-            Slog.e(TAG, "Failed to set hibernation appop", e);
-            reportErrorToCaller(remoteCallback);
-            return -1;
+            // TODO(b/319266027): Figure out a long term solution instead of using reflection here.
+            NetworkPolicyManager networkPolicyManager = mContext.getSystemService(
+                    NetworkPolicyManager.class);
+            NetworkPolicyManager.class.getDeclaredMethod("setUidPolicy", Integer.TYPE,
+                    Integer.TYPE).invoke(networkPolicyManager, uid,
+                    allow ? POLICY_ALLOW_METERED_BACKGROUND : POLICY_NONE);
+            result = true;
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+            Slog.e(TAG, "Failed to exempt data usage for given uid: " + uid, e);
+            result = false;
         }
-        Binder.restoreCallingIdentity(identity);
-        return kioskUid;
+        Binder.restoreCallingIdentity(caller);
+        return result;
     }
 
+    /**
+     * Set the exemption state for app restrictions(e.g. hibernation, battery and data usage
+     * restriction) for the given uid
+     * Caller must hold the {@link MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER} permission.
+     *
+     * @param exempt if true, the given uid will be set to exempt from hibernation, battery and data
+     *               usage restriction; false, the exemption state will be set to default.
+     */
     @Override
-    public void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
+    public void setUidExemptFromRestrictionsState(int uid, boolean exempt,
             @NonNull RemoteCallback remoteCallback) {
         if (!checkDeviceLockControllerPermission(remoteCallback)) {
             return;
         }
 
-        setExemption(mServiceInfo.packageName, Binder.getCallingUid(),
-                OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION, exempt, remoteCallback);
-    }
 
-    @Override
-    public void setExemptFromHibernation(String packageName, boolean exempt,
-            @NonNull RemoteCallback remoteCallback) {
-        if (!checkDeviceLockControllerPermission(remoteCallback)) {
-            return;
-        }
-
-        int kioskUid = getKioskUid(packageName, remoteCallback);
-        if (kioskUid == -1) return;
-
-        setExemption(packageName, kioskUid, OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION, exempt,
-                remoteCallback);
-    }
-
-    @Override
-    public void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
-            @NonNull RemoteCallback remoteCallback) {
-        if (!checkDeviceLockControllerPermission(remoteCallback)) {
-            return;
-        }
-
-        int kioskUid = getKioskUid(packageName, remoteCallback);
-        if (kioskUid == -1) return;
-
-        setExemption(packageName, kioskUid,
-                OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS,
-                exempt, remoteCallback);
+        boolean setAppOpsResult = setAppOpsModes(uid,
+                new String[]{OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION,
+                        OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS}, exempt);
+        boolean setNetworkPolicyResult = setNetworkPolicyForUid(uid, exempt);
+        Bundle result = new Bundle();
+        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, setAppOpsResult && setNetworkPolicyResult);
+        remoteCallback.sendResult(result);
     }
 
     private class KeepaliveServiceConnection implements ServiceConnection {
@@ -725,8 +741,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             boolean bound = bind();
 
             if (bound) {
-                getDeviceLockControllerConnector(mUserHandle)
-                        .onAppCrashed(mIsKiosk, new OutcomeReceiver<>() {
+                getDeviceLockControllerConnector(mUserHandle).onAppCrashed(mIsKiosk,
+                        new OutcomeReceiver<>() {
                             @Override
                             public void onResult(Void result) {
                                 Slog.i(TAG, "Notified controller about " + mPackageName + " crash");
@@ -765,8 +781,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                 Slog.i(TAG, "onBindingDied rebind successful for " + mPackageName + " user "
                         + mUserHandle);
             } else {
-                Slog.e(TAG, "onBindingDied rebind failed for " + mPackageName + " user "
-                        + mUserHandle);
+                Slog.e(TAG,
+                        "onBindingDied rebind failed for " + mPackageName + " user " + mUserHandle);
             }
         }
     }
@@ -802,8 +818,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         synchronized (this) {
             if (keepaliveServiceConnections.get(controllerUserId) == null) {
-                final KeepaliveServiceConnection serviceConnection =
-                        new KeepaliveServiceConnection(forKiosk, packageName, controllerUserHandle);
+                final KeepaliveServiceConnection serviceConnection = new KeepaliveServiceConnection(
+                        forKiosk, packageName, controllerUserHandle);
                 final long identity = Binder.clearCallingIdentity();
                 if (serviceConnection.bind()) {
                     keepaliveServiceConnections.put(controllerUserId, serviceConnection);
@@ -843,8 +859,9 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             Binder.restoreCallingIdentity(identity);
         } else {
             final String target = isKiosk ? "kiosk" : "controller";
-            Slog.e(TAG, "disableKeepalive: Service connection to " + target
-                    + " not found for user: " + controllerUserHandle);
+            Slog.e(TAG,
+                    "disableKeepalive: Service connection to " + target + " not found for user: "
+                            + controllerUserHandle);
         }
 
         final Bundle result = new Bundle();
