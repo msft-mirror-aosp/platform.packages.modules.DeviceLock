@@ -59,10 +59,9 @@ public final class KioskKeepAlivePolicyHandler implements PolicyHandler {
 
                                 @Override
                                 public void onError(Exception ex) {
-                                    LogUtil.e(TAG, "Failed to enable kiosk keep-alive",
-                                            ex);
-                                    // Return SUCCESS since the keep-alive service is optional
-                                    completer.set(false);
+                                    // Return true since the keep-alive service is optional
+                                    LogUtil.d(TAG, "Failed to enable kiosk keep-alive", ex);
+                                    completer.set(true);
                                 }
                             });
                     // Used only for debugging.
@@ -90,9 +89,8 @@ public final class KioskKeepAlivePolicyHandler implements PolicyHandler {
 
                                 @Override
                                 public void onError(Exception ex) {
-                                    LogUtil.e(TAG, "Failed to disable kiosk keep-alive",
-                                            ex);
-                                    // Return SUCCESS since the keep-alive service is optional
+                                    // Return true since the keep-alive service is optional
+                                    LogUtil.d(TAG, "Failed to disable kiosk keep-alive", ex);
                                     completer.set(true);
                                 }
                             });
