@@ -75,23 +75,17 @@ oneway interface IDeviceLockService {
     void removeFinancedDeviceKioskRole(in String packageName, in RemoteCallback remoteCallback);
 
     /**
-     * Set the Device Lock Controller exempt from starting an activity from the background
-     * for the calling user.
+     * Set the exempt from activity background restrction app op mode for the calling uid.
      */
-    void setExemptFromActivityBackgroundStartRestriction(in boolean exempt,
-        in RemoteCallback remoteCallback);
+    void setCallerExemptFromActivityBgStartRestrictionState(in boolean exempt,
+     in RemoteCallback remoteCallback);
 
     /**
-     * Exempt kiosk app from hibernation.
+     * Set the exempt from hibernation, battery usage, data usage restrictions state for the
+     * given uid.
      */
-    void setExemptFromHibernation(in String packageName, in boolean exempt,
-        in RemoteCallback remoteCallback);
-
-    /**
-     * Exempt kiosk app from battery usage restriction.
-     */
-    void setExemptFromBatteryUsageRestriction(in String packageName, in boolean exempt,
-        in RemoteCallback remoteCallback);
+    void setUidExemptFromRestrictionsState(in int uid, in boolean exempt,
+     in RemoteCallback remoteCallback);
 
     /**
      * Enable kiosk keepalive.

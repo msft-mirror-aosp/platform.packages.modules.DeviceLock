@@ -18,7 +18,6 @@ package com.android.devicelockcontroller.policy;
 
 import android.os.OutcomeReceiver;
 
-import androidx.annotation.NonNull;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 
 import com.android.devicelockcontroller.SystemDeviceLockManager;
@@ -41,141 +40,101 @@ final class AppOpsPolicyHandler implements PolicyHandler {
         mBgExecutor = bgExecutor;
     }
 
-    private ListenableFuture<Boolean> getExemptFromBackgroundStartRestrictionsFuture(
+    /**
+     * Set the exempt from activity background start restriction state for dlc app.
+     */
+    private ListenableFuture<Boolean> setDlcExemptFromActivityBgStartRestrictionState(
             boolean exempt) {
-        return CallbackToFutureAdapter.getFuture(
-                completer -> {
-                    mSystemDeviceLockManager.setExemptFromActivityBackgroundStartRestriction(exempt,
-                            mBgExecutor,
-                            new OutcomeReceiver<>() {
-                                @Override
-                                public void onResult(Void unused) {
-                                    completer.set(true);
-                                }
+        return CallbackToFutureAdapter.getFuture(completer -> {
+            mSystemDeviceLockManager.setDlcExemptFromActivityBgStartRestrictionState(exempt,
+                    mBgExecutor, new OutcomeReceiver<>() {
+                        @Override
+                        public void onResult(Void unused) {
+                            completer.set(true);
+                        }
 
-                                @Override
-                                public void onError(Exception error) {
-                                    LogUtil.e(TAG, "Cannot set background start exemption", error);
-                                    completer.set(false);
-                                }
-                            });
-                    // Used only for debugging.
-                    return "getExemptFromBackgroundStartRestrictionFuture";
-                });
+                        @Override
+                        public void onError(Exception error) {
+                            LogUtil.e(TAG, "Cannot set background start exemption", error);
+                            completer.set(false);
+                        }
+                    });
+            // Used only for debugging.
+            return "setDlcExemptFromActivityBgStartRestrictionState";
+        });
     }
 
-    private ListenableFuture<Boolean> getExemptFromHibernationFuture(boolean exempt) {
+    /**
+     * Set the exempt from hibernation, battery and data usage restriction state for kiosk app.
+     */
+    private ListenableFuture<Boolean> setKioskAppExemptionsState(boolean exempt) {
         return Futures.transformAsync(SetupParametersClient.getInstance().getKioskPackage(),
-                kioskPackageName -> kioskPackageName == null
-                        ? Futures.immediateFuture(true)
-                        : CallbackToFutureAdapter.getFuture(
-                                completer -> {
-                                    mSystemDeviceLockManager.setExemptFromHibernation(
-                                            kioskPackageName, exempt,
-                                            mBgExecutor,
-                                            new OutcomeReceiver<>() {
-                                                @Override
-                                                public void onResult(Void unused) {
-                                                    completer.set(true);
-                                                }
-
-                                                @Override
-                                                public void onError(Exception error) {
-                                                    LogUtil.e(TAG,
-                                                            "Cannot set exempt from hibernation",
-                                                            error);
-                                                    // Also returns true here to make sure state
-                                                    // transition success.
-                                                    completer.set(true);
-                                                }
-                                            });
-                                    // Used only for debugging.
-                                    return "setExemptFromHibernationFuture";
-                                }), MoreExecutors.directExecutor());
-    }
-
-    private ListenableFuture<Boolean> getExemptFromBatteryUsageRestrictionFuture(boolean exempt) {
-        return Futures.transformAsync(SetupParametersClient.getInstance().getKioskPackage(),
-                kioskPackageName -> kioskPackageName == null
-                        ? Futures.immediateFuture(true)
+                kioskPackageName -> kioskPackageName == null ? Futures.immediateFuture(true)
                         : CallbackToFutureAdapter.getFuture(completer -> {
-                            mSystemDeviceLockManager.setExemptFromBatteryUsageRestriction(
-                                    kioskPackageName, exempt, mBgExecutor,
-                                    new OutcomeReceiver<>() {
+                            mSystemDeviceLockManager.setKioskAppExemptFromRestrictionsState(
+                                    kioskPackageName, exempt, mBgExecutor, new OutcomeReceiver<>() {
                                         @Override
-                                        public void onResult(Void result) {
+                                        public void onResult(Void unused) {
                                             completer.set(true);
                                         }
 
                                         @Override
-                                        public void onError(@NonNull Exception error) {
-                                            LogUtil.e(TAG,
-                                                    "Cannot set exempt from battery usage "
-                                                            + "restrictions",
-                                                    error);
-                                            // Also returns true here to make sure state
-                                            // transition success.
+                                        public void onError(Exception error) {
+                                            LogUtil.e(TAG, "Cannot set exempt kiosk app", error);
+                                            // Returns true here to make sure state transition
+                                            // success.
                                             completer.set(true);
                                         }
                                     });
                             // Used only for debugging.
-                            return "getExemptFromBatteryUsageRestrictionFuture";
+                            return "setKioskAppExemptionsState";
                         }), MoreExecutors.directExecutor());
     }
 
-    private ListenableFuture<Boolean> getExemptFromAllFutures(boolean exempt) {
+    /**
+     * Set the exempt state for dlc and kiosk app. Note that the exemptions are different between
+     * dlc app and kiosk app.
+     */
+    private ListenableFuture<Boolean> setDlcAndKioskAppExemptionsState(boolean exempt) {
         final ListenableFuture<Boolean> backgroundFuture =
-                getExemptFromBackgroundStartRestrictionsFuture(exempt);
-        final ListenableFuture<Boolean> hibernationFuture =
-                getExemptFromHibernationFuture(exempt);
-        final ListenableFuture<Boolean> batteryUsageFuture =
-                getExemptFromBatteryUsageRestrictionFuture(exempt);
-        return Futures.whenAllSucceed(backgroundFuture, hibernationFuture, batteryUsageFuture)
-                .call(() -> Futures.getDone(backgroundFuture)
-                                && Futures.getDone(hibernationFuture)
-                                && Futures.getDone(batteryUsageFuture),
-                        MoreExecutors.directExecutor());
+                setDlcExemptFromActivityBgStartRestrictionState(exempt);
+        final ListenableFuture<Boolean> kioskExemptionFuture = setKioskAppExemptionsState(exempt);
+        return Futures.whenAllSucceed(backgroundFuture, kioskExemptionFuture).call(
+                () -> Futures.getDone(backgroundFuture) && Futures.getDone(kioskExemptionFuture),
+                MoreExecutors.directExecutor());
     }
 
     @Override
     public ListenableFuture<Boolean> onProvisioned() {
-        return getExemptFromAllFutures(/* exempt= */ true);
+        return setDlcAndKioskAppExemptionsState(/* exempt= */ true);
     }
 
     @Override
     public ListenableFuture<Boolean> onProvisionInProgress() {
-        return getExemptFromBackgroundStartRestrictionsFuture(/* exempt= */ true);
+        return setDlcExemptFromActivityBgStartRestrictionState(/* exempt= */ true);
     }
 
     @Override
     public ListenableFuture<Boolean> onProvisionFailed() {
-        return getExemptFromBackgroundStartRestrictionsFuture(/* exempt= */ false);
+        return setDlcExemptFromActivityBgStartRestrictionState(/* exempt= */ false);
     }
 
     @Override
     public ListenableFuture<Boolean> onCleared() {
-        return getExemptFromAllFutures(/* exempt= */ false);
+        return setDlcAndKioskAppExemptionsState(/* exempt= */ false);
     }
 
     // Due to some reason, AppOpsManager does not persist exemption after reboot, therefore we
     // need to always set them from our end.
     @Override
     public ListenableFuture<Boolean> onLocked() {
-        return getExemptFromAllFutures(/* exempt= */ true);
+        return setDlcAndKioskAppExemptionsState(/* exempt= */ true);
     }
 
     // Due to some reason, AppOpsManager does not persist exemption after reboot, therefore we
     // need to always set them from our end.
     @Override
     public ListenableFuture<Boolean> onUnlocked() {
-        ListenableFuture<Boolean> hibernationFuture =
-                getExemptFromHibernationFuture(/* exempt= */ true);
-        ListenableFuture<Boolean> batteryUsageRestrictionFuture =
-                getExemptFromBatteryUsageRestrictionFuture(/* exempt= */ true);
-        return Futures.whenAllSucceed(hibernationFuture,
-                batteryUsageRestrictionFuture).call(() ->
-                        Futures.getDone(hibernationFuture)
-                                && Futures.getDone(batteryUsageRestrictionFuture),
-                MoreExecutors.directExecutor());
+        return setKioskAppExemptionsState(/* exempt= */ true);
     }
 }

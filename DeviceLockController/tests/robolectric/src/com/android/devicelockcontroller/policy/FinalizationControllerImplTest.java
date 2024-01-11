@@ -152,19 +152,13 @@ public final class FinalizationControllerImplTest {
         }
 
         @Override
-        public void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
+        public void setDlcExemptFromActivityBgStartRestrictionState(boolean exempt,
                 Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
 
         }
 
         @Override
-        public void setExemptFromHibernation(String packageName, boolean exempt, Executor executor,
-                @NonNull OutcomeReceiver<Void, Exception> callback) {
-
-        }
-
-        @Override
-        public void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
+        public void setKioskAppExemptFromRestrictionsState(String packageName, boolean exempt,
                 Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
 
         }
