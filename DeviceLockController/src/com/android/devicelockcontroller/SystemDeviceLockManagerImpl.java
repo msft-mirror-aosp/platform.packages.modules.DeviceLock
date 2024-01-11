@@ -17,8 +17,9 @@
 package com.android.devicelockcontroller;
 
 import android.annotation.CallbackExecutor;
-import android.annotation.RequiresPermission;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.PackageInfoFlags;
 import android.devicelock.DeviceLockManager;
 import android.devicelock.IDeviceLockService;
 import android.os.Bundle;
@@ -40,14 +41,12 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     private static final String TAG = "SystemDeviceLockManagerImpl";
 
     private final IDeviceLockService mIDeviceLockService;
-
-    private static final String MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER =
-            "com.android.devicelockcontroller.permission."
-                    + "MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER";
+    private final Context mContext;
 
     private SystemDeviceLockManagerImpl(Context context) {
-        final DeviceLockManager deviceLockManager =
-                context.getSystemService(DeviceLockManager.class);
+        mContext = context;
+        final DeviceLockManager deviceLockManager = context.getSystemService(
+                DeviceLockManager.class);
 
         mIDeviceLockService = deviceLockManager.getService();
     }
@@ -70,7 +69,6 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void addFinancedDeviceKioskRole(@NonNull String packageName,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
@@ -80,8 +78,8 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
         try {
             mIDeviceLockService.addFinancedDeviceKioskRole(packageName,
                     new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to add financed role to: "
-                                + packageName);
+                        processResult(result, callback,
+                                "Failed to add financed role to: " + packageName);
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
@@ -89,7 +87,6 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void removeFinancedDeviceKioskRole(@NonNull String packageName,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
@@ -99,8 +96,8 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
         try {
             mIDeviceLockService.removeFinancedDeviceKioskRole(packageName,
                     new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to remove financed role from: "
-                                + packageName);
+                        processResult(result, callback,
+                                "Failed to remove financed role from: " + packageName);
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
@@ -108,19 +105,18 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
-    public void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
+    public void setDlcExemptFromActivityBgStartRestrictionState(boolean exempt,
             @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
         Objects.requireNonNull(executor);
         Objects.requireNonNull(callback);
 
         try {
-            mIDeviceLockService.setExemptFromActivityBackgroundStartRestriction(exempt,
+            mIDeviceLockService.setCallerExemptFromActivityBgStartRestrictionState(exempt,
                     new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to change exempt from "
-                                + "activity background start to: "
-                                + (exempt ? "exempt" : "non exempt"));
+                        processResult(result, callback,
+                                "Failed to change exempt from activity background start to: "
+                                        + (exempt ? "exempt" : "non exempt"));
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
@@ -128,49 +124,24 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
-    public void setExemptFromHibernation(String packageName, boolean exempt,
-            @CallbackExecutor Executor executor,
-            @NonNull OutcomeReceiver<Void, Exception> callback) {
-        Objects.requireNonNull(packageName);
-        Objects.requireNonNull(executor);
-        Objects.requireNonNull(callback);
-
-        try {
-            mIDeviceLockService.setExemptFromHibernation(packageName, exempt,
-                    new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to change exempt from "
-                                + "hibernation to: "
-                                + (exempt ? "exempt" : "non exempt") + " for package: "
-                                + packageName);
-                    }), new Handler(Looper.getMainLooper())));
-        } catch (RemoteException e) {
-            executor.execute(() -> callback.onError(new RuntimeException(e)));
-        }
-    }
-
-    @Override
-    public void setExemptFromBatteryUsageRestriction(String packageName, boolean exempt,
+    public void setKioskAppExemptFromRestrictionsState(String packageName, boolean exempt,
             Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
-        Objects.requireNonNull(packageName);
         Objects.requireNonNull(executor);
         Objects.requireNonNull(callback);
 
         try {
-            mIDeviceLockService.setExemptFromBatteryUsageRestriction(packageName,
-                    exempt, new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to change exempt from "
-                                + "battery usage restriction to: "
-                                + (exempt ? "exempt" : "non exempt") + " for package: "
-                                + packageName);
+            int kioskUid = mContext.getPackageManager().getPackageUid(packageName,
+                    PackageInfoFlags.of(0));
+            mIDeviceLockService.setUidExemptFromRestrictionsState(kioskUid, exempt,
+                    new RemoteCallback(result -> executor.execute(() -> {
+                        processResult(result, callback, "Failed to exempt for UID: " + kioskUid);
                     }), new Handler(Looper.getMainLooper())));
-        } catch (RemoteException e) {
+        } catch (RemoteException | PackageManager.NameNotFoundException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
         }
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void enableKioskKeepalive(String packageName, Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
         Objects.requireNonNull(packageName);
@@ -180,8 +151,9 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
         try {
             mIDeviceLockService.enableKioskKeepalive(packageName,
                     new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to enable kiosk keepalive "
-                                + "for package: " + packageName);
+                        processResult(result, callback,
+                                "Failed to enable kiosk keep-alive for package: "
+                                        + packageName);
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
@@ -189,7 +161,6 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void disableKioskKeepalive(Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
         Objects.requireNonNull(executor);
@@ -198,7 +169,7 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
         try {
             mIDeviceLockService.disableKioskKeepalive(
                     new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to disable kiosk keepalive");
+                        processResult(result, callback, "Failed to disable kiosk keep-alive");
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
@@ -206,7 +177,6 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void enableControllerKeepalive(Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
         Objects.requireNonNull(executor);
@@ -215,7 +185,7 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
         try {
             mIDeviceLockService.enableControllerKeepalive(
                     new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to enable controller keepalive");
+                        processResult(result, callback, "Failed to enable controller keep-alive");
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
@@ -223,7 +193,6 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void disableControllerKeepalive(Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
         Objects.requireNonNull(executor);
@@ -232,7 +201,7 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
         try {
             mIDeviceLockService.disableControllerKeepalive(
                     new RemoteCallback(result -> executor.execute(() -> {
-                        processResult(result, callback, "Failed to disable controller keepalive");
+                        processResult(result, callback, "Failed to disable controller keep-alive");
                     }), new Handler(Looper.getMainLooper())));
         } catch (RemoteException e) {
             executor.execute(() -> callback.onError(new RuntimeException(e)));
@@ -240,7 +209,6 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
-    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     public void setDeviceFinalized(boolean finalized, Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback) {
         Objects.requireNonNull(executor);
