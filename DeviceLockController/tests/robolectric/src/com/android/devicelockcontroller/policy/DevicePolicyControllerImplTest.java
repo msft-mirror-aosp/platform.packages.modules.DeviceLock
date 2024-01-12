@@ -232,6 +232,22 @@ public final class DevicePolicyControllerImplTest {
     }
 
     @Test
+    public void enforceCurrentPolicies_withProvisionPausedAndDeviceLocked_doesNotStartLockTaskMode()
+            throws Exception {
+        setupSetupParameters();
+        setExpectationsOnDisableControllerKeepAlive();
+        when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
+                ProvisionState.PROVISION_PAUSED));
+        when(mMockUserManager.isUserUnlocked()).thenReturn(true);
+        GlobalParametersClient.getInstance().setDeviceState(LOCKED).get();
+
+        mDevicePolicyController.enforceCurrentPolicies().get();
+
+        shadowOf(Looper.getMainLooper()).idle();
+        assertLockTaskModeNotStarted();
+    }
+
+    @Test
     public void enforceCurrentPolicies_withProvisionFailedState_doesNotStartLockTaskMode()
             throws Exception {
         setupSetupParameters();
@@ -631,7 +647,7 @@ public final class DevicePolicyControllerImplTest {
 
         assertThat(thrown).hasCauseThat().isInstanceOf(IllegalStateException.class);
         assertThat(thrown).hasMessageThat().contains(
-                "Failed to enforce polices for provision state:");
+                "Failed to enforce policies for provision state");
     }
 
     @Test
