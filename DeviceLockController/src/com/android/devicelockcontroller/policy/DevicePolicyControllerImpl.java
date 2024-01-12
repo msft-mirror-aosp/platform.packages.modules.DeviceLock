@@ -239,8 +239,15 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             return Futures.immediateFuture(resolveLockTaskType(provisionState, deviceState));
         }
         List<ListenableFuture<Boolean>> futures = new ArrayList<>();
-        if (provisionState == PROVISION_SUCCEEDED) {
-            // If provisioning has succeeded, add the policies for device state
+        if (deviceState == CLEARED) {
+            // If device is cleared, then ignore provision state and add cleared policies
+            for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
+                PolicyHandler policy = mPolicyList.get(i);
+                futures.add(policy.onCleared());
+            }
+        } else if (provisionState == PROVISION_SUCCEEDED) {
+            // If provisioning has succeeded, then ignore provision state and add device state
+            // policies
             for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
                 PolicyHandler policy = mPolicyList.get(i);
                 switch (deviceState) {
@@ -249,9 +256,6 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                         break;
                     case LOCKED:
                         futures.add(policy.onLocked());
-                        break;
-                    case CLEARED:
-                        futures.add(policy.onCleared());
                         break;
                     case UNDEFINED:
                         // No policies to enforce in this state.
@@ -300,7 +304,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
      * Determines the lock task type based on the current provision and device state
      */
     private @LockTaskType int resolveLockTaskType(int provisionState, int deviceState) {
-        if (provisionState == UNPROVISIONED) {
+        if (provisionState == UNPROVISIONED || deviceState == CLEARED) {
             return LockTaskType.NOT_IN_LOCK_TASK;
         }
         if (provisionState == PROVISION_IN_PROGRESS) {
