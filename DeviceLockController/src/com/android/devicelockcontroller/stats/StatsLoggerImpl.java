@@ -16,12 +16,19 @@
 
 package com.android.devicelockcontroller.stats;
 
+import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__COUNFIGURATION_UNAVAILABLE;
+import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__PAST_CHECK_IN_DATE;
+import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__UNSPECIFIED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__GET_DEVICE_CHECK_IN_STATUS;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__IS_DEVICE_IN_APPROVED_COUNTRY;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__PAUSE_DEVICE_PROVISIONING;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__REPORT_DEVICE_PROVISION_STATE;
+import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_RETRY_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_KIOSK_APP_REQUEST_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISIONING_COMPLETE_REPORTED;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.PAST_CHECKIN_DATE;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.UNSPECIFIED;
 
 import com.android.devicelockcontroller.DevicelockStatsLog;
 
@@ -102,5 +109,19 @@ public final class StatsLoggerImpl implements StatsLogger{
     @Override
     public void logSuccessfulProvisioning() {
         Counter.logIncrement(TEX_ID_SUCCESSFUL_PROVISIONING_COUNT);
+    }
+
+    @Override
+    public void logCheckInRetry(@CheckInRetryReason int reason) {
+        int checkInRetryReason;
+        switch (reason) {
+            case CONFIG_UNAVAILABLE -> checkInRetryReason =
+                    CHECK_IN_RETRY_REPORTED__REASON__COUNFIGURATION_UNAVAILABLE;
+            case PAST_CHECKIN_DATE -> checkInRetryReason =
+                    CHECK_IN_RETRY_REPORTED__REASON__PAST_CHECK_IN_DATE;
+            case UNSPECIFIED -> checkInRetryReason = CHECK_IN_RETRY_REPORTED__REASON__UNSPECIFIED;
+            default -> checkInRetryReason = CHECK_IN_RETRY_REPORTED__REASON__UNSPECIFIED;
+        }
+        DevicelockStatsLog.write(DEVICE_LOCK_CHECK_IN_RETRY_REPORTED, checkInRetryReason);
     }
 }
