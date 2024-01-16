@@ -27,10 +27,23 @@ import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CH
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_RETRY_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_KIOSK_APP_REQUEST_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISIONING_COMPLETE_REPORTED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISION_FAILURE_REPORTED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__COUNTRY_INFO_UNAVAILABLE;
+import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__NOT_IN_ELIGIBLE_COUNTRY;
+import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__PLAY_INSTALLATION_FAILED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__PLAY_TASK_UNAVAILABLE;
+import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__POLICY_ENFORCEMENT_FAILED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__UNKNOWN;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.NETWORK_TIME_UNAVAILABLE;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.RESPONSE_UNSPECIFIED;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.RPC_FAILURE;
+import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailureReasonStats.COUNTRY_INFO_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailureReasonStats.NOT_IN_ELIGIBLE_COUNTRY;
+import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailureReasonStats.PLAY_INSTALLATION_FAILED;
+import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailureReasonStats.PLAY_TASK_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailureReasonStats.POLICY_ENFORCEMENT_FAILED;
+import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailureReasonStats.UNKNOWN;
 
 import com.android.devicelockcontroller.DevicelockStatsLog;
 
@@ -127,5 +140,25 @@ public final class StatsLoggerImpl implements StatsLogger{
             default -> checkInRetryReason = CHECK_IN_RETRY_REPORTED__REASON__RESPONSE_UNSPECIFIED;
         }
         DevicelockStatsLog.write(DEVICE_LOCK_CHECK_IN_RETRY_REPORTED, checkInRetryReason);
+    }
+
+    @Override
+    public void logProvisionFailure(@ProvisionFailureReasonStats int reason) {
+        int provisionFailureReason;
+        switch (reason) {
+            case POLICY_ENFORCEMENT_FAILED -> provisionFailureReason =
+                    PROVISION_FAILURE_REPORTED__REASON__POLICY_ENFORCEMENT_FAILED;
+            case PLAY_TASK_UNAVAILABLE -> provisionFailureReason =
+                    PROVISION_FAILURE_REPORTED__REASON__PLAY_TASK_UNAVAILABLE;
+            case NOT_IN_ELIGIBLE_COUNTRY -> provisionFailureReason =
+                    PROVISION_FAILURE_REPORTED__REASON__NOT_IN_ELIGIBLE_COUNTRY;
+            case COUNTRY_INFO_UNAVAILABLE -> provisionFailureReason =
+                    PROVISION_FAILURE_REPORTED__REASON__COUNTRY_INFO_UNAVAILABLE;
+            case PLAY_INSTALLATION_FAILED -> provisionFailureReason =
+                    PROVISION_FAILURE_REPORTED__REASON__PLAY_INSTALLATION_FAILED;
+            case UNKNOWN -> provisionFailureReason = PROVISION_FAILURE_REPORTED__REASON__UNKNOWN;
+            default -> provisionFailureReason = PROVISION_FAILURE_REPORTED__REASON__UNKNOWN;
+        }
+        DevicelockStatsLog.write(DEVICE_LOCK_PROVISION_FAILURE_REPORTED, provisionFailureReason);
     }
 }
