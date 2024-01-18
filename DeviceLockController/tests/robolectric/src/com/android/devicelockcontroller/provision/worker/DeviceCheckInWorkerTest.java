@@ -29,7 +29,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
@@ -40,12 +42,14 @@ import androidx.work.WorkerFactory;
 import androidx.work.WorkerParameters;
 import androidx.work.testing.TestListenableWorkerBuilder;
 
-import com.android.devicelockcontroller.DeviceLockControllerApplication;
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
+import com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.testing.TestingExecutors;
@@ -55,14 +59,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-
-import com.android.devicelockcontroller.stats.StatsLogger;
-import com.android.devicelockcontroller.stats.StatsLoggerProvider;
-
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
 public class DeviceCheckInWorkerTest {
@@ -81,14 +80,14 @@ public class DeviceCheckInWorkerTest {
     private GetDeviceCheckInStatusGrpcResponse mResponse;
     private StatsLogger mStatsLogger;
     private DeviceCheckInWorker mWorker;
+    private Context mContext = ApplicationProvider.getApplicationContext();
 
     @Before
     public void setUp() throws Exception {
-        final Context context = ApplicationProvider.getApplicationContext();
         when(mClient.getDeviceCheckInStatus(
                 eq(TEST_DEVICE_IDS), anyString(), isNull())).thenReturn(mResponse);
         mWorker = TestListenableWorkerBuilder.from(
-                        context, DeviceCheckInWorker.class)
+                        mContext, DeviceCheckInWorker.class)
                 .setWorkerFactory(
                         new WorkerFactory() {
                             @Override
@@ -103,7 +102,7 @@ public class DeviceCheckInWorkerTest {
                             }
                         }).build();
         StatsLoggerProvider loggerProvider =
-                (StatsLoggerProvider) context.getApplicationContext();
+                (StatsLoggerProvider) mContext.getApplicationContext();
         mStatsLogger = loggerProvider.getStatsLogger();
     }
 
@@ -216,6 +215,13 @@ public class DeviceCheckInWorkerTest {
         // THEN check-in is not requested
         verify(mClient, never()).getDeviceCheckInStatus(eq(TEST_DEVICE_IDS), eq(EMPTY_CARRIER_INFO),
                 isNull());
+
+        // THEN CheckInBootCompletedReceiver should be disabled
+        assertThat(mContext.getPackageManager()
+                .getComponentEnabledSetting(new ComponentName(mContext,
+                        CheckInBootCompletedReceiver.class)))
+                .isEqualTo(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
+
     }
 
     private void setDeviceIdAvailability(boolean isAvailable) {
