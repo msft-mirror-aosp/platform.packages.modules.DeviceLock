@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
+
 import android.content.Context;
 
 import androidx.annotation.NonNull;
@@ -77,6 +79,11 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                 deviceIds -> {
                     if (deviceIds.isEmpty()) {
                         LogUtil.w(TAG, "CheckIn failed. No device identifier available!");
+                        // This device cannot be financed since it does not have any suitable
+                        // device identifiers. Similarly to STOP_CHECK_IN, disable the check in
+                        // boot completed receiver.
+                        disableCheckInBootCompletedReceiver(mContext);
+
                         return Futures.immediateFuture(Result.failure());
                     }
                     String carrierInfo = mCheckInHelper.getCarrierInfo();
