@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.DEADLINE_PASSED;
+
 import android.content.Context;
 
 import androidx.annotation.NonNull;
@@ -81,7 +83,11 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
      * Schedule a work to report the current provision failed step to server.
      */
     public static void reportCurrentFailedStep(WorkManager workManager) {
-        enqueueReportWork(new Data.Builder().build(), workManager);
+        Data inputData = new Data.Builder()
+                .putBoolean(KEY_IS_PROVISION_SUCCESSFUL, false)
+                .putInt(KEY_PROVISION_FAILURE_REASON, DEADLINE_PASSED)
+                .build();
+        enqueueReportWork(inputData, workManager);
     }
 
     private static void enqueueReportWork(Data inputData, WorkManager workManager) {
@@ -130,6 +136,9 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                     KEY_IS_PROVISION_SUCCESSFUL, /* defaultValue= */ false);
             int failureReason = getInputData().getInt(KEY_PROVISION_FAILURE_REASON,
                     ProvisionFailureReason.UNKNOWN_REASON);
+            if (!isSuccessful && failureReason == ProvisionFailureReason.UNKNOWN_REASON) {
+                LogUtil.e(TAG, "Reporting failure with an unknown reason is not allowed");
+            }
             ReportDeviceProvisionStateGrpcResponse response =
                     Futures.getDone(mClient).reportDeviceProvisionState(
                             Futures.getDone(lastState),

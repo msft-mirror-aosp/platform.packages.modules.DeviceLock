@@ -17,6 +17,7 @@
 package com.android.devicelockcontroller.policy;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.NOT_IN_ELIGIBLE_COUNTRY;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.PLAY_INSTALLATION_FAILED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_KIOSK;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_PAUSE;
@@ -186,7 +187,8 @@ public final class ProvisionHelperImplTest {
         List<ProvisioningProgress> allValues = mProvisioningProgressArgumentCaptor.getAllValues();
         assertThat(allValues).containsExactlyElementsIn(
                 Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
-                        ProvisioningProgress.MANDATORY_FAILED_PROVISION));
+                        ProvisioningProgress.getMandatoryProvisioningFailedProgress(
+                                NOT_IN_ELIGIBLE_COUNTRY)));
         verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
     }
 
@@ -309,7 +311,8 @@ public final class ProvisionHelperImplTest {
         assertThat(allValues).containsExactlyElementsIn(
                 Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
                         ProvisioningProgress.INSTALLING_KIOSK_APP,
-                        ProvisioningProgress.MANDATORY_FAILED_PROVISION));
+                        ProvisioningProgress.getMandatoryProvisioningFailedProgress(
+                                PLAY_INSTALLATION_FAILED)));
         verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
     }
 
