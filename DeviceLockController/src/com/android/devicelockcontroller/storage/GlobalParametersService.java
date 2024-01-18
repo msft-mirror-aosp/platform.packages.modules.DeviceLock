@@ -22,10 +22,9 @@ import android.content.Intent;
 import android.os.IBinder;
 
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
+import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
+import com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState;
 import com.android.devicelockcontroller.util.LogUtil;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A class exposing Global Parameters as a service.
@@ -43,23 +42,18 @@ public final class GlobalParametersService extends Service {
                 }
 
                 @Override
-                public List<String> getLockTaskAllowlist() {
-                    return GlobalParameters.getLockTaskAllowlist(mContext);
+                public void dump() {
+                    GlobalParameters.dump(mContext);
                 }
 
                 @Override
-                public void setLockTaskAllowlist(List<String> allowlist) {
-                    GlobalParameters.setLockTaskAllowlist(mContext, new ArrayList<>(allowlist));
+                public boolean isProvisionReady() {
+                    return GlobalParameters.isProvisionReady(mContext);
                 }
 
                 @Override
-                public boolean needCheckIn() {
-                    return GlobalParameters.needCheckIn(mContext);
-                }
-
-                @Override
-                public void setNeedCheckIn(boolean needCheckIn) {
-                    GlobalParameters.setNeedCheckIn(mContext, needCheckIn);
+                public void setProvisionReady(boolean isProvisionReady) {
+                    GlobalParameters.setProvisionReady(mContext, isProvisionReady);
                 }
 
                 @Override
@@ -83,23 +77,23 @@ public final class GlobalParametersService extends Service {
                 }
 
                 @Override
-                public String getEnrollmentToken() {
-                    return GlobalParameters.getEnrollmentToken(mContext);
+                public int getDeviceState() {
+                    return GlobalParameters.getDeviceState(mContext);
                 }
 
                 @Override
-                public void setEnrollmentToken(String token) {
-                    GlobalParameters.setEnrollmentToken(mContext, token);
+                public void setDeviceState(@DeviceState int state) {
+                    GlobalParameters.setDeviceState(mContext, state);
                 }
 
                 @Override
-                public String getKioskSignature() {
-                    return GlobalParameters.getKioskSignature(mContext);
+                public @FinalizationState int getFinalizationState() {
+                    return GlobalParameters.getFinalizationState(mContext);
                 }
 
                 @Override
-                public void setKioskSignature(String kioskSignature) {
-                    GlobalParameters.setKioskSignature(mContext, kioskSignature);
+                public void setFinalizationState(@FinalizationState int state) {
+                    GlobalParameters.setFinalizationState(mContext, state);
                 }
 
                 @Override
@@ -113,8 +107,6 @@ public final class GlobalParametersService extends Service {
                         @DeviceProvisionState int provisionState) {
                     GlobalParameters.setLastReceivedProvisionState(mContext, provisionState);
                 }
-
-
             };
 
     @Override

@@ -16,6 +16,8 @@
 
 package android.devicelock;
 
+import android.devicelock.ParcelableException;
+
 /**
   * Callback for a getActiveKioskAppPackagesAndRoles() request.
   * {@hide}
@@ -23,7 +25,5 @@ package android.devicelock;
 oneway interface IGetKioskAppsCallback {
     void onKioskAppsReceived(in Map roleToPackage);
 
-    const int ERROR_UNKNOWN = 0;
-
-    void onError(int error);
+    void onError(in ParcelableException parcelableException);
 }

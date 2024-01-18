@@ -19,9 +19,7 @@ package com.android.devicelockcontroller.activities;
 import android.text.TextUtils;
 
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModel;
 
 import com.android.devicelockcontroller.storage.SetupParametersClient;
@@ -29,24 +27,32 @@ import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * A {@link ViewModel} which provides {@link ProvisioningProgress} to the
  * {@link ProvisioningActivity}.
  */
-public final class ProvisioningProgressViewModel extends ViewModel {
+public final class ProvisioningProgressViewModel extends ViewModel implements
+        ProvisioningProgressController {
 
     private static final String TAG = "ProvisioningProgressViewModel";
 
     final MutableLiveData<String> mProviderNameLiveData;
-    private final MediatorLiveData<ProvisioningProgress> mProvisioningProgressLiveData;
+    final MutableLiveData<String> mSupportUrlLiveData;
+    private volatile boolean mAreProviderNameAndSupportUrlReady;
+    private final MutableLiveData<ProvisioningProgress> mProvisioningProgressLiveData;
     private ProvisioningProgress mProvisioningProgress;
 
     public ProvisioningProgressViewModel() {
         mProviderNameLiveData = new MutableLiveData<>();
+        mSupportUrlLiveData = new MutableLiveData<>();
+
+        ListenableFuture<String> getKioskAppProviderNameFuture =
+                SetupParametersClient.getInstance().getKioskAppProviderName();
         Futures.addCallback(
-                SetupParametersClient.getInstance().getKioskAppProviderName(),
+                getKioskAppProviderNameFuture,
                 new FutureCallback<>() {
                     @Override
                     public void onSuccess(String providerName) {
@@ -63,15 +69,39 @@ public final class ProvisioningProgressViewModel extends ViewModel {
                     }
                 }, MoreExecutors.directExecutor());
 
-        mProvisioningProgressLiveData = new MediatorLiveData<>();
-        Observer<String> observer = unused -> {
-            LogUtil.d(TAG, "The upstream ProviderNameLiveData is complete");
-            if (mProvisioningProgress != null) {
-                LogUtil.d(TAG, "Sending ProvisioningProgress to observers.");
-                mProvisioningProgressLiveData.postValue(mProvisioningProgress);
+        ListenableFuture<String> getSupportUrlFuture =
+                SetupParametersClient.getInstance().getSupportUrl();
+        Futures.addCallback(getSupportUrlFuture, new FutureCallback<>() {
+            @Override
+            public void onSuccess(String supportUrl) {
+                mSupportUrlLiveData.postValue(supportUrl);
             }
-        };
-        mProvisioningProgressLiveData.addSource(mProviderNameLiveData, observer);
+
+            @Override
+            public void onFailure(Throwable t) {
+                LogUtil.e(TAG, "Failed to get support Url", t);
+            }
+        }, MoreExecutors.directExecutor());
+
+        mProvisioningProgressLiveData = new MutableLiveData<>();
+        ListenableFuture<?> result = Futures.whenAllSucceed(getKioskAppProviderNameFuture,
+                getSupportUrlFuture).run(() -> {
+                    mAreProviderNameAndSupportUrlReady = true;
+                    if (mProvisioningProgress != null) {
+                        mProvisioningProgressLiveData.postValue(mProvisioningProgress);
+                    }
+                }, MoreExecutors.directExecutor());
+        Futures.addCallback(result, new FutureCallback<Object>() {
+            @Override
+            public void onSuccess(Object result) {
+                LogUtil.i(TAG, "Successfully updated provisioning progress live data");
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                throw new RuntimeException(t);
+            }
+        }, MoreExecutors.directExecutor());
     }
 
     /**
@@ -89,16 +119,16 @@ public final class ProvisioningProgressViewModel extends ViewModel {
      *
      * <p>This method is thread-safe and can be called from any thread.
      */
+    @Override
     public void setProvisioningProgress(ProvisioningProgress provisioningProgress) {
-        if (mProviderNameLiveData.getValue() != null) {
+        if (mAreProviderNameAndSupportUrlReady) {
             LogUtil.d(TAG, "Updating ProvisioningProgress");
+            mProvisioningProgress = provisioningProgress;
             mProvisioningProgressLiveData.postValue(provisioningProgress);
         } else {
             LogUtil.d(TAG,
-                    "The upstream ProviderNameLiveData is not ready yet, hold on until it "
-                            + "completes");
+                    "The upstream LiveData is not ready yet, hold on until it completes");
             mProvisioningProgress = provisioningProgress;
         }
     }
-
 }
