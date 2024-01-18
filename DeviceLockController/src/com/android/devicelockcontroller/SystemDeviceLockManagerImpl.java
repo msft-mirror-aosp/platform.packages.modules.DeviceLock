@@ -124,6 +124,25 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
     }
 
     @Override
+    public void setDlcAllowedToSendUndismissibleNotifications(boolean allowed,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback) {
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        try {
+            mIDeviceLockService.setCallerAllowedToSendUndismissibleNotifications(allowed,
+                    new RemoteCallback(result -> executor.execute(() -> {
+                        processResult(result, callback,
+                                "Failed to change undismissible notifs allowed to: "
+                                        + (allowed ? "allowed" : "not allowed"));
+                    }), new Handler(Looper.getMainLooper())));
+        } catch (RemoteException e) {
+            executor.execute(() -> callback.onError(new RuntimeException(e)));
+        }
+    }
+
+    @Override
     public void setKioskAppExemptFromRestrictionsState(String packageName, boolean exempt,
             Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
         Objects.requireNonNull(executor);

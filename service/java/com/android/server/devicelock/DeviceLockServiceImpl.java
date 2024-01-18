@@ -113,10 +113,15 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     private boolean mUseStubConnector = false;
 
     // The following string constants should be a SystemApi on AppOpsManager.
-    private static final String OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION =
+    @VisibleForTesting
+    static final String OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION =
             "android:system_exempt_from_activity_bg_start_restriction";
-    private static final String OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS =
+    @VisibleForTesting
+    static final String OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS =
             "android:system_exempt_from_power_restrictions";
+    @VisibleForTesting
+    static final String OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS =
+            "android:system_exempt_from_dismissible_notifications";
 
     // Stopgap: this receiver should be replaced by an API on DeviceLockManager.
     private final class DeviceLockClearReceiver extends BroadcastReceiver {
@@ -165,7 +170,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     // Last supported device id type
     private static final @DeviceIdType int LAST_DEVICE_ID_TYPE = DEVICE_ID_TYPE_MEID;
 
-    private static final String MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER =
+    @VisibleForTesting
+    static final String MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER =
             "com.android.devicelockcontroller.permission."
                     + "MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER";
 
@@ -664,6 +670,23 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         Bundle result = new Bundle();
         result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, setAppOpsModes(Binder.getCallingUid(),
                 new String[]{OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION}, exempt));
+        remoteCallback.sendResult(result);
+    }
+
+    /**
+     * Set whether the caller is allowed to send undismissible notifications.
+     *
+     * @param allowed true if the caller can send undismissible notifications, false otherwise
+     */
+    @Override
+    public void setCallerAllowedToSendUndismissibleNotifications(boolean allowed,
+            @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+        Bundle result = new Bundle();
+        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, setAppOpsModes(Binder.getCallingUid(),
+                new String[]{OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS}, allowed));
         remoteCallback.sendResult(result);
     }
 
