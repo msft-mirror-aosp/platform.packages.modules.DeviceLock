@@ -154,6 +154,13 @@ public final class ProvisionHelperImplTest {
                         ProvisioningProgress.INSTALLING_KIOSK_APP,
                         ProvisioningProgress.OPENING_KIOSK_APP));
         verify(mMockStateController).postSetNextStateForEventRequest(eq(PROVISION_KIOSK));
+
+        // THEN provision complete is reported
+        ListenableFuture<List<WorkInfo>> reportWorkFuture = WorkManager.getInstance(mTestApp)
+                .getWorkInfosForUniqueWork(
+                        ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME);
+        List<WorkInfo> reportWork = Futures.getChecked(reportWorkFuture, Exception.class);
+        assertThat(reportWork).isNotEmpty();
     }
 
     @Test
@@ -219,6 +226,13 @@ public final class ProvisionHelperImplTest {
                         ProvisioningProgress.INSTALLING_KIOSK_APP,
                         ProvisioningProgress.OPENING_KIOSK_APP));
         verify(mMockStateController).postSetNextStateForEventRequest(eq(PROVISION_KIOSK));
+
+        // THEN provision complete is reported
+        ListenableFuture<List<WorkInfo>> reportWorkFuture = WorkManager.getInstance(mTestApp)
+                .getWorkInfosForUniqueWork(
+                        ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME);
+        List<WorkInfo> reportWork = Futures.getChecked(reportWorkFuture, Exception.class);
+        assertThat(reportWork).isNotEmpty();
     }
 
     @Test
@@ -248,6 +262,13 @@ public final class ProvisionHelperImplTest {
                         ProvisioningProgress.INSTALLING_KIOSK_APP,
                         ProvisioningProgress.OPENING_KIOSK_APP));
         verify(mMockStateController).postSetNextStateForEventRequest(eq(PROVISION_KIOSK));
+
+        // THEN provision complete is reported
+        ListenableFuture<List<WorkInfo>> reportWorkFuture = WorkManager.getInstance(mTestApp)
+                .getWorkInfosForUniqueWork(
+                        ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME);
+        List<WorkInfo> reportWork = Futures.getChecked(reportWorkFuture, Exception.class);
+        assertThat(reportWork).isNotEmpty();
     }
 
     @Test
