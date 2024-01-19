@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
+
 import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
 
 import android.content.Context;
@@ -102,14 +104,17 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         if (response.hasRecoverableError()) {
                             LogUtil.w(TAG, "Check-in failed w/ recoverable error" + response
                                     + "\nRetrying...");
+                            mStatsLogger.logCheckInRetry(
+                                    StatsLogger.CheckInRetryReason.UNSPECIFIED);
                             return Result.retry();
                         }
                         if (response.isSuccessful()) {
-                            mStatsLogger.logSuccessfulCheckIn();
-                            return mCheckInHelper.handleGetDeviceCheckInStatusResponse(response,
-                                    scheduler)
-                                    ? Result.success()
-                                    : Result.retry();
+                            boolean isResponseHandlingSuccessful = mCheckInHelper
+                                    .handleGetDeviceCheckInStatusResponse(response, scheduler);
+                            if (isResponseHandlingSuccessful) {
+                                mStatsLogger.logSuccessfulCheckIn();
+                            }
+                            return isResponseHandlingSuccessful ? Result.success() : Result.retry();
                         }
 
                         if (response.isInterrupted()) {
@@ -120,6 +125,7 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         LogUtil.e(TAG, "CheckIn failed: " + response + "\nRetry check-in in: "
                                 + RETRY_ON_FAILURE_DELAY);
                         scheduler.scheduleRetryCheckInWork(RETRY_ON_FAILURE_DELAY);
+                        mStatsLogger.logCheckInRetry(StatsLogger.CheckInRetryReason.UNSPECIFIED);
                         return Result.failure();
                     }, mExecutorService);
                 }, mExecutorService);
