@@ -66,9 +66,9 @@ public final class ReportDeviceLockProgramCompleteWorker extends ListenableWorke
         super(context, workerParams);
         if (client == null) {
             final String hostName = context.getResources().getString(
-                    R.string.check_in_server_host_name);
+                    R.string.finalize_server_host_name);
             final int portNumber = context.getResources().getInteger(
-                    R.integer.check_in_server_port_number);
+                    R.integer.finalize_server_port_number);
             final String className = context.getResources().getString(
                     R.string.device_finalize_client_class_name);
             final Pair<String, String> apikey = new Pair<>(

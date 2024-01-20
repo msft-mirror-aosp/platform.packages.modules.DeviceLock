@@ -39,12 +39,12 @@ filegroup {
 }
 
 genrule {
-  name: "statslog-devicelock-java-gen",
-  tools: ["stats-log-api-gen"],
-  cmd: "$(location stats-log-api-gen) --java $(out) --module devicelock" +
-          " --javaPackage com.android.devicelockcontroller" +
-          " --javaClass DevicelockStatsLog",
-  out: ["com/android/devicelockcontroller/DevicelockStatsLog.java"],
+    name: "statslog-devicelock-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module devicelock" +
+        " --javaPackage com.android.devicelockcontroller" +
+        " --javaClass DevicelockStatsLog",
+    out: ["com/android/devicelockcontroller/DevicelockStatsLog.java"],
 }
 
 java_library {
@@ -193,10 +193,6 @@ android_app {
         "devicelockcontroller-proto-lite",
     ],
 
-    lint: {
-        strict_updatability_linting: true,
-    },
-
     optimize: {
         proguard_flags_files: ["proguard.flags"],
         shrink_resources: true,
@@ -225,10 +221,6 @@ android_app {
         "devicelockcontroller-grpc-interface-lib",
         "devicelockcontroller-proto-lite",
     ],
-
-    lint: {
-        strict_updatability_linting: true,
-    },
 
     optimize: {
         proguard_flags_files: ["proguard.flags"],
