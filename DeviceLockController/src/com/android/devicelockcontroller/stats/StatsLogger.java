@@ -16,7 +16,12 @@
 
 package com.android.devicelockcontroller.stats;
 
+import androidx.annotation.IntDef;
+
 import com.android.devicelockcontroller.DevicelockStatsLog;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
  * Utility class wrapping operations related to Statistics.
@@ -76,4 +81,25 @@ public interface StatsLogger {
      * Logs the analytics event of provisioning is successfully completed.
      */
     void logSuccessfulProvisioning();
+
+    /**
+     * Logs the analytics event of retrying a check in request.
+     *
+     * @param reason The reason of the retry, the enum corresponds to the RetryReason in
+     *               frameworks/proto_logging/stats/atoms/devicelock/devicelock_extension_atoms.proto
+     */
+    void logCheckInRetry(@CheckInRetryReason int reason);
+
+    // TODO(bojiandu): update this definition after updating the atom to match the new design
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+            CheckInRetryReason.UNSPECIFIED,
+            CheckInRetryReason.CONFIG_UNAVAILABLE,
+            CheckInRetryReason.PAST_CHECKIN_DATE
+    })
+    @interface CheckInRetryReason {
+        int UNSPECIFIED = 0;
+        int CONFIG_UNAVAILABLE = 1;
+        int PAST_CHECKIN_DATE = 2;
+    }
 }
