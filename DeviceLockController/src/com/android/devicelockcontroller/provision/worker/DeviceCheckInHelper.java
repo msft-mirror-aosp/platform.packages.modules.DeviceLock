@@ -32,6 +32,7 @@ import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryRea
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -78,6 +79,16 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         mStatsLogger = ((StatsLoggerProvider) mAppContext).getStatsLogger();
     }
 
+    private boolean hasGsm() {
+        return mAppContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_GSM);
+    }
+
+    private boolean hasCdma() {
+        return mAppContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA);
+    }
+
     @Override
     ArraySet<DeviceId> getDeviceUniqueIds() {
         final int deviceIdTypeBitmap = mAppContext.getResources().getInteger(
@@ -99,7 +110,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         if (maximumIdCount == 0) return deviceIds;
 
         for (int i = 0; i < totalSlotCount; i++) {
-            if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
+            if (hasGsm() && (deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
                 final String imei = mTelephonyManager.getImei(i);
 
                 if (imei != null) {
@@ -107,7 +118,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                 }
             }
 
-            if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
+            if (hasCdma() && (deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
                 final String meid = mTelephonyManager.getMeid(i);
 
                 if (meid != null) {
