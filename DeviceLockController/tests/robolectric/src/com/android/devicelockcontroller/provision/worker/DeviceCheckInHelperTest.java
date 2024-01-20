@@ -22,6 +22,8 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.Device
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.RETRY_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
+
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -48,6 +50,8 @@ import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrp
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
 import com.android.devicelockcontroller.receivers.ProvisionReadyReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 
 import com.google.common.util.concurrent.Futures;
@@ -106,6 +110,7 @@ public final class DeviceCheckInHelperTest {
     private ShadowTelephonyManager mTelephonyManager;
     private GlobalParametersClient mGlobalParametersClient;
     private DeviceLockControllerScheduler mScheduler;
+    private StatsLogger mStatsLogger;
 
     @Before
     public void setUp() {
@@ -124,6 +129,7 @@ public final class DeviceCheckInHelperTest {
                         .setExecutor(new SynchronousExecutor())
                         .build());
         mGlobalParametersClient = GlobalParametersClient.getInstance();
+        mStatsLogger = ((StatsLoggerProvider) mTestApplication).getStatsLogger();
     }
 
     @Test
@@ -172,6 +178,16 @@ public final class DeviceCheckInHelperTest {
         assertThat(Futures.getUnchecked(mGlobalParametersClient.isProvisionReady())).isFalse();
         List<Intent> intents = Shadows.shadowOf(mTestApplication).getBroadcastIntents();
         assertThat(intents.size()).isEqualTo(0);
+    }
+
+    @Test
+    public void handleProvisionReadyResponse_invalidConfiguration_shouldLogRetryCheckIn() {
+        GetDeviceCheckInStatusGrpcResponse response = createReadyResponse(
+                /* configuration= */ null);
+
+        mHelper.handleProvisionReadyResponse(response);
+
+        verify(mStatsLogger).logCheckInRetry(CONFIG_UNAVAILABLE);
     }
 
     @Test

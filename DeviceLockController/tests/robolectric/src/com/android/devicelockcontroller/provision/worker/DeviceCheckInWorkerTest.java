@@ -127,7 +127,7 @@ public class DeviceCheckInWorkerTest {
     }
 
     @Test
-    public void checkIn_allInfoAvailable_checkInResponseSuccessfulButNotHandleable_retryAndLogged() {
+    public void checkIn_allInfoAvailable_checkInResponseSuccessfulNotHandleable_retryAndLogged() {
         // GIVEN all device info available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
@@ -140,9 +140,9 @@ public class DeviceCheckInWorkerTest {
 
         // THEN work succeeded
         assertThat(result).isEqualTo(Result.retry());
-        // THEN check in request was logged
+        // THEN check in request was logged, but successful check in is NOT
         verify(mStatsLogger).logGetDeviceCheckInStatus();
-        verify(mStatsLogger).logSuccessfulCheckIn();
+        verify(mStatsLogger, never()).logSuccessfulCheckIn();
     }
 
     @Test

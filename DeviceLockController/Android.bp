@@ -123,6 +123,9 @@ java_test_helper_library {
         "framework-statsd",
         "modules-utils-expresslog",
     ],
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
     visibility: [
         "//packages/modules/DeviceLock:__subpackages__",
     ],
