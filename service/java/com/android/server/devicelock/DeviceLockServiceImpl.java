@@ -53,6 +53,7 @@ import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.OutcomeReceiver;
+import android.os.PowerExemptionManager;
 import android.os.RemoteCallback;
 import android.os.RemoteException;
 import android.os.UserHandle;
@@ -116,9 +117,6 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     @VisibleForTesting
     static final String OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION =
             "android:system_exempt_from_activity_bg_start_restriction";
-    @VisibleForTesting
-    static final String OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS =
-            "android:system_exempt_from_power_restrictions";
     @VisibleForTesting
     static final String OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS =
             "android:system_exempt_from_dismissible_notifications";
@@ -631,24 +629,21 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     /**
-     * @param uid     The uid whose AppOps mode needs to change.
-     * @param appOps  A list of appOps to change
-     * @param allowed If true, the mode would be set to {@link AppOpsManager#MODE_ALLOWED}; false,
-     *                the mode would be set to {@link AppOpsManager#MODE_DEFAULT}.
+     * @param uid         The uid whose AppOps mode needs to change.
+     * @param packageName The name of the package whose AppOp mode needs to change.
+     * @param appOps      A list of appOps to change
+     * @param allowed     If true, the mode would be set to {@link AppOpsManager#MODE_ALLOWED};
+     *                    false,
+     *                    the mode would be set to {@link AppOpsManager#MODE_DEFAULT}.
      * @return a boolean value indicates whether the app ops modes have been changed to the
      * requested value.
      */
-    private boolean setAppOpsModes(int uid, String[] appOps, boolean allowed) {
+    private boolean setAppOpsModes(int uid, String packageName, String[] appOps, boolean allowed) {
         final int mode = allowed ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_DEFAULT;
 
-        String[] packageNames = mContext.getPackageManager().getPackagesForUid(uid);
-        if (packageNames == null || packageNames.length < 1) {
-            Slog.e(TAG, "Can not find package name for given uid: " + uid);
-            return false;
-        }
         long identity = Binder.clearCallingIdentity();
         for (String appOp : appOps) {
-            mAppOpsManager.setMode(appOp, uid, packageNames[0], mode);
+            mAppOpsManager.setMode(appOp, uid, packageName, mode);
         }
         Binder.restoreCallingIdentity(identity);
         return true;
@@ -668,8 +663,10 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             return;
         }
         Bundle result = new Bundle();
-        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, setAppOpsModes(Binder.getCallingUid(),
-                new String[]{OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION}, exempt));
+        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT,
+                setAppOpsModes(Binder.getCallingUid(), mServiceInfo.packageName,
+                        new String[]{OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION},
+                        exempt));
         remoteCallback.sendResult(result);
     }
 
@@ -685,8 +682,9 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             return;
         }
         Bundle result = new Bundle();
-        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, setAppOpsModes(Binder.getCallingUid(),
-                new String[]{OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS}, allowed));
+        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT,
+                setAppOpsModes(Binder.getCallingUid(), mServiceInfo.packageName,
+                        new String[]{OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS}, allowed));
         remoteCallback.sendResult(result);
     }
 
@@ -714,6 +712,25 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         return result;
     }
 
+    private boolean setPowerExemptionForPackage(String packageName, boolean allow) {
+        boolean result;
+        long caller = Binder.clearCallingIdentity();
+        try {
+            // TODO(b/321539640): Figure out a long term solution instead of using reflection here.
+            PowerExemptionManager powerExemptionManager = mContext.getSystemService(
+                    PowerExemptionManager.class);
+            String methodName = allow ? "addToPermanentAllowList" : "removeFromPermanentAllowList";
+            PowerExemptionManager.class.getDeclaredMethod(methodName, String.class).invoke(
+                    powerExemptionManager, packageName);
+            result = true;
+        } catch (InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
+            Slog.e(TAG, "Failed to exempt power usage for given package: " + packageName, e);
+            result = false;
+        }
+        Binder.restoreCallingIdentity(caller);
+        return result;
+    }
+
     /**
      * Set the exemption state for app restrictions(e.g. hibernation, battery and data usage
      * restriction) for the given uid
@@ -728,14 +745,21 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         if (!checkDeviceLockControllerPermission(remoteCallback)) {
             return;
         }
+        boolean setAppOpsResult = false;
+        boolean setPowerExemptionResult = false;
 
-
-        boolean setAppOpsResult = setAppOpsModes(uid,
-                new String[]{OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION,
-                        OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS}, exempt);
+        String[] packageNames = mContext.getPackageManager().getPackagesForUid(uid);
+        if (packageNames == null || packageNames.length < 1) {
+            Slog.e(TAG, "Can not find package name for given uid: " + uid);
+        } else {
+            setAppOpsResult = setAppOpsModes(uid, packageNames[0],
+                    new String[]{OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION}, exempt);
+            setPowerExemptionResult = setPowerExemptionForPackage(packageNames[0], exempt);
+        }
         boolean setNetworkPolicyResult = setNetworkPolicyForUid(uid, exempt);
         Bundle result = new Bundle();
-        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, setAppOpsResult && setNetworkPolicyResult);
+        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT,
+                setAppOpsResult && setPowerExemptionResult && setNetworkPolicyResult);
         remoteCallback.sendResult(result);
     }
 
@@ -768,7 +792,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                         new OutcomeReceiver<>() {
                             @Override
                             public void onResult(Void result) {
-                                Slog.i(TAG, "Notified controller about " + mPackageName + " crash");
+                                Slog.i(TAG,
+                                        "Notified controller about " + mPackageName + " crash");
                             }
 
                             @Override
@@ -789,8 +814,9 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         @Override
         public void onServiceDisconnected(ComponentName name) {
             if (rebind()) {
-                Slog.i(TAG, "onServiceDisconnected rebind successful for " + mPackageName + " user "
-                        + mUserHandle);
+                Slog.i(TAG,
+                        "onServiceDisconnected rebind successful for " + mPackageName + " user "
+                                + mUserHandle);
             } else {
                 Slog.e(TAG, "onServiceDisconnected rebind failed for " + mPackageName + " user "
                         + mUserHandle);
@@ -805,7 +831,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                         + mUserHandle);
             } else {
                 Slog.e(TAG,
-                        "onBindingDied rebind failed for " + mPackageName + " user " + mUserHandle);
+                        "onBindingDied rebind failed for " + mPackageName + " user "
+                                + mUserHandle);
             }
         }
     }
@@ -841,8 +868,9 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         synchronized (this) {
             if (keepaliveServiceConnections.get(controllerUserId) == null) {
-                final KeepaliveServiceConnection serviceConnection = new KeepaliveServiceConnection(
-                        forKiosk, packageName, controllerUserHandle);
+                final KeepaliveServiceConnection serviceConnection =
+                        new KeepaliveServiceConnection(
+                                forKiosk, packageName, controllerUserHandle);
                 final long identity = Binder.clearCallingIdentity();
                 if (serviceConnection.bind()) {
                     keepaliveServiceConnections.put(controllerUserId, serviceConnection);
@@ -883,7 +911,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         } else {
             final String target = isKiosk ? "kiosk" : "controller";
             Slog.e(TAG,
-                    "disableKeepalive: Service connection to " + target + " not found for user: "
+                    "disableKeepalive: Service connection to " + target
+                            + " not found for user: "
                             + controllerUserHandle);
         }
 
