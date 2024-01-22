@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.activities;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.DEADLINE_PASSED;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.NOT_IN_ELIGIBLE_COUNTRY;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.PLAY_INSTALLATION_FAILED;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.PLAY_TASK_UNAVAILABLE;
@@ -115,8 +116,8 @@ public final class ProgressFragmentTest {
                 {ProvisioningProgress.GETTING_DEVICE_READY},
                 {ProvisioningProgress.INSTALLING_KIOSK_APP},
                 {ProvisioningProgress.OPENING_KIOSK_APP},
-                {ProvisioningProgress.MANDATORY_FAILED_PROVISION},
-                {ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(UNKNOWN_REASON)},
+                {ProvisioningProgress.getMandatoryProvisioningFailedProgress(
+                        POLICY_ENFORCEMENT_FAILED)},
                 {ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
                         PLAY_TASK_UNAVAILABLE)},
                 {ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
@@ -126,7 +127,9 @@ public final class ProgressFragmentTest {
                 {ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
                         NOT_IN_ELIGIBLE_COUNTRY)},
                 {ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
-                        POLICY_ENFORCEMENT_FAILED)}
+                        POLICY_ENFORCEMENT_FAILED)},
+                {ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
+                        DEADLINE_PASSED)}
         });
     }
 

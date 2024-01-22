@@ -163,7 +163,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
             @Override
             public void onFailure(Throwable t) {
                 LogUtil.w(TAG, "Failed to install kiosk app!", t);
-                handleFailure(ProvisionFailureReason.UNKNOWN_REASON, isMandatory,
+                handleFailure(ProvisionFailureReason.PLAY_INSTALLATION_FAILED, isMandatory,
                         progressController);
             }
         };
@@ -234,7 +234,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
             ReportDeviceProvisionStateWorker.reportSetupFailed(
                     WorkManager.getInstance(mContext), reason);
             progressController.setProvisioningProgress(
-                    ProvisioningProgress.MANDATORY_FAILED_PROVISION);
+                    ProvisioningProgress.getMandatoryProvisioningFailedProgress(reason));
             mScheduler.scheduleMandatoryResetDeviceAlarm();
         } else {
             // For non-mandatory provisioning, failure should only be reported after
