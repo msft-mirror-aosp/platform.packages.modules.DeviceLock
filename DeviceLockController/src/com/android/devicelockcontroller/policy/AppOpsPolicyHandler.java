@@ -65,6 +65,32 @@ final class AppOpsPolicyHandler implements PolicyHandler {
     }
 
     /**
+     * Set whether the dlc can send undismissible notifications.
+     */
+    private ListenableFuture<Boolean> setDlcAllowedToSendUndismissibleNotifications(
+            boolean allowed) {
+        return CallbackToFutureAdapter.getFuture(completer -> {
+            mSystemDeviceLockManager.setDlcAllowedToSendUndismissibleNotifications(allowed,
+                    mBgExecutor, new OutcomeReceiver<>() {
+                        @Override
+                        public void onResult(Void unused) {
+                            completer.set(true);
+                        }
+
+                        @Override
+                        public void onError(Exception error) {
+                            LogUtil.e(TAG, "Cannot set undismissible notifs", error);
+                            // Returns true here to make sure state transition
+                            // success.
+                            completer.set(true);
+                        }
+                    });
+            // Used only for debugging.
+            return "setDlcAllowedToSendUndismissibleNotifications";
+        });
+    }
+
+    /**
      * Set the exempt from hibernation, battery and data usage restriction state for kiosk app.
      */
     private ListenableFuture<Boolean> setKioskAppExemptionsState(boolean exempt) {
@@ -111,7 +137,13 @@ final class AppOpsPolicyHandler implements PolicyHandler {
 
     @Override
     public ListenableFuture<Boolean> onProvisionInProgress() {
-        return setDlcExemptFromActivityBgStartRestrictionState(/* exempt= */ true);
+        final ListenableFuture<Boolean> notifFuture =
+                setDlcAllowedToSendUndismissibleNotifications(/* allowed= */ true);
+        final ListenableFuture<Boolean> backgroundFuture =
+                setDlcExemptFromActivityBgStartRestrictionState(/* exempt= */ true);
+        return Futures.whenAllSucceed(notifFuture, backgroundFuture).call(
+                () -> Futures.getDone(notifFuture) && Futures.getDone(backgroundFuture),
+                MoreExecutors.directExecutor());
     }
 
     @Override
@@ -121,7 +153,13 @@ final class AppOpsPolicyHandler implements PolicyHandler {
 
     @Override
     public ListenableFuture<Boolean> onCleared() {
-        return setDlcAndKioskAppExemptionsState(/* exempt= */ false);
+        final ListenableFuture<Boolean> notifFuture =
+                setDlcAllowedToSendUndismissibleNotifications(/* allowed= */ false);
+        final ListenableFuture<Boolean> clearExemptions =
+                setDlcAndKioskAppExemptionsState(/* exempt= */ false);
+        return Futures.whenAllSucceed(notifFuture, clearExemptions).call(
+                () -> Futures.getDone(notifFuture) && Futures.getDone(clearExemptions),
+                MoreExecutors.directExecutor());
     }
 
     // Due to some reason, AppOpsManager does not persist exemption after reboot, therefore we

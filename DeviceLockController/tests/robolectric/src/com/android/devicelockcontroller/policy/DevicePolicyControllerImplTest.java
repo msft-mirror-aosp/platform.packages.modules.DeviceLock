@@ -1206,6 +1206,15 @@ public final class DevicePolicyControllerImplTest {
                 .setDlcExemptFromActivityBgStartRestrictionState(anyBoolean(),
                         any(Executor.class),
                         any());
+        doAnswer((Answer<Boolean>) invocation -> {
+            OutcomeReceiver<Void, Exception> callback = invocation.getArgument(2 /* callback */);
+            callback.onResult(null /* result */);
+
+            return null;
+        }).when(mMockSystemDeviceLockManager)
+                .setDlcAllowedToSendUndismissibleNotifications(anyBoolean(),
+                        any(Executor.class),
+                        any());
 
         doAnswer((Answer<Boolean>) invocation -> {
             OutcomeReceiver<Void, Exception> callback = invocation.getArgument(3 /* callback */);

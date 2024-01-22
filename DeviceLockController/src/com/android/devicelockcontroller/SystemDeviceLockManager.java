@@ -69,6 +69,16 @@ public interface SystemDeviceLockManager {
             @NonNull OutcomeReceiver<Void, Exception> callback);
 
     /**
+     * Set whether the dlc should be allowed to send undismissible notifications
+     *
+     * @param allowed if true, dlc can send undimissible notifications
+     */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    void setDlcAllowedToSendUndismissibleNotifications(boolean allowed,
+            @CallbackExecutor Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
      * Set the exemption state of app restrictions (e.g. hibernation, battery and data usage) for
      * kiosk app.
      *
