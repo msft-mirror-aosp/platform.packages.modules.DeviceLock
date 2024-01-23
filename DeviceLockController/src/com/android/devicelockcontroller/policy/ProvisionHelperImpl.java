@@ -150,6 +150,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
                         LogUtil.i(TAG, "Kiosk app is pre-installed");
                         progressController.setProvisioningProgress(
                                 ProvisioningProgress.OPENING_KIOSK_APP);
+                        ReportDeviceProvisionStateWorker.reportSetupCompleted(workManager);
                         mStateController.postSetNextStateForEventRequest(PROVISION_KIOSK);
                     } catch (NameNotFoundException e) {
                         LogUtil.i(TAG, "Kiosk app is not pre-installed");
