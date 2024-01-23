@@ -17,8 +17,9 @@
 package com.android.devicelockcontroller.stats;
 
 import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__COUNFIGURATION_UNAVAILABLE;
-import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__PAST_CHECK_IN_DATE;
-import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__UNSPECIFIED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__NETWORK_TIME_UNAVAILABLE;
+import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__RESPONSE_UNSPECIFIED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.CHECK_IN_RETRY_REPORTED__REASON__RPC_FAILURE;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__GET_DEVICE_CHECK_IN_STATUS;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__IS_DEVICE_IN_APPROVED_COUNTRY;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__PAUSE_DEVICE_PROVISIONING;
@@ -130,10 +131,10 @@ public final class StatsLoggerImplTest {
 
     @Test
     public void logCheckInRetry_shouldWriteCorrectLogWhenReasonUnspecified() {
-        mStatsLogger.logCheckInRetry(StatsLogger.CheckInRetryReason.UNSPECIFIED);
+        mStatsLogger.logCheckInRetry(StatsLogger.CheckInRetryReason.RESPONSE_UNSPECIFIED);
 
         verify(() -> DevicelockStatsLog.write(DEVICE_LOCK_CHECK_IN_RETRY_REPORTED,
-                CHECK_IN_RETRY_REPORTED__REASON__UNSPECIFIED));
+                CHECK_IN_RETRY_REPORTED__REASON__RESPONSE_UNSPECIFIED));
     }
 
     @Test
@@ -145,10 +146,18 @@ public final class StatsLoggerImplTest {
     }
 
     @Test
-    public void logCheckInRetry_shouldWriteCorrectLogWhenReasonPastCheckInDate() {
-        mStatsLogger.logCheckInRetry(StatsLogger.CheckInRetryReason.PAST_CHECKIN_DATE);
+    public void logCheckInRetry_shouldWriteCorrectLogWhenReasonNetworkTimeUnavailable() {
+        mStatsLogger.logCheckInRetry(StatsLogger.CheckInRetryReason.NETWORK_TIME_UNAVAILABLE);
 
         verify(() -> DevicelockStatsLog.write(DEVICE_LOCK_CHECK_IN_RETRY_REPORTED,
-                CHECK_IN_RETRY_REPORTED__REASON__PAST_CHECK_IN_DATE));
+                CHECK_IN_RETRY_REPORTED__REASON__NETWORK_TIME_UNAVAILABLE));
+    }
+
+    @Test
+    public void logCheckInRetry_shouldWriteCorrectLogWhenReasonRpcFailure() {
+        mStatsLogger.logCheckInRetry(StatsLogger.CheckInRetryReason.RPC_FAILURE);
+
+        verify(() -> DevicelockStatsLog.write(DEVICE_LOCK_CHECK_IN_RETRY_REPORTED,
+                CHECK_IN_RETRY_REPORTED__REASON__RPC_FAILURE));
     }
 }

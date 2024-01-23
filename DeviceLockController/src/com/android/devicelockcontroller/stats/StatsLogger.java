@@ -93,13 +93,15 @@ public interface StatsLogger {
     // TODO(bojiandu): update this definition after updating the atom to match the new design
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
-            CheckInRetryReason.UNSPECIFIED,
+            CheckInRetryReason.RESPONSE_UNSPECIFIED,
             CheckInRetryReason.CONFIG_UNAVAILABLE,
-            CheckInRetryReason.PAST_CHECKIN_DATE
+            CheckInRetryReason.NETWORK_TIME_UNAVAILABLE,
+            CheckInRetryReason.RPC_FAILURE
     })
     @interface CheckInRetryReason {
-        int UNSPECIFIED = 0;
+        int RESPONSE_UNSPECIFIED = 0;
         int CONFIG_UNAVAILABLE = 1;
-        int PAST_CHECKIN_DATE = 2;
+        int NETWORK_TIME_UNAVAILABLE = 2;
+        int RPC_FAILURE = 3;
     }
 }

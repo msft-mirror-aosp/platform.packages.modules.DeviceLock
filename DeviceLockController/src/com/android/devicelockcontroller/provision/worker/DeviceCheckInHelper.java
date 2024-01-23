@@ -27,8 +27,8 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_C
 import static com.android.devicelockcontroller.common.DeviceLockConstants.TOTAL_DEVICE_ID_TYPES;
 import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
-import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.PAST_CHECKIN_DATE;
-import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.UNSPECIFIED;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.NETWORK_TIME_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.RESPONSE_UNSPECIFIED;
 
 import android.content.Context;
 import android.content.Intent;
@@ -159,7 +159,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                     return true;
                 } catch (DateTimeException e) {
                     LogUtil.e(TAG, "No network time is available!");
-                    mStatsLogger.logCheckInRetry(UNSPECIFIED);
+                    mStatsLogger.logCheckInRetry(NETWORK_TIME_UNAVAILABLE);
                     return false;
                 }
             case STOP_CHECK_IN:
@@ -183,7 +183,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                 return true;
             case STATUS_UNSPECIFIED:
             default:
-                mStatsLogger.logCheckInRetry(UNSPECIFIED);
+                mStatsLogger.logCheckInRetry(RESPONSE_UNSPECIFIED);
                 return false;
         }
     }
