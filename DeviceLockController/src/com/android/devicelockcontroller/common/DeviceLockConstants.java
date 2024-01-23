@@ -106,6 +106,7 @@ public final class DeviceLockConstants {
         int COUNTRY_INFO_UNAVAILABLE = 3;
         int NOT_IN_ELIGIBLE_COUNTRY = 4;
         int POLICY_ENFORCEMENT_FAILED = 5;
+        int DEADLINE_PASSED = 6;
     }
 
     public static final String EXTRA_KIOSK_PACKAGE =

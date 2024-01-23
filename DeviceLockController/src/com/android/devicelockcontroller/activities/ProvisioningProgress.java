@@ -35,9 +35,6 @@ public final class ProvisioningProgress {
             R.drawable.ic_downloading_24px, R.string.installing_kiosk_app);
     public static final ProvisioningProgress OPENING_KIOSK_APP = new ProvisioningProgress(
             R.drawable.ic_open_in_new_24px, R.string.opening_kiosk_app);
-    public static final ProvisioningProgress MANDATORY_FAILED_PROVISION =
-            new ProvisioningProgress(/* bottomViewVisible= */ false, /* countTimerVisible= */ true,
-                    UNKNOWN_REASON);
 
     final int mIconId;
     final int mHeaderId;
@@ -56,7 +53,7 @@ public final class ProvisioningProgress {
 
     ProvisioningProgress(int iconId, int headerId, int subheaderId) {
         this(iconId, headerId, subheaderId, /* progressBarVisible= */ true,
-                /* bottomViewVisible= */ false, /* countTimerVisible= */ false, UNKNOWN_REASON);
+                /* bottomViewVisible= */ false, /* countDownTimerVisible= */ false, UNKNOWN_REASON);
     }
 
     ProvisioningProgress(boolean bottomViewVisible, boolean countDownTimerVisible,
@@ -67,15 +64,26 @@ public final class ProvisioningProgress {
     }
 
     ProvisioningProgress(int iconId, int headerId, int subheaderId, boolean progressBarVisible,
-            boolean bottomViewVisible, boolean countTimerVisible,
+            boolean bottomViewVisible, boolean countDownTimerVisible,
             @ProvisionFailureReason int failureReason) {
         mHeaderId = headerId;
         mIconId = iconId;
         mSubheaderId = subheaderId;
         mProgressBarVisible = progressBarVisible;
         mBottomViewVisible = bottomViewVisible;
-        mCountDownTimerVisible = countTimerVisible;
+        mCountDownTimerVisible = countDownTimerVisible;
         mFailureReason = failureReason;
+    }
+
+    /**
+     * Get the provision failure progress item for mandatory case with the failure reason.
+     *
+     * @param failureReason one of {@link ProvisionFailureReason} The reason why provision failed.
+     */
+    public static ProvisioningProgress getMandatoryProvisioningFailedProgress(
+            @ProvisionFailureReason int failureReason) {
+        return new ProvisioningProgress(
+                /* bottomViewVisible= */ false, /* countDownTimerVisible= */ true, failureReason);
     }
 
     /**
@@ -86,7 +94,7 @@ public final class ProvisioningProgress {
     public static ProvisioningProgress getNonMandatoryProvisioningFailedProgress(
             @ProvisionFailureReason int failureReason) {
         return new ProvisioningProgress(
-                /* bottomViewVisible= */ true, /* countTimerVisible= */ false, failureReason);
+                /* bottomViewVisible= */ true, /* countDownTimerVisible= */ false, failureReason);
     }
 
     @Override

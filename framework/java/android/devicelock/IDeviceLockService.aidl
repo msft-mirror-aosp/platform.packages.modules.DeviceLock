@@ -81,6 +81,12 @@ oneway interface IDeviceLockService {
      in RemoteCallback remoteCallback);
 
     /**
+     * Set whether the caller should be allowed to send undismissible notifications.
+     */
+    void setCallerAllowedToSendUndismissibleNotifications(in boolean allowed,
+     in RemoteCallback remoteCallback);
+
+    /**
      * Set the exempt from hibernation, battery usage, data usage restrictions state for the
      * given uid.
      */

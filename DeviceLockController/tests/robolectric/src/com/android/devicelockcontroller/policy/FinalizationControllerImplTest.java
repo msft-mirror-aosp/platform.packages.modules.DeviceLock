@@ -158,6 +158,12 @@ public final class FinalizationControllerImplTest {
         }
 
         @Override
+        public void setDlcAllowedToSendUndismissibleNotifications(boolean allowed,
+                Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
+
+        @Override
         public void setKioskAppExemptFromRestrictionsState(String packageName, boolean exempt,
                 Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
 
