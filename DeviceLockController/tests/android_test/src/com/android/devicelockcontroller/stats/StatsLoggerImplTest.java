@@ -26,8 +26,11 @@ import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CH
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__REPORT_DEVICE_PROVISION_STATE;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_RETRY_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_KIOSK_APP_REQUEST_REPORTED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_LOCK_UNLOCK_DEVICE_FAILURE_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISIONING_COMPLETE_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISION_FAILURE_REPORTED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__LOCKED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNLOCKED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__COUNTRY_INFO_UNAVAILABLE;
 import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__NOT_IN_ELIGIBLE_COUNTRY;
 import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__PLAY_INSTALLATION_FAILED;
@@ -220,5 +223,23 @@ public final class StatsLoggerImplTest {
 
         verify(() -> DevicelockStatsLog.write(DEVICE_LOCK_PROVISION_FAILURE_REPORTED,
                 PROVISION_FAILURE_REPORTED__REASON__UNKNOWN));
+    }
+
+    @Test
+    public void logLockDeviceFailure_shouldWriteCorrectLog() {
+        mStatsLogger.logLockDeviceFailure(StatsLogger.DeviceStateStats.LOCKED);
+
+        verify(() -> DevicelockStatsLog.write(DEVICE_LOCK_LOCK_UNLOCK_DEVICE_FAILURE_REPORTED,
+                /* arg1= (isLock)*/true,
+                LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__LOCKED));
+    }
+
+    @Test
+    public void logUnlockDeviceFailure_shouldWriteCorrectLog() {
+        mStatsLogger.logUnlockDeviceFailure(StatsLogger.DeviceStateStats.UNLOCKED);
+
+        verify(() -> DevicelockStatsLog.write(DEVICE_LOCK_LOCK_UNLOCK_DEVICE_FAILURE_REPORTED,
+                /* arg1= (isLock)*/false,
+                LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNLOCKED));
     }
 }
