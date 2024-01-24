@@ -42,6 +42,7 @@ import androidx.annotation.StringDef;
 import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.FcmRegistrationTokenProvider;
+import com.android.devicelockcontroller.WorkManagerExceptionHandler.WorkFailureAlarmReceiver;
 import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
@@ -339,6 +340,14 @@ public final class DeviceLockCommandReceiver extends BroadcastReceiver {
         alarmManager.cancel(PendingIntent.getBroadcast(
                 context, /* ignored */ 0,
                 new Intent(context, ResumeProvisionReceiver.class),
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
+        alarmManager.cancel(PendingIntent.getBroadcast(
+                context, /* ignored */ 0,
+                new Intent(context, NextProvisionFailedStepReceiver.class),
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
+        alarmManager.cancel(PendingIntent.getBroadcast(
+                context, /* ignored */ 0,
+                new Intent(context, WorkFailureAlarmReceiver.class),
                 PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
 
         PolicyObjectsProvider policyObjectsProvider =

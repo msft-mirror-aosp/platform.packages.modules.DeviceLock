@@ -30,8 +30,6 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
-import com.android.devicelockcontroller.stats.StatsLogger;
-import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
@@ -206,7 +204,7 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
         intent.putExtras(bundle);
         final PendingIntent alarmIntent =
                 PendingIntent.getBroadcast(context, /* requestCode = */ 0, intent,
-                        PendingIntent.FLAG_IMMUTABLE);
+                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
 
         alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime()
                 + RETRY_ALARM_MILLISECONDS, alarmIntent);
