@@ -73,6 +73,13 @@ public final class AppOpsPolicyHandlerTest {
             return null;
         }).when(mSystemDeviceLockManagerMock).setDlcExemptFromActivityBgStartRestrictionState(
                 anyBoolean(), any(Executor.class), any());
+        doAnswer((Answer<Boolean>) invocation -> {
+            OutcomeReceiver<Void, Exception> callback = invocation.getArgument(2 /* callback */);
+            callback.onResult(null /* result */);
+
+            return null;
+        }).when(mSystemDeviceLockManagerMock).setDlcAllowedToSendUndismissibleNotifications(
+                anyBoolean(), any(Executor.class), any());
 
         doAnswer((Answer<Boolean>) invocation -> {
             OutcomeReceiver<Void, Exception> callback = invocation.getArgument(3 /* callback */);
@@ -95,11 +102,13 @@ public final class AppOpsPolicyHandlerTest {
     }
 
     @Test
-    public void onProvisionInProgress_shouldExemptBackgroundStartNotKioskApp()
+    public void onProvisionInProgress_shouldExemptBackgroundStartAndAllwUndismissibleNotifs()
             throws ExecutionException, InterruptedException {
         mHandler.onProvisionInProgress().get();
 
         verify(mSystemDeviceLockManagerMock).setDlcExemptFromActivityBgStartRestrictionState(
+                eq(true), any(Executor.class), any());
+        verify(mSystemDeviceLockManagerMock).setDlcAllowedToSendUndismissibleNotifications(
                 eq(true), any(Executor.class), any());
         verify(mSystemDeviceLockManagerMock, never()).setKioskAppExemptFromRestrictionsState(
                 anyString(), anyBoolean(), any(Executor.class), any());
@@ -115,11 +124,13 @@ public final class AppOpsPolicyHandlerTest {
     }
 
     @Test
-    public void onCleared_shouldBanBackgroundStartAndResetKioskAppExemption()
+    public void onCleared_shouldResetDlcAndKioskAppExemptions()
             throws ExecutionException, InterruptedException {
         mHandler.onCleared().get();
 
         verify(mSystemDeviceLockManagerMock).setDlcExemptFromActivityBgStartRestrictionState(
+                eq(false), any(Executor.class), any());
+        verify(mSystemDeviceLockManagerMock).setDlcAllowedToSendUndismissibleNotifications(
                 eq(false), any(Executor.class), any());
         verify(mSystemDeviceLockManagerMock).setKioskAppExemptFromRestrictionsState(
                 eq(TEST_PACKAGE), eq(false), any(Executor.class), any());

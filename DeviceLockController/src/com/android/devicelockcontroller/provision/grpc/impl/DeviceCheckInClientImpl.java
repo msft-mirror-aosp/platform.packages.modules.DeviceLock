@@ -253,11 +253,14 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             default:
                 throw new IllegalArgumentException("Unexpected value: " + reason);
         }
-        return ReportDeviceProvisionStateRequest.newBuilder()
-                .setClientProvisionFailureReason(isSuccessful ? null : reasonProto)
-                .setPreviousClientProvisionState(state)
-                .setProvisionSuccess(isSuccessful)
-                .setRegisteredDeviceIdentifier(registeredId)
-                .build();
+        ReportDeviceProvisionStateRequest.Builder builder =
+                ReportDeviceProvisionStateRequest.newBuilder()
+                        .setPreviousClientProvisionState(state)
+                        .setProvisionSuccess(isSuccessful)
+                        .setRegisteredDeviceIdentifier(registeredId);
+        if (!isSuccessful) {
+            builder.setClientProvisionFailureReason(reasonProto);
+        }
+        return builder.build();
     }
 }
