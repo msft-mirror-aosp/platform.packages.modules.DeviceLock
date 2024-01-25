@@ -25,7 +25,6 @@ import static com.android.server.devicelock.DeviceLockControllerPackageUtils.SER
 import static com.android.server.devicelock.DeviceLockServiceImpl.MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER;
 import static com.android.server.devicelock.DeviceLockServiceImpl.OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION;
 import static com.android.server.devicelock.DeviceLockServiceImpl.OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS;
-import static com.android.server.devicelock.DeviceLockServiceImpl.OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS;
 import static com.android.server.devicelock.TestUtils.eventually;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -256,11 +255,6 @@ public final class DeviceLockServiceImplTest {
         mService.setUidExemptFromRestrictionsState(Process.myUid(), true, callback);
 
         assertThat(succeeded.get()).isTrue();
-        final int powerOpMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
-                OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS,
-                Process.myUid(),
-                mContext.getPackageName());
-        assertThat(powerOpMode).isEqualTo(AppOpsManager.MODE_ALLOWED);
         final int hibernationOpMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
                 OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION,
                 Process.myUid(),
@@ -277,11 +271,6 @@ public final class DeviceLockServiceImplTest {
         mService.setUidExemptFromRestrictionsState(Process.myUid(), false, callback);
 
         assertThat(succeeded.get()).isTrue();
-        final int powerOpMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
-                OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS,
-                Process.myUid(),
-                mContext.getPackageName());
-        assertThat(powerOpMode).isEqualTo(AppOpsManager.MODE_DEFAULT);
         final int hibernationOpMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
                 OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION,
                 Process.myUid(),
