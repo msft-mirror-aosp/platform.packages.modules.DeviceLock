@@ -46,7 +46,9 @@ import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailur
 import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_DEVICE_RESET_PROVISION_DEFERRED;
 import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_DEVICE_RESET_PROVISION_MANDATORY;
 import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCCESSFUL_CHECK_IN_RESPONSE_COUNT;
+import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCCESSFUL_LOCKING_COUNT;
 import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCCESSFUL_PROVISIONING_COUNT;
+import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCCESSFUL_UNLOCKING_COUNT;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
 import com.android.modules.expresslog.Counter;
@@ -241,5 +243,19 @@ public final class StatsLoggerImplTest {
         verify(() -> DevicelockStatsLog.write(DEVICE_LOCK_LOCK_UNLOCK_DEVICE_FAILURE_REPORTED,
                 /* arg1= (isLock)*/false,
                 LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNLOCKED));
+    }
+
+    @Test
+    public void logSuccessfulLockingDevice_shouldWriteCorrectLog() {
+        mStatsLogger.logSuccessfulLockingDevice();
+
+        verify(() -> Counter.logIncrement(TEX_ID_SUCCESSFUL_LOCKING_COUNT));
+    }
+
+    @Test
+    public void logSuccessfulUnlockingDevice_shouldWriteCorrectLog() {
+        mStatsLogger.logSuccessfulUnlockingDevice();
+
+        verify(() -> Counter.logIncrement(TEX_ID_SUCCESSFUL_UNLOCKING_COUNT));
     }
 }

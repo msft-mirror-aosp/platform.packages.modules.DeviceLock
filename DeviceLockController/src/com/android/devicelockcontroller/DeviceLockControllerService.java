@@ -221,7 +221,13 @@ public final class DeviceLockControllerService extends Service {
     private FutureCallback<Void> logLockUnlockDeviceCallback(boolean isLockDevice) {
         return new FutureCallback<Void>() {
             @Override
-            public void onSuccess(Void result) {} // Do nothing
+            public void onSuccess(Void result) {
+                if (isLockDevice) {
+                    mStatsLogger.logSuccessfulLockingDevice();
+                } else {
+                    mStatsLogger.logSuccessfulUnlockingDevice();
+                }
+            }
 
             @Override
             public void onFailure(Throwable t) {

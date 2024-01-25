@@ -75,6 +75,14 @@ public final class StatsLoggerImpl implements StatsLogger{
     // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
     static final String TEX_ID_SUCCESSFUL_PROVISIONING_COUNT =
             "device_lock.value_successful_provisioning_count";
+    // The Telemetry Express metric ID for the counter of a successful locking. As
+    // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_SUCCESSFUL_LOCKING_COUNT =
+            "device_lock.value_successful_locking_count";
+    // The Telemetry Express metric ID for the counter of a successful unlocking. As
+    // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_SUCCESSFUL_UNLOCKING_COUNT =
+            "device_lock.value_successful_unlocking_count";
     private static final String TAG = "StatsLogger";
 
     @Override
@@ -199,5 +207,15 @@ public final class StatsLoggerImpl implements StatsLogger{
                 return LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNDEFINED;
             }
         }
+    }
+
+    @Override
+    public void logSuccessfulLockingDevice() {
+        Counter.logIncrement(TEX_ID_SUCCESSFUL_LOCKING_COUNT);
+    }
+
+    @Override
+    public void logSuccessfulUnlockingDevice() {
+        Counter.logIncrement(TEX_ID_SUCCESSFUL_UNLOCKING_COUNT);
     }
 }

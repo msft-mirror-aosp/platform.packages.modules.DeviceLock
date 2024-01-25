@@ -162,4 +162,8 @@ public interface StatsLogger {
         int LOCKED = 2;
         int CLEARED = 3;
     }
+
+    void logSuccessfulLockingDevice();
+
+    void logSuccessfulUnlockingDevice();
 }
