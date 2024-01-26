@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.telephony.TelephonyManager;
 import android.util.ArraySet;
@@ -63,6 +64,7 @@ import org.mockito.Mockito;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.LooperMode;
+import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowTelephonyManager;
 
 import java.time.Duration;
@@ -111,6 +113,7 @@ public final class DeviceCheckInHelperTest {
     private GlobalParametersClient mGlobalParametersClient;
     private DeviceLockControllerScheduler mScheduler;
     private StatsLogger mStatsLogger;
+    private ShadowPackageManager mPackageManager;
 
     @Before
     public void setUp() {
@@ -130,10 +133,15 @@ public final class DeviceCheckInHelperTest {
                         .build());
         mGlobalParametersClient = GlobalParametersClient.getInstance();
         mStatsLogger = ((StatsLoggerProvider) mTestApplication).getStatsLogger();
+        mPackageManager = Shadows.shadowOf(mTestApplication.getPackageManager());
     }
 
     @Test
     public void getDeviceAvailableUniqueIds_shouldReturnAllAvailableUniqueIds() {
+        mPackageManager.setSystemFeature(PackageManager.FEATURE_TELEPHONY_GSM,
+                /* supported= */ true);
+        mPackageManager.setSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA,
+                /* supported= */ true);
         mTelephonyManager.setActiveModemCount(TOTAL_SLOT_COUNT);
         mTelephonyManager.setImei(/* slotIndex= */ 0, IMEI_1);
         mTelephonyManager.setImei(/* slotIndex= */ 1, IMEI_2);
