@@ -104,4 +104,66 @@ public interface StatsLogger {
         int NETWORK_TIME_UNAVAILABLE = 2;
         int RPC_FAILURE = 3;
     }
+
+    /**
+     * Logs the analytics event of a provision failure.
+     *
+     * @param reason The reason of the failure, the enum corresponds to the FailureReason in
+     *               frameworks/proto_logging/stats/atoms/devicelock/devicelock_extension_atoms.proto
+     */
+    void logProvisionFailure(@ProvisionFailureReasonStats int reason);
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+            ProvisionFailureReasonStats.UNKNOWN,
+            ProvisionFailureReasonStats.PLAY_TASK_UNAVAILABLE,
+            ProvisionFailureReasonStats.PLAY_INSTALLATION_FAILED,
+            ProvisionFailureReasonStats.COUNTRY_INFO_UNAVAILABLE,
+            ProvisionFailureReasonStats.NOT_IN_ELIGIBLE_COUNTRY,
+            ProvisionFailureReasonStats.POLICY_ENFORCEMENT_FAILED
+    })
+    @interface ProvisionFailureReasonStats {
+        // Unknown reason
+        int UNKNOWN = 0;
+        // Failed due to play task unavailable
+        int PLAY_TASK_UNAVAILABLE = 1;
+        // Failed due to installation from play unsuccessful
+        int PLAY_INSTALLATION_FAILED = 2;
+        // Failed due to country eligibility unknown
+        int COUNTRY_INFO_UNAVAILABLE = 3;
+        // Failed due to country not eligible
+        int NOT_IN_ELIGIBLE_COUNTRY = 4;
+        // Failed due to unable to enforce policies
+        int POLICY_ENFORCEMENT_FAILED = 5;
+    }
+
+    /**
+     * Logs the analytics event of a lock device failure.
+     * @param deviceStatePostCommand The device state after the lock device command
+     */
+    void logLockDeviceFailure(@DeviceStateStats int deviceStatePostCommand);
+
+    /**
+     * Logs the analytics event of a unlock device failure.
+     * @param deviceStatePostCommand The device state after the unlock device command
+     */
+    void logUnlockDeviceFailure(@DeviceStateStats int deviceStatePostCommand);
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+            DeviceStateStats.UNDEFINED,
+            DeviceStateStats.UNLOCKED,
+            DeviceStateStats.LOCKED,
+            DeviceStateStats.CLEARED,
+    })
+    @interface DeviceStateStats {
+        int UNDEFINED = 0;
+        int UNLOCKED = 1;
+        int LOCKED = 2;
+        int CLEARED = 3;
+    }
+
+    void logSuccessfulLockingDevice();
+
+    void logSuccessfulUnlockingDevice();
 }

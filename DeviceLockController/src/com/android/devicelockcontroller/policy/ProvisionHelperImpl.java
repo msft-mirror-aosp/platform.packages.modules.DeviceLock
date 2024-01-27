@@ -57,6 +57,8 @@ import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionSt
 import com.android.devicelockcontroller.receivers.ResumeProvisionReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
@@ -231,6 +233,35 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
 
     private void handleFailure(@ProvisionFailureReason int reason, boolean isMandatory,
             ProvisioningProgressController progressController) {
+        StatsLogger logger = ((StatsLoggerProvider) mContext).getStatsLogger();
+        switch (reason) {
+            case ProvisionFailureReason.UNKNOWN_REASON -> {
+                logger.logProvisionFailure(StatsLogger.ProvisionFailureReasonStats.UNKNOWN);
+            }
+            case ProvisionFailureReason.PLAY_TASK_UNAVAILABLE -> {
+                logger.logProvisionFailure(
+                        StatsLogger.ProvisionFailureReasonStats.PLAY_TASK_UNAVAILABLE);
+            }
+            case ProvisionFailureReason.PLAY_INSTALLATION_FAILED -> {
+                logger.logProvisionFailure(
+                        StatsLogger.ProvisionFailureReasonStats.PLAY_INSTALLATION_FAILED);
+            }
+            case ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE -> {
+                logger.logProvisionFailure(
+                        StatsLogger.ProvisionFailureReasonStats.COUNTRY_INFO_UNAVAILABLE);
+            }
+            case ProvisionFailureReason.NOT_IN_ELIGIBLE_COUNTRY -> {
+                logger.logProvisionFailure(
+                        StatsLogger.ProvisionFailureReasonStats.NOT_IN_ELIGIBLE_COUNTRY);
+            }
+            case ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED -> {
+                logger.logProvisionFailure(
+                        StatsLogger.ProvisionFailureReasonStats.POLICY_ENFORCEMENT_FAILED);
+            }
+            default -> {
+                logger.logProvisionFailure(StatsLogger.ProvisionFailureReasonStats.UNKNOWN);
+            }
+        }
         if (isMandatory) {
             ReportDeviceProvisionStateWorker.reportSetupFailed(
                     WorkManager.getInstance(mContext), reason);
