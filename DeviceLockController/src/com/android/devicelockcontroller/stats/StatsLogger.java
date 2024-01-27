@@ -136,4 +136,34 @@ public interface StatsLogger {
         // Failed due to unable to enforce policies
         int POLICY_ENFORCEMENT_FAILED = 5;
     }
+
+    /**
+     * Logs the analytics event of a lock device failure.
+     * @param deviceStatePostCommand The device state after the lock device command
+     */
+    void logLockDeviceFailure(@DeviceStateStats int deviceStatePostCommand);
+
+    /**
+     * Logs the analytics event of a unlock device failure.
+     * @param deviceStatePostCommand The device state after the unlock device command
+     */
+    void logUnlockDeviceFailure(@DeviceStateStats int deviceStatePostCommand);
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+            DeviceStateStats.UNDEFINED,
+            DeviceStateStats.UNLOCKED,
+            DeviceStateStats.LOCKED,
+            DeviceStateStats.CLEARED,
+    })
+    @interface DeviceStateStats {
+        int UNDEFINED = 0;
+        int UNLOCKED = 1;
+        int LOCKED = 2;
+        int CLEARED = 3;
+    }
+
+    void logSuccessfulLockingDevice();
+
+    void logSuccessfulUnlockingDevice();
 }

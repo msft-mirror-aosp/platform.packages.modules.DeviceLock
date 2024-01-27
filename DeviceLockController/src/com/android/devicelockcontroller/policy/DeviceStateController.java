@@ -49,6 +49,11 @@ public interface DeviceStateController {
     /** Returns true if the device is in locked state. */
     ListenableFuture<Boolean> isLocked();
 
+    /**
+     * Returns the current {@link DeviceState}.
+     */
+    ListenableFuture<Integer> getDeviceState();
+
     /** Device state definitions. */
     @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)

@@ -26,8 +26,13 @@ import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CH
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_REQUEST_REPORTED__TYPE__REPORT_DEVICE_PROVISION_STATE;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_CHECK_IN_RETRY_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_KIOSK_APP_REQUEST_REPORTED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_LOCK_UNLOCK_DEVICE_FAILURE_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISIONING_COMPLETE_REPORTED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.DEVICE_LOCK_PROVISION_FAILURE_REPORTED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__CLEARED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__LOCKED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNDEFINED;
+import static com.android.devicelockcontroller.DevicelockStatsLog.LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNLOCKED;
 import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__COUNTRY_INFO_UNAVAILABLE;
 import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__NOT_IN_ELIGIBLE_COUNTRY;
 import static com.android.devicelockcontroller.DevicelockStatsLog.PROVISION_FAILURE_REPORTED__REASON__PLAY_INSTALLATION_FAILED;
@@ -70,6 +75,14 @@ public final class StatsLoggerImpl implements StatsLogger{
     // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
     static final String TEX_ID_SUCCESSFUL_PROVISIONING_COUNT =
             "device_lock.value_successful_provisioning_count";
+    // The Telemetry Express metric ID for the counter of a successful locking. As
+    // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_SUCCESSFUL_LOCKING_COUNT =
+            "device_lock.value_successful_locking_count";
+    // The Telemetry Express metric ID for the counter of a successful unlocking. As
+    // defined in platform/frameworks/proto_logging/stats/express/catalog/device_lock.cfg
+    static final String TEX_ID_SUCCESSFUL_UNLOCKING_COUNT =
+            "device_lock.value_successful_unlocking_count";
     private static final String TAG = "StatsLogger";
 
     @Override
@@ -160,5 +173,49 @@ public final class StatsLoggerImpl implements StatsLogger{
             default -> provisionFailureReason = PROVISION_FAILURE_REPORTED__REASON__UNKNOWN;
         }
         DevicelockStatsLog.write(DEVICE_LOCK_PROVISION_FAILURE_REPORTED, provisionFailureReason);
+    }
+
+    @Override
+    public void logLockDeviceFailure(@DeviceStateStats int deviceStatePostCommand) {
+        DevicelockStatsLog.write(DEVICE_LOCK_LOCK_UNLOCK_DEVICE_FAILURE_REPORTED,
+                /* arg1 = (isLock)*/ true,
+                getStatePostCommandForLockUnlockDeviceFailure(deviceStatePostCommand));
+    }
+
+    @Override
+    public void logUnlockDeviceFailure(@DeviceStateStats int deviceStatePostCommand) {
+        DevicelockStatsLog.write(DEVICE_LOCK_LOCK_UNLOCK_DEVICE_FAILURE_REPORTED,
+                /* arg1 = (isLock)*/ false,
+                getStatePostCommandForLockUnlockDeviceFailure(deviceStatePostCommand));
+    }
+
+    private int getStatePostCommandForLockUnlockDeviceFailure(@DeviceStateStats int deviceState) {
+        switch (deviceState) {
+            case DeviceStateStats.UNDEFINED -> {
+                return LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNDEFINED;
+            }
+            case DeviceStateStats.UNLOCKED -> {
+                return LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNLOCKED;
+            }
+            case DeviceStateStats.LOCKED -> {
+                return LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__LOCKED;
+            }
+            case DeviceStateStats.CLEARED -> {
+                return LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__CLEARED;
+            }
+            default -> {
+                return LOCK_UNLOCK_DEVICE_FAILURE_REPORTED__STATE_POST_COMMAND__UNDEFINED;
+            }
+        }
+    }
+
+    @Override
+    public void logSuccessfulLockingDevice() {
+        Counter.logIncrement(TEX_ID_SUCCESSFUL_LOCKING_COUNT);
+    }
+
+    @Override
+    public void logSuccessfulUnlockingDevice() {
+        Counter.logIncrement(TEX_ID_SUCCESSFUL_UNLOCKING_COUNT);
     }
 }
