@@ -68,17 +68,19 @@ public interface StatsLogger {
 
     /**
      * Logs the analytics event of resetting the device due to a failed provisioning.
+     *
      * @param isProvisioningMandatory True if the provision is mandatory, false otherwise.
      */
     void logDeviceReset(boolean isProvisioningMandatory);
 
     /**
-     * Logs the analytics event of receiving a successful check in response.
+     * Logs the analytics event of successfully handling a check in response received from the
+     * server.
      */
     void logSuccessfulCheckIn();
 
     /**
-     * Logs the analytics event of provisioning is successfully completed.
+     * Logs the analytics event of successfully completing the provisioning.
      */
     void logSuccessfulProvisioning();
 
@@ -139,12 +141,14 @@ public interface StatsLogger {
 
     /**
      * Logs the analytics event of a lock device failure.
+     *
      * @param deviceStatePostCommand The device state after the lock device command
      */
     void logLockDeviceFailure(@DeviceStateStats int deviceStatePostCommand);
 
     /**
      * Logs the analytics event of a unlock device failure.
+     *
      * @param deviceStatePostCommand The device state after the unlock device command
      */
     void logUnlockDeviceFailure(@DeviceStateStats int deviceStatePostCommand);
@@ -163,7 +167,13 @@ public interface StatsLogger {
         int CLEARED = 3;
     }
 
+    /**
+     * Logs the analytics event of successfully locking the device.
+     */
     void logSuccessfulLockingDevice();
 
+    /**
+     * Logs the analytics event of successfully unlocking the device.
+     */
     void logSuccessfulUnlockingDevice();
 }
