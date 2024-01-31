@@ -120,6 +120,9 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     @VisibleForTesting
     static final String OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS =
             "android:system_exempt_from_dismissible_notifications";
+    @VisibleForTesting
+    static final String OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS =
+            "android:system_exempt_from_power_restrictions";
 
     // Stopgap: this receiver should be replaced by an API on DeviceLockManager.
     private final class DeviceLockClearReceiver extends BroadcastReceiver {
@@ -753,7 +756,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             Slog.e(TAG, "Can not find package name for given uid: " + uid);
         } else {
             setAppOpsResult = setAppOpsModes(uid, packageNames[0],
-                    new String[]{OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION}, exempt);
+                    new String[]{OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION,
+                            OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS}, exempt);
             setPowerExemptionResult = setPowerExemptionForPackage(packageNames[0], exempt);
         }
         boolean setNetworkPolicyResult = setNetworkPolicyForUid(uid, exempt);
