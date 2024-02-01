@@ -80,7 +80,8 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
             "debug.devicelock.usepreinstalledkiosk";
     private static volatile SharedPreferences sSharedPreferences;
 
-    private static synchronized SharedPreferences getSharedPreferences(Context context) {
+    @VisibleForTesting
+    static synchronized SharedPreferences getSharedPreferences(Context context) {
         if (sSharedPreferences == null) {
             sSharedPreferences = context.createDeviceProtectedStorageContext().getSharedPreferences(
                     FILENAME, Context.MODE_PRIVATE);
@@ -133,7 +134,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
     @Override
     public void scheduleKioskAppInstallation(LifecycleOwner owner,
             ProvisioningProgressController progressController, boolean isMandatory) {
-        LogUtil.v(TAG, "Trigger setup flow");
+        LogUtil.v(TAG, "Schedule installation work");
         progressController.setProvisioningProgress(ProvisioningProgress.GETTING_DEVICE_READY);
         WorkManager workManager = WorkManager.getInstance(mContext);
         OneTimeWorkRequest isDeviceInApprovedCountryWork = getIsDeviceInApprovedCountryWork();
@@ -235,9 +236,6 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
             ProvisioningProgressController progressController) {
         StatsLogger logger = ((StatsLoggerProvider) mContext).getStatsLogger();
         switch (reason) {
-            case ProvisionFailureReason.UNKNOWN_REASON -> {
-                logger.logProvisionFailure(StatsLogger.ProvisionFailureReasonStats.UNKNOWN);
-            }
             case ProvisionFailureReason.PLAY_TASK_UNAVAILABLE -> {
                 logger.logProvisionFailure(
                         StatsLogger.ProvisionFailureReasonStats.PLAY_TASK_UNAVAILABLE);
@@ -279,7 +277,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
     }
 
     @NonNull
-    static OneTimeWorkRequest getIsDeviceInApprovedCountryWork() {
+    private static OneTimeWorkRequest getIsDeviceInApprovedCountryWork() {
         return new OneTimeWorkRequest.Builder(IsDeviceInApprovedCountryWorker.class)
                 .setConstraints(new Constraints.Builder().setRequiredNetworkType(
                         NetworkType.CONNECTED).build())
@@ -288,7 +286,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
     }
 
     @NonNull
-    static OneTimeWorkRequest getPlayInstallPackageTask(
+    private static OneTimeWorkRequest getPlayInstallPackageTask(
             Class<? extends ListenableWorker> playInstallTaskClass, String kioskPackageName) {
         return new OneTimeWorkRequest.Builder(playInstallTaskClass)
                 .setInputData(new Data.Builder().putString(
@@ -323,8 +321,8 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
      * Returns true if provisioning should skip play install if there is already a preinstalled
      * kiosk app. By default, this returns true for debuggable build.
      */
-    public static boolean getPreinstalledKioskAllowed(Context context) {
-        return getSharedPreferences(context).getBoolean(
+    private static boolean getPreinstalledKioskAllowed(Context context) {
+        return Build.isDebuggable() && getSharedPreferences(context).getBoolean(
                 USE_PREINSTALLED_KIOSK_PREF, Build.isDebuggable());
     }
 }
