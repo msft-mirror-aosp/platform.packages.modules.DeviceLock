@@ -43,6 +43,7 @@ public abstract class DeviceCheckInClient {
     public static final String DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME =
             "com.android.devicelockcontroller.debug.DeviceCheckInClientDebug";
     protected static final String DEBUG_DEVICELOCK_CHECKIN = "debug.devicelock.checkin";
+    private static final String HOST_NAME_OVERRIDE = "host.name.override";
     private static volatile DeviceCheckInClient sClient;
 
     @Nullable
@@ -68,6 +69,13 @@ public abstract class DeviceCheckInClient {
     }
 
     /**
+     * Override the host name so that the client always connects to it instead
+     */
+    public static void setHostNameOverride(Context context, String override) {
+        getSharedPreferences(context).edit().putString(HOST_NAME_OVERRIDE, override).apply();
+    }
+
+    /**
      * Get an instance of DeviceCheckInClient object.
      */
     public static DeviceCheckInClient getInstance(
@@ -77,9 +85,17 @@ public abstract class DeviceCheckInClient {
             int portNumber,
             Pair<String, String> apiKey,
             @Nullable String registeredId) {
-        boolean useDebugClient = Build.isDebuggable()
-                && getSharedPreferences(context).getBoolean(DEBUG_DEVICELOCK_CHECKIN,
-                /* def= */ false);
+        boolean useDebugClient = false;
+        String hostNameOverride = "";
+        if (Build.isDebuggable()) {
+            useDebugClient = getSharedPreferences(context).getBoolean(
+                    DEBUG_DEVICELOCK_CHECKIN, /* def= */ false);
+            hostNameOverride = getSharedPreferences(context).getString(
+                    HOST_NAME_OVERRIDE, /* def= */ "");
+            if (!hostNameOverride.isEmpty()) {
+                hostName = hostNameOverride;
+            }
+        }
         synchronized (DeviceCheckInClient.class) {
             try {
                 boolean createRequired =
