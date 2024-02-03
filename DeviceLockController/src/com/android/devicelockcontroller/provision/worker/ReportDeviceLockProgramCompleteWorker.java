@@ -77,8 +77,8 @@ public final class ReportDeviceLockProgramCompleteWorker extends ListenableWorke
             ListenableFuture<String> registeredDeviceId =
                     GlobalParametersClient.getInstance().getRegisteredDeviceId();
             mClient = Futures.transform(registeredDeviceId,
-                    id -> DeviceFinalizeClient.getInstance(className, hostName, portNumber, apikey,
-                            id), executorService);
+                    id -> DeviceFinalizeClient.getInstance(context, className, hostName,
+                            portNumber, apikey, id), executorService);
         } else {
             mClient = Futures.immediateFuture(client);
         }
