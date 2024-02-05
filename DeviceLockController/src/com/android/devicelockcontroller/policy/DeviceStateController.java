@@ -54,6 +54,9 @@ public interface DeviceStateController {
      */
     ListenableFuture<Integer> getDeviceState();
 
+    /** Returns true if the device restrictions have been cleared. */
+    ListenableFuture<Boolean> isCleared();
+
     /** Device state definitions. */
     @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
