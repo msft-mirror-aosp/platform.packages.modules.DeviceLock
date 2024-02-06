@@ -27,6 +27,7 @@ import static android.devicelock.DeviceId.DEVICE_ID_TYPE_IMEI;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_MEID;
 
 import android.Manifest;
+import android.Manifest.permission;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.AppOpsManager;
@@ -623,6 +624,13 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         final UserHandle userHandle = Binder.getCallingUserHandle();
         final long identity = Binder.clearCallingIdentity();
+
+        // Clear the FLAG_PERMISSION_GRANTED_BY_ROLE flag from POST_NOTIFICATIONS for the kiosk app
+        // before removing the ROLE_FINANCED_DEVICE_KIOSK role, to prevent the app from being
+        // killed.
+        final PackageManager packageManager = mContext.getPackageManager();
+        packageManager.updatePermissionFlags(permission.POST_NOTIFICATIONS, packageName,
+                PackageManager.FLAG_PERMISSION_GRANTED_BY_ROLE, /* flagValues= */ 0, userHandle);
 
         mRoleManager.removeRoleHolderAsUser(RoleManager.ROLE_FINANCED_DEVICE_KIOSK, packageName,
                 MANAGE_HOLDERS_FLAG_DONT_KILL_APP, userHandle, mContext.getMainExecutor(),
