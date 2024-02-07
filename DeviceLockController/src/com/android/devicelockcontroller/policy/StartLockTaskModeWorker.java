@@ -78,7 +78,8 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                 Futures.submit(
                         () -> am.getLockTaskModeState() == ActivityManager.LOCK_TASK_MODE_LOCKED,
                         mExecutorService);
-        return Futures.transformAsync(isInLockTaskModeFuture, isInLockTaskMode -> {
+        final ListenableFuture<Result> lockTaskFuture =
+                Futures.transformAsync(isInLockTaskModeFuture, isInLockTaskMode -> {
             if (isInLockTaskMode) {
                 LogUtil.i(TAG, "Lock task mode is active now");
                 return Futures.immediateFuture(Result.success());
@@ -124,6 +125,14 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                         }
                     }, mExecutorService);
         }, mExecutorService);
+        return Futures.catchingAsync(lockTaskFuture, Exception.class,
+                ex -> Futures.transform(devicePolicyController
+                        .enforceCurrentPoliciesForCriticalFailure(),
+                        unused -> {
+                            LogUtil.e(TAG, "Failed to lock task: ", ex);
+                            return Result.failure();
+                        }, mExecutorService),
+                mExecutorService);
     }
 
     private void setPreferredActivityForHome(ComponentName activity) {
