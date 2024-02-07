@@ -137,7 +137,8 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
         return mGlobalParametersClient.getDeviceState();
     }
 
-    private ListenableFuture<Boolean> isCleared() {
+    @Override
+    public ListenableFuture<Boolean> isCleared() {
         return Futures.transform(mGlobalParametersClient.getDeviceState(),
                 s -> s == CLEARED, MoreExecutors.directExecutor());
     }

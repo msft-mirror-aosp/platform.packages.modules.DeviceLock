@@ -31,6 +31,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.database.sqlite.SQLiteException;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
@@ -43,6 +44,7 @@ import androidx.work.ExistingWorkPolicy;
 import androidx.work.ListenableWorker;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.Operation;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
@@ -65,6 +67,7 @@ import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.Executor;
@@ -138,8 +141,27 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
         progressController.setProvisioningProgress(ProvisioningProgress.GETTING_DEVICE_READY);
         WorkManager workManager = WorkManager.getInstance(mContext);
         OneTimeWorkRequest isDeviceInApprovedCountryWork = getIsDeviceInApprovedCountryWork();
-        workManager.enqueueUniqueWork(IsDeviceInApprovedCountryWorker.class.getSimpleName(),
-                ExistingWorkPolicy.REPLACE, isDeviceInApprovedCountryWork);
+
+        final ListenableFuture<Operation.State.SUCCESS> enqueueResult =
+                workManager.enqueueUniqueWork(IsDeviceInApprovedCountryWorker.class.getSimpleName(),
+                ExistingWorkPolicy.REPLACE, isDeviceInApprovedCountryWork).getResult();
+        Futures.addCallback(enqueueResult, new FutureCallback<Operation.State.SUCCESS>() {
+                    @Override
+                    public void onSuccess(Operation.State.SUCCESS result) {
+                        // Enqueued
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        LogUtil.e(TAG, "Failed to enqueue 'device in approved country' work",
+                                t);
+                        if (t instanceof SQLiteException) {
+                            mStateController.getDevicePolicyController().wipeDevice();
+                        } else {
+                            LogUtil.e(TAG, "Not wiping device (non SQL exception)");
+                        }
+                    }
+                }, mExecutor);
 
         FutureCallback<String> isInApprovedCountryCallback = new FutureCallback<>() {
             @Override
@@ -211,8 +233,26 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
         OneTimeWorkRequest playInstallPackageTask =
                 getPlayInstallPackageTask(playInstallTaskClass, kioskPackage);
         WorkManager workManager = WorkManager.getInstance(mContext);
-        workManager.enqueueUniqueWork(playInstallTaskClass.getSimpleName(),
-                ExistingWorkPolicy.REPLACE, playInstallPackageTask);
+        final ListenableFuture<Operation.State.SUCCESS> enqueueResult =
+                workManager.enqueueUniqueWork(playInstallTaskClass.getSimpleName(),
+                        ExistingWorkPolicy.REPLACE, playInstallPackageTask).getResult();
+        Futures.addCallback(enqueueResult, new FutureCallback<Operation.State.SUCCESS>() {
+            @Override
+            public void onSuccess(Operation.State.SUCCESS result) {
+                // Enqueued
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LogUtil.e(TAG, "Failed to enqueue 'play install' work", t);
+                if (t instanceof SQLiteException) {
+                    mStateController.getDevicePolicyController().wipeDevice();
+                } else {
+                    LogUtil.e(TAG, "Not wiping device (non SQL exception)");
+                }
+            }
+        }, mExecutor);
+
         mContext.getMainExecutor().execute(
                 () -> workManager.getWorkInfoByIdLiveData(playInstallPackageTask.getId())
                         .observe(owner, workInfo -> {

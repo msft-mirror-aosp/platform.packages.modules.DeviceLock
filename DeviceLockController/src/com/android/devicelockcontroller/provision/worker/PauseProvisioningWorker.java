@@ -29,6 +29,7 @@ import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.Operation;
 import androidx.work.WorkManager;
 import androidx.work.WorkerParameters;
 
@@ -38,9 +39,11 @@ import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * Despite the naming, this worker class is only to report provision has been paused by user to
@@ -70,8 +73,24 @@ public final class PauseProvisioningWorker extends AbstractCheckInWorker {
                         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY)
                         .setInputData(inputData)
                         .build();
-        workManager.enqueueUniqueWork(REPORT_PROVISION_PAUSED_BY_USER_WORK,
-                ExistingWorkPolicy.KEEP, work);
+        ListenableFuture<Operation.State.SUCCESS> result =
+                workManager.enqueueUniqueWork(REPORT_PROVISION_PAUSED_BY_USER_WORK,
+                        ExistingWorkPolicy.KEEP, work).getResult();
+        Futures.addCallback(result,
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(Operation.State.SUCCESS result) {
+                        // no-op
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        // Log an error but don't reset the device (non critical failure).
+                        LogUtil.e(TAG, "Failed to enqueue 'Report provision paused' work", t);
+                    }
+                },
+                MoreExecutors.directExecutor()
+        );
     }
 
     public PauseProvisioningWorker(@NonNull Context context,
