@@ -274,7 +274,8 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
 
     private void handleFailure(@ProvisionFailureReason int reason, boolean isMandatory,
             ProvisioningProgressController progressController) {
-        StatsLogger logger = ((StatsLoggerProvider) mContext).getStatsLogger();
+        StatsLogger logger =
+                ((StatsLoggerProvider) mContext.getApplicationContext()).getStatsLogger();
         switch (reason) {
             case ProvisionFailureReason.PLAY_TASK_UNAVAILABLE -> {
                 logger.logProvisionFailure(

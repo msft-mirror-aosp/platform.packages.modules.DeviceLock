@@ -41,14 +41,9 @@ import android.provider.Settings;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
-import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.SystemDeviceLockManagerImpl;
-import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
-import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
 import com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver;
-import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
-import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
@@ -121,18 +116,6 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
                 MoreExecutors.directExecutor());
     }
 
-    private void handlePolicyEnforcementFailure() {
-        final DeviceLockControllerSchedulerProvider schedulerProvider =
-                (DeviceLockControllerSchedulerProvider) mContext.getApplicationContext();
-        final DeviceLockControllerScheduler scheduler =
-                schedulerProvider.getDeviceLockControllerScheduler();
-        // Hard failure due to policy enforcement, treat it as mandatory reset device alarm.
-        scheduler.scheduleMandatoryResetDeviceAlarm();
-
-        ReportDeviceProvisionStateWorker.reportSetupFailed(WorkManager.getInstance(mContext),
-                ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED);
-    }
-
     @Override
     public ListenableFuture<Void> setNextStateForEvent(@ProvisionEvent int event) {
         synchronized (this) {
@@ -176,10 +159,8 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
                                 }
                                 return Futures.transformAsync(mPolicyController
                                                 .enforceCurrentPoliciesForCriticalFailure(),
-                                        unused -> {
-                                            handlePolicyEnforcementFailure();
-                                            return Futures.immediateFailedFuture(ex);
-                                        }, mBgExecutor);
+                                        unused -> Futures.immediateFailedFuture(ex),
+                                        mBgExecutor);
                             }, mBgExecutor),
                     mBgExecutor);
         }

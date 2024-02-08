@@ -54,9 +54,13 @@ import androidx.work.WorkManager;
 import com.android.devicelockcontroller.SystemDeviceLockManager;
 import com.android.devicelockcontroller.activities.LandingActivity;
 import com.android.devicelockcontroller.activities.ProvisioningActivity;
+import com.android.devicelockcontroller.common.DeviceLockConstants;
 import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisioningType;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState;
+import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
@@ -182,9 +186,22 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                         /* failure= */ true),
                 mode -> {
                     startLockTaskModeIfNeeded(mode);
+                    handlePolicyEnforcementFailure();
                     return null;
                 },
                 mBgExecutor);
+    }
+
+    private void handlePolicyEnforcementFailure() {
+        final DeviceLockControllerSchedulerProvider schedulerProvider =
+                (DeviceLockControllerSchedulerProvider) mContext.getApplicationContext();
+        final DeviceLockControllerScheduler scheduler =
+                schedulerProvider.getDeviceLockControllerScheduler();
+        // Hard failure due to policy enforcement, treat it as mandatory reset device alarm.
+        scheduler.scheduleMandatoryResetDeviceAlarm();
+
+        ReportDeviceProvisionStateWorker.reportSetupFailed(WorkManager.getInstance(mContext),
+                DeviceLockConstants.ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED);
     }
 
     /**
