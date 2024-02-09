@@ -20,6 +20,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.NOT_IN_ELIGIBLE_COUNTRY;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.PLAY_INSTALLATION_FAILED;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.UNKNOWN_REASON;
+import static com.android.devicelockcontroller.policy.ProvisionHelperImpl.POLL_DELAY_MS;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_KIOSK;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_PAUSE;
 import static com.android.devicelockcontroller.provision.worker.IsDeviceInApprovedCountryWorker.KEY_IS_IN_APPROVED_COUNTRY;
@@ -94,8 +95,12 @@ import org.robolectric.shadows.ShadowPackageManager;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(shadows = {ShadowBuild.class})
@@ -124,6 +129,8 @@ public final class ProvisionHelperImplTest {
 
     private TestDeviceLockControllerApplication mTestApp;
     private ProvisionHelperImpl mProvisionHelper;
+    private ScheduledExecutorService mScheduledExecutorService =
+            Executors.newSingleThreadScheduledExecutor();
 
     private TestDriver mTestDriver;
     private TestWorkerFactory mTestWorkerFactory;
@@ -134,7 +141,8 @@ public final class ProvisionHelperImplTest {
         mMockStateController = mTestApp.getProvisionStateController();
         Executor executor = TestingExecutors.sameThreadScheduledExecutor();
         ProvisionHelperImpl.getSharedPreferences(mTestApp).edit().clear().commit();
-        mProvisionHelper = new ProvisionHelperImpl(mTestApp, mMockStateController, executor);
+        mProvisionHelper = new ProvisionHelperImpl(mTestApp, mMockStateController, executor,
+                mScheduledExecutorService);
         mTestWorkerFactory = new TestWorkerFactory();
         WorkManagerTestInitHelper.initializeTestWorkManager(mTestApp,
                 new Configuration.Builder().setExecutor(executor).setWorkerFactory(
@@ -152,8 +160,8 @@ public final class ProvisionHelperImplTest {
         // WHEN Installation is executed
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN Installation fails
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -171,8 +179,8 @@ public final class ProvisionHelperImplTest {
         // WHEN Installation is initiated
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN Installation fails
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -191,8 +199,8 @@ public final class ProvisionHelperImplTest {
         // WHEN Installation is initiated
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(IsDeviceInApprovedCountryWorker.class.getSimpleName());
+        waitForPoll();
 
         // THEN install kiosk app
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -216,8 +224,8 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress and advance to next state.
         verify(mMockStateController).postSetNextStateForEventRequest(eq(PROVISION_KIOSK));
@@ -256,9 +264,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress and advance to next state.
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -297,7 +306,9 @@ public final class ProvisionHelperImplTest {
                 mProgressController, /* isProvisionMandatory= */ false);
         shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress and advance to next state.
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -334,9 +345,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress and advance to next state.
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -371,9 +383,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress and advance to next state.
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -402,9 +415,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed for mandatory provisioning
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ true);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress and schedule reset alarm.
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -436,9 +450,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed for mandatory provisioning
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ true);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN schedule reset alarm.
         verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
@@ -457,9 +472,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed for mandatory provisioning
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ true);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress.
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -481,9 +497,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed for non-mandatory provisioning
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN go through correct ProvisioningProgress.
         verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
@@ -505,9 +522,10 @@ public final class ProvisionHelperImplTest {
         // WHEN installation is executed for mandatory provisioning
         mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
                 mProgressController, /* isProvisionMandatory= */ false);
-        shadowOf(Looper.getMainLooper()).idle();
         executeWork(COUNTRY_WORKER_UNIQUE_NAME);
+        waitForPoll();
         executeWork(PLAY_INSTALL_WORKER_UNIQUE_NAME);
+        waitForPoll();
 
         // THEN provision failure is not reported
         assertWorkNotEnqueued(ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME);
@@ -686,5 +704,13 @@ public final class ProvisionHelperImplTest {
                 }
             };
         }
+    }
+
+    private void waitForPoll() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        mScheduledExecutorService.schedule(() -> latch.countDown(), POLL_DELAY_MS,
+                TimeUnit.MILLISECONDS);
+        latch.await();
+        shadowOf(Looper.getMainLooper()).idle();
     }
 }
