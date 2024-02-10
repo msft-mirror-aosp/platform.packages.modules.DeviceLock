@@ -21,6 +21,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Intent;
+import android.view.WindowInsets;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentContainerView;
@@ -46,5 +47,15 @@ public final class LandingActivityTest {
 
         assertThat((Fragment) fragmentContainerView.getFragment()).isInstanceOf(
                 ProvisionInfoFragment.class);
+    }
+
+    @Test
+    public void landingActivity_hideSystemBar() {
+        Intent intent = new Intent();
+        intent.setAction(ACTION_START_DEVICE_FINANCING_PROVISIONING);
+        LandingActivity activity = Robolectric.buildActivity(LandingActivity.class,
+                intent).setup().get();
+        assertThat(activity.getWindow().getDecorView().getRootWindowInsets().isVisible(
+                WindowInsets.Type.systemBars())).isFalse();
     }
 }
