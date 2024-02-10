@@ -30,6 +30,7 @@ import static com.android.devicelockcontroller.policy.DeviceStateController.Devi
 import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.UNDEFINED;
 import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.UNLOCKED;
 import static com.android.devicelockcontroller.policy.StartLockTaskModeWorker.START_LOCK_TASK_MODE_WORK_NAME;
+import static com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -46,7 +47,6 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
@@ -61,6 +61,7 @@ import androidx.work.WorkManager;
 import androidx.work.testing.WorkManagerTestInitHelper;
 
 import com.android.devicelockcontroller.SystemDeviceLockManager;
+import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.activities.LandingActivity;
 import com.android.devicelockcontroller.activities.ProvisioningActivity;
 import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState;
@@ -109,12 +110,12 @@ public final class DevicePolicyControllerImplTest {
     private ArgumentCaptor<Integer> mAllowedFlags;
 
     private DevicePolicyController mDevicePolicyController;
-    private Context mContext;
+    private TestDeviceLockControllerApplication mTestApp;
 
     @Before
     public void setUp() {
-        mContext = ApplicationProvider.getApplicationContext();
-        WorkManagerTestInitHelper.initializeTestWorkManager(mContext);
+        mTestApp = ApplicationProvider.getApplicationContext();
+        WorkManagerTestInitHelper.initializeTestWorkManager(mTestApp);
         ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
         Bundle userRestrictions = new Bundle();
         when(mMockUserManager.getUserRestrictions()).thenReturn(userRestrictions);
@@ -125,8 +126,8 @@ public final class DevicePolicyControllerImplTest {
         AppOpsPolicyHandler appOpsPolicyHandler = new AppOpsPolicyHandler(
                 mMockSystemDeviceLockManager, bgExecutor);
         LockTaskModePolicyHandler lockTaskModePolicyHandler = new LockTaskModePolicyHandler(
-                mContext, mMockDpm, bgExecutor);
-        PackagePolicyHandler packagePolicyHandler = new PackagePolicyHandler(mContext, mMockDpm,
+                mTestApp, mMockDpm, bgExecutor);
+        PackagePolicyHandler packagePolicyHandler = new PackagePolicyHandler(mTestApp, mMockDpm,
                 bgExecutor);
         RolePolicyHandler rolePolicyHandler = new RolePolicyHandler(mMockSystemDeviceLockManager,
                 bgExecutor);
@@ -138,7 +139,7 @@ public final class DevicePolicyControllerImplTest {
                         mMockSystemDeviceLockManager,
                         bgExecutor);
         mDevicePolicyController =
-                new DevicePolicyControllerImpl(mContext,
+                new DevicePolicyControllerImpl(mTestApp,
                         mMockDpm,
                         mMockUserManager,
                         userRestrictionsPolicyHandler,
@@ -358,6 +359,8 @@ public final class DevicePolicyControllerImplTest {
 
         shadowOf(Looper.getMainLooper()).idle();
         assertLockTaskModeStarted();
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
+        assertReportSetupFailedWorkStarted();
 
         Intent intent = mDevicePolicyController.getLaunchIntentForCurrentState().get();
 
@@ -377,6 +380,8 @@ public final class DevicePolicyControllerImplTest {
 
         shadowOf(Looper.getMainLooper()).idle();
         assertLockTaskModeStarted();
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
+        assertReportSetupFailedWorkStarted();
 
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_PAUSED));
@@ -396,6 +401,8 @@ public final class DevicePolicyControllerImplTest {
 
         shadowOf(Looper.getMainLooper()).idle();
         assertLockTaskModeStarted();
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
+        assertReportSetupFailedWorkStarted();
 
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_SUCCEEDED));
@@ -415,6 +422,8 @@ public final class DevicePolicyControllerImplTest {
 
         shadowOf(Looper.getMainLooper()).idle();
         assertLockTaskModeStarted();
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
+        assertReportSetupFailedWorkStarted();
 
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.KIOSK_PROVISIONED));
@@ -434,6 +443,8 @@ public final class DevicePolicyControllerImplTest {
 
         shadowOf(Looper.getMainLooper()).idle();
         assertLockTaskModeStarted();
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
+        assertReportSetupFailedWorkStarted();
 
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_FAILED));
@@ -454,6 +465,8 @@ public final class DevicePolicyControllerImplTest {
 
         shadowOf(Looper.getMainLooper()).idle();
         assertLockTaskModeStarted();
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
+        assertReportSetupFailedWorkStarted();
 
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
@@ -1068,17 +1081,24 @@ public final class DevicePolicyControllerImplTest {
     }
 
     private void assertLockTaskModeStarted() throws Exception {
-        ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mContext)
+        ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mTestApp)
                 .getWorkInfosForUniqueWork(START_LOCK_TASK_MODE_WORK_NAME);
         List<WorkInfo> workInfos = Futures.getChecked(workInfosFuture, Exception.class);
         assertThat(workInfos).isNotEmpty();
     }
 
     private void assertLockTaskModeNotStarted() throws Exception {
-        ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mContext)
+        ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mTestApp)
                 .getWorkInfosForUniqueWork(START_LOCK_TASK_MODE_WORK_NAME);
         List<WorkInfo> workInfos = Futures.getChecked(workInfosFuture, Exception.class);
         assertThat(workInfos).isEmpty();
+    }
+
+    private void assertReportSetupFailedWorkStarted() throws Exception {
+        ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mTestApp)
+                .getWorkInfosForUniqueWork(REPORT_PROVISION_STATE_WORK_NAME);
+        List<WorkInfo> workInfos = Futures.getChecked(workInfosFuture, Exception.class);
+        assertThat(workInfos).isNotEmpty();
     }
 
     private static void assertCriticalFailureIntent(Intent intent) {
@@ -1090,7 +1110,7 @@ public final class DevicePolicyControllerImplTest {
     }
 
     private void installKioskAppWithoutCategoryHomeIntentFilter() {
-        ShadowPackageManager shadowPackageManager = Shadows.shadowOf(mContext.getPackageManager());
+        ShadowPackageManager shadowPackageManager = Shadows.shadowOf(mTestApp.getPackageManager());
         PackageInfo kioskPackageInfo = new PackageInfo();
         kioskPackageInfo.packageName = TEST_KIOSK_PACKAGE;
         shadowPackageManager.installPackage(kioskPackageInfo);
@@ -1106,7 +1126,7 @@ public final class DevicePolicyControllerImplTest {
     }
 
     private void installKioskAppWithLockScreenIntentFilter() {
-        ShadowPackageManager shadowPackageManager = Shadows.shadowOf(mContext.getPackageManager());
+        ShadowPackageManager shadowPackageManager = Shadows.shadowOf(mTestApp.getPackageManager());
         PackageInfo kioskPackageInfo = new PackageInfo();
         kioskPackageInfo.packageName = TEST_KIOSK_PACKAGE;
         shadowPackageManager.installPackage(kioskPackageInfo);
@@ -1122,7 +1142,7 @@ public final class DevicePolicyControllerImplTest {
     }
 
     private void installKioskAppWithSetupIntentFilter() {
-        ShadowPackageManager shadowPackageManager = Shadows.shadowOf(mContext.getPackageManager());
+        ShadowPackageManager shadowPackageManager = Shadows.shadowOf(mTestApp.getPackageManager());
         PackageInfo kioskPackageInfo = new PackageInfo();
         kioskPackageInfo.packageName = TEST_KIOSK_PACKAGE;
         shadowPackageManager.installPackage(kioskPackageInfo);
