@@ -42,7 +42,7 @@ public final class HelpActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.help_activity);
 
-        mWebView = (WebView) findViewById(R.id.webview);
+        mWebView = findViewById(R.id.webview);
         Bundle extras = getIntent().getExtras();
         if (extras == null) {
             LogUtil.e(TAG, "No extras present in the launch intent");
