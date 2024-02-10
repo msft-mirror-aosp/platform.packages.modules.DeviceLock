@@ -37,7 +37,6 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.Intent;
-import android.os.Bundle;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.text.Html;
@@ -46,14 +45,11 @@ import android.text.style.URLSpan;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Chronometer;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.work.Configuration;
@@ -264,29 +260,4 @@ public final class ProgressFragmentTest {
         };
     }
 
-    public static final class EmptyTestFragmentActivity extends FragmentActivity {
-        private Fragment mFragment;
-        private String mFragmentTag;
-
-        public void setFragment(Fragment fragment) {
-            mFragment = fragment;
-        }
-
-        public void setFragmentTag(String fragmentTag) {
-            mFragmentTag = fragmentTag;
-        }
-
-        @Override
-        protected void onCreate(@Nullable Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-            FrameLayout layout = new FrameLayout(this);
-            layout.setId(R.id.container);
-            setContentView(layout);
-            if (mFragment != null) {
-                getSupportFragmentManager().beginTransaction()
-                        .add(R.id.container, mFragment, mFragmentTag)
-                        .commitNow();
-            }
-        }
-    }
 }
