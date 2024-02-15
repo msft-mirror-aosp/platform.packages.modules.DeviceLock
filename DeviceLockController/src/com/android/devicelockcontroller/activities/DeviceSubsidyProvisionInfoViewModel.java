@@ -18,7 +18,6 @@ package com.android.devicelockcontroller.activities;
 
 import com.android.devicelockcontroller.R;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,27 +25,24 @@ import java.util.List;
  */
 public final class DeviceSubsidyProvisionInfoViewModel extends ProvisionInfoViewModel {
 
-    private static final int HEADER_DRAWABLE_ID = R.drawable.ic_info_24px;
+    private static final int MANDATORY_HEADER_TEXT_ID = R.string.subsidy_program_header;
+    private static final int SUB_HEADER_TEXT_ID = R.string.enroll_your_device_subsidy_subheader;
 
-    private static final int HEADER_TEXT_ID = R.string.subsidy_program_header;
-
-    private static final Integer[] DRAWABLE_IDS = new Integer[]{
-            R.drawable.ic_file_download_24px, R.drawable.ic_lock_outline_24px,
-    };
-
-    private static final Integer[] TEXT_IDS = new Integer[]{
-            R.string.download_kiosk_app, R.string.restrict_device_if_dont_make_payment,
-    };
+    private static final ProvisionInfo[] PROVISION_INFOS = new ProvisionInfo[]{
+            new ProvisionInfo(R.drawable.ic_file_download_24px,
+                    R.string.download_kiosk_app,
+                    ProvisionInfo.ProvisionInfoType.REGULAR),
+            new ProvisionInfo(R.drawable.ic_lock_outline_24px,
+                    R.string.restrict_device_if_dont_make_payment,
+                    ProvisionInfo.ProvisionInfoType.TERMS_AND_CONDITIONS),
+            new ProvisionInfo(R.drawable.ic_help_24px,
+                    R.string.contact_provider_for_help,
+                    ProvisionInfo.ProvisionInfoType.SUPPORT)};
 
     public DeviceSubsidyProvisionInfoViewModel() {
-        super();
-
-        mHeaderDrawableIdLiveData.setValue(HEADER_DRAWABLE_ID);
-        mHeaderTextIdLiveData.setValue(HEADER_TEXT_ID);
-        List<ProvisionInfo> provisionInfoList = new ArrayList<>();
-        for (int i = 0, size = DRAWABLE_IDS.length; i < size; ++i) {
-            provisionInfoList.add(new ProvisionInfo(DRAWABLE_IDS[i], TEXT_IDS[i]));
-        }
-        mProvisionInfoListLiveData.setValue(provisionInfoList);
+        mSubHeaderTextId = SUB_HEADER_TEXT_ID;
+        mMandatoryHeaderTextId = MANDATORY_HEADER_TEXT_ID;
+        mProvisionInfoList = List.of(PROVISION_INFOS);
+        retrieveData();
     }
 }

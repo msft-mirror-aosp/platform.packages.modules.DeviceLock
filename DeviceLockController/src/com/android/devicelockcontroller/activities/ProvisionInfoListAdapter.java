@@ -16,29 +16,31 @@
 
 package com.android.devicelockcontroller.activities;
 
+import android.content.Context;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.lifecycle.LifecycleOwner;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.activities.ProvisionInfo.ProvisionInfoType;
+import com.android.devicelockcontroller.activities.util.UrlUtils;
+import com.android.devicelockcontroller.util.LogUtil;
 
 /**
  * An Adapter which provides the binding between {@link ProvisionInfo} and the
  * {@link androidx.recyclerview.widget.RecyclerView}.
  */
 public final class ProvisionInfoListAdapter extends
-        ListAdapter<ProvisionInfo, ProvisionInfoViewHolder> {
+        ListAdapter<ProvisionInfo, ProvisionInfoListAdapter.ProvisionInfoViewHolder> {
 
-    private final ProvisionInfoViewModel mViewModel;
-    private final LifecycleOwner mLifecycleOwner;
-
-    ProvisionInfoListAdapter(ProvisionInfoViewModel viewModel, LifecycleOwner lifecycleOwner) {
+    ProvisionInfoListAdapter() {
         super(new DiffUtil.ItemCallback<>() {
             @Override
             public boolean areItemsTheSame(@NonNull ProvisionInfo oldItem,
@@ -52,31 +54,59 @@ public final class ProvisionInfoListAdapter extends
                 return oldItem.equals(newItem);
             }
         });
-        mViewModel = viewModel;
-        mLifecycleOwner = lifecycleOwner;
     }
 
     @NonNull
     @Override
     public ProvisionInfoViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_provision_info, parent, false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_provision_info,
+                parent, false);
         return new ProvisionInfoViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ProvisionInfoViewHolder provisionInfoViewHolder,
             int position) {
-        String providerName = mViewModel.mProviderNameLiveData.getValue();
-        if (TextUtils.isEmpty(providerName)) {
-            mViewModel.mProviderNameLiveData.observe(mLifecycleOwner,
-                    newValue -> notifyItemChanged(position));
-            return;
+        provisionInfoViewHolder.bindProvisionInfo(getItem(position));
+    }
+
+    /**
+     * A {@link androidx.recyclerview.widget.RecyclerView.ViewHolder} class which describes the item
+     * views used in the {@link RecyclerView}
+     */
+    static final class ProvisionInfoViewHolder extends RecyclerView.ViewHolder {
+
+        private static final String TAG = ProvisionInfoViewHolder.class.getSimpleName();
+
+        private final TextView mTextView;
+
+        ProvisionInfoViewHolder(@NonNull View itemView) {
+            super(itemView);
+            mTextView = itemView.findViewById(R.id.text_view_item_provision_info);
         }
 
-        // TODO(b/282248521): Refactor ProvisionInfoList, ProviderName, and TermsAndConditionsUrl
-        //  Live Data.
-        provisionInfoViewHolder.bind(getItem(position), providerName,
-                mViewModel.mTermsAndConditionsUrlLiveData.getValue());
+        /**
+         * Bind the item view with url.
+         *
+         * @param provisionInfo The {@link ProvisionInfo} data to bind to the held view.
+         */
+        void bindProvisionInfo(ProvisionInfo provisionInfo) {
+            Context context = mTextView.getContext();
+            String providerName = provisionInfo.getProviderName();
+            if (TextUtils.isEmpty(providerName)) {
+                LogUtil.w(TAG, "Provider name is not provided!");
+                mTextView.setText("");
+            } else if (provisionInfo.getType() == ProvisionInfoType.REGULAR) {
+                mTextView.setText(context.getString(provisionInfo.getTextId(), providerName));
+            } else {
+                UrlUtils.setUrlText(mTextView,
+                        String.format(context.getString(provisionInfo.getTextId()), providerName,
+                                provisionInfo.getUrl()));
+            }
+            mTextView.setCompoundDrawablesRelativeWithIntrinsicBounds(provisionInfo.getDrawableId(),
+                    /* top=*/ 0,
+                    /* end=*/ 0,
+                    /* bottom=*/ 0);
+        }
     }
 }

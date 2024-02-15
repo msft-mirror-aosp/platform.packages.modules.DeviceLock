@@ -23,36 +23,39 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.Operation;
 import androidx.work.WorkManager;
 import androidx.work.WorkerParameters;
 
-import com.android.devicelockcontroller.policy.DevicePolicyController;
-import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.PauseDeviceProvisioningGrpcResponse;
-import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-
-import java.time.Duration;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
- * A worker class dedicated to request pause of provisioning for device lock program.
+ * Despite the naming, this worker class is only to report provision has been paused by user to
+ * backend server.
  */
 public final class PauseProvisioningWorker extends AbstractCheckInWorker {
-
     private static final String KEY_PAUSE_DEVICE_PROVISIONING_REASON =
             "PAUSE_DEVICE_PROVISIONING_REASON";
-    private static final String REPORT_PROVISION_PAUSED_BY_USER_WORK =
+    public static final String REPORT_PROVISION_PAUSED_BY_USER_WORK =
             "report-provision-paused-by-user";
-    @VisibleForTesting
-    static final int PROVISION_PAUSED_HOUR = 1;
+
+    private final StatsLogger mStatsLogger;
 
     /**
      * Report provision has been paused by user to backend server by running a work item.
@@ -67,44 +70,61 @@ public final class PauseProvisioningWorker extends AbstractCheckInWorker {
         OneTimeWorkRequest work =
                 new OneTimeWorkRequest.Builder(PauseProvisioningWorker.class)
                         .setConstraints(constraints)
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY)
                         .setInputData(inputData)
                         .build();
-        workManager.enqueueUniqueWork(REPORT_PROVISION_PAUSED_BY_USER_WORK,
-                ExistingWorkPolicy.REPLACE, work);
+        ListenableFuture<Operation.State.SUCCESS> result =
+                workManager.enqueueUniqueWork(REPORT_PROVISION_PAUSED_BY_USER_WORK,
+                        ExistingWorkPolicy.KEEP, work).getResult();
+        Futures.addCallback(result,
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(Operation.State.SUCCESS result) {
+                        // no-op
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        // Log an error but don't reset the device (non critical failure).
+                        LogUtil.e(TAG, "Failed to enqueue 'Report provision paused' work", t);
+                    }
+                },
+                MoreExecutors.directExecutor()
+        );
     }
 
     public PauseProvisioningWorker(@NonNull Context context,
-            @NonNull WorkerParameters workerParams) {
-        super(context, workerParams);
+            @NonNull WorkerParameters workerParams, ListeningExecutorService executorService) {
+        this(context, workerParams, null, executorService);
     }
 
     @VisibleForTesting
     PauseProvisioningWorker(@NonNull Context context, @NonNull WorkerParameters workerParams,
-            DeviceCheckInClient client) {
-        super(context, workerParams, client);
+            DeviceCheckInClient client, ListeningExecutorService executorService) {
+        super(context, workerParams, client, executorService);
+        StatsLoggerProvider loggerProvider =
+                (StatsLoggerProvider) context.getApplicationContext();
+        mStatsLogger = loggerProvider.getStatsLogger();
     }
 
     @NonNull
     @Override
-    public Result doWork() {
-        final int reason = getInputData().getInt(KEY_PAUSE_DEVICE_PROVISIONING_REASON,
-                REASON_UNSPECIFIED);
-        PauseDeviceProvisioningGrpcResponse response =
-                Futures.getUnchecked(mClient).pauseDeviceProvisioning(reason);
-        if (response.isSuccessful()) {
-            boolean shouldForceProvisioning = response.shouldForceProvisioning();
-            Futures.getUnchecked(GlobalParametersClient.getInstance().setProvisionForced(
-                    shouldForceProvisioning));
-            DevicePolicyController policyController =
-                    ((PolicyObjectsInterface) mContext.getApplicationContext())
-                            .getPolicyController();
-            //TODO: Cancel the work if user starts provisioning within 1 hr.
-            policyController.enqueueStartLockTaskModeWorkerWithDelay(
-                    /* isMandatory= */ false,
-                    Duration.ofHours(PROVISION_PAUSED_HOUR));
-            return Result.success();
-        }
-        LogUtil.w(TAG, "Pause provisioning request failed: " + response);
-        return Result.failure();
+    public ListenableFuture<Result> startWork() {
+        return Futures.transform(mClient, client -> {
+            int reason = getInputData().getInt(KEY_PAUSE_DEVICE_PROVISIONING_REASON,
+                    REASON_UNSPECIFIED);
+            PauseDeviceProvisioningGrpcResponse response = client.pauseDeviceProvisioning(reason);
+            if (response.hasRecoverableError()) {
+                LogUtil.w(TAG, "Report paused provisioning failed w/ recoverable error" + response
+                        + "\nRetrying...");
+                return Result.retry();
+            }
+            if (response.isSuccessful()) {
+                mStatsLogger.logPauseDeviceProvisioning();
+                return Result.success();
+            }
+            LogUtil.e(TAG, "Pause provisioning request failed: " + response);
+            return Result.failure();
+        }, mExecutorService);
     }
 }

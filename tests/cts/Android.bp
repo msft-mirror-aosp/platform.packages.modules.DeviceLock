@@ -22,12 +22,11 @@ android_test {
     defaults: ["cts_defaults"],
     srcs: [
         "src/**/*.java",
-        ":service-devicelock-sources-shared-with-tests",
         ":framework-devicelock-sources-shared-with-tests",
     ],
     static_libs: [
         "androidx.test.rules",
-        "truth-prebuilt",
+        "truth",
         "androidx.test.core",
         "compatibility-device-util-axt",
     ],

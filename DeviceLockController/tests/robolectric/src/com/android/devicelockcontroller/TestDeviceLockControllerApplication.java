@@ -17,18 +17,32 @@
 package com.android.devicelockcontroller;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.app.Application;
+import android.content.Context;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.work.ListenableWorker;
+import androidx.work.WorkerParameters;
 
 import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DeviceStateController;
-import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
-import com.android.devicelockcontroller.policy.SetupController;
+import com.android.devicelockcontroller.policy.FinalizationController;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.policy.ProvisionStateController;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.GlobalParametersService;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersService;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.testing.TestingExecutors;
 
 import org.robolectric.Robolectric;
@@ -40,20 +54,40 @@ import java.lang.reflect.Method;
  * Application class that provides mock objects for tests.
  */
 public final class TestDeviceLockControllerApplication extends Application implements
-        PolicyObjectsInterface, TestLifecycleApplication {
+        PolicyObjectsProvider,
+        TestLifecycleApplication,
+        DeviceLockControllerSchedulerProvider,
+        FcmRegistrationTokenProvider,
+        PlayInstallPackageTaskClassProvider,
+        StatsLoggerProvider {
 
     private DevicePolicyController mPolicyController;
     private DeviceStateController mStateController;
-    private SetupController mSetupController;
+    private ProvisionStateController mProvisionStateController;
+    private FinalizationController mFinalizationController;
+    private DeviceLockControllerScheduler mDeviceLockControllerScheduler;
     private SetupParametersClient mSetupParametersClient;
     private GlobalParametersClient mGlobalParametersClient;
+    private StatsLogger mStatsLogger;
 
     @Override
-    public DeviceStateController getStateController() {
+    public DeviceStateController getDeviceStateController() {
         if (mStateController == null) {
             mStateController = mock(DeviceStateController.class);
         }
         return mStateController;
+    }
+
+    @Override
+    public ProvisionStateController getProvisionStateController() {
+        if (mProvisionStateController == null) {
+            mProvisionStateController = mock(ProvisionStateController.class);
+            when(mProvisionStateController.getDevicePolicyController()).thenReturn(
+                    getPolicyController());
+            when(mProvisionStateController.getDeviceStateController()).thenReturn(
+                    getDeviceStateController());
+        }
+        return mProvisionStateController;
     }
 
     @Override
@@ -65,18 +99,31 @@ public final class TestDeviceLockControllerApplication extends Application imple
     }
 
     @Override
-    public SetupController getSetupController() {
-        if (mSetupController == null) {
-            mSetupController = mock(SetupController.class);
+    public FinalizationController getFinalizationController() {
+        if (mFinalizationController == null) {
+            mFinalizationController = mock(FinalizationController.class);
         }
-        return mSetupController;
+        return mFinalizationController;
+    }
+
+    @Override
+    public synchronized StatsLogger getStatsLogger() {
+        if (null == mStatsLogger) {
+            mStatsLogger = mock(StatsLogger.class);
+        }
+        return mStatsLogger;
+    }
+
+    @Override
+    @NonNull
+    public ListenableFuture<String> getFcmRegistrationToken() {
+        return Futures.immediateFuture(null);
     }
 
     @Override
     public void destroyObjects() {
         mPolicyController = null;
         mStateController = null;
-        mSetupController = null;
     }
 
 
@@ -101,5 +148,36 @@ public final class TestDeviceLockControllerApplication extends Application imple
     public void afterTest(Method method) {
         GlobalParametersClient.reset();
         SetupParametersClient.reset();
+    }
+
+    @Override
+    public DeviceLockControllerScheduler getDeviceLockControllerScheduler() {
+        if (mDeviceLockControllerScheduler == null) {
+            mDeviceLockControllerScheduler = mock(DeviceLockControllerScheduler.class);
+        }
+        return mDeviceLockControllerScheduler;
+    }
+
+    @Nullable
+    @Override
+    public Class<? extends ListenableWorker> getPlayInstallPackageTaskClass() {
+        return PlayInstallPackageWorker.class;
+    }
+
+    /**
+     * A stub class for play install worker.
+     */
+    public static final class PlayInstallPackageWorker extends ListenableWorker {
+
+        public PlayInstallPackageWorker(@NonNull Context appContext,
+                @NonNull WorkerParameters workerParameters) {
+            super(appContext, workerParameters);
+        }
+
+        @NonNull
+        @Override
+        public ListenableFuture<Result> startWork() {
+            return Futures.immediateFuture(Result.success());
+        }
     }
 }

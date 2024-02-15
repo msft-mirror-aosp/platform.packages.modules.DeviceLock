@@ -17,7 +17,6 @@
 package com.android.devicelockcontroller.provision.grpc;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 
@@ -27,7 +26,7 @@ import io.grpc.Status;
  * An abstract class that is used to encapsulate the response for reporting the current state of
  * device provisioning.
  */
-public abstract class ReportDeviceProvisionStateGrpcResponse extends DeviceCheckInGrpcResponse {
+public abstract class ReportDeviceProvisionStateGrpcResponse extends GrpcResponse {
     public ReportDeviceProvisionStateGrpcResponse() {
         mStatus = null;
     }
@@ -45,15 +44,6 @@ public abstract class ReportDeviceProvisionStateGrpcResponse extends DeviceCheck
      */
     @DeviceProvisionState
     public abstract int getNextClientProvisionState();
-
-    /**
-     * An enrollment token the device can use for future communication with the Device Lock backend
-     * server post-provisioning. This is only provided if device provisioning was a success.
-     *
-     * @return The enrollment token string.
-     */
-    @Nullable
-    public abstract String getEnrollmentToken();
 
     /**
      * Get the number of days left until the device should factory reset because of a failed
