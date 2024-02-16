@@ -53,6 +53,7 @@ import android.devicelock.IGetDeviceIdCallback;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Looper;
+import android.os.PowerExemptionManager;
 import android.os.Process;
 import android.os.RemoteCallback;
 import android.telephony.TelephonyManager;
@@ -97,6 +98,8 @@ public final class DeviceLockServiceImplTest {
 
     @Mock
     private IDeviceLockControllerService mDeviceLockControllerService;
+    @Mock
+    private PowerExemptionManager mPowerExemptionManager;
 
     private ShadowApplication mShadowApplication;
 
@@ -107,6 +110,9 @@ public final class DeviceLockServiceImplTest {
         mContext = ApplicationProvider.getApplicationContext();
         mShadowApplication = shadowOf((Application) mContext);
         mShadowApplication.grantPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
+        mShadowApplication.setSystemService(
+                mContext.getSystemServiceName(PowerExemptionManager.class),
+                mPowerExemptionManager);
 
         PackageManager packageManager = mContext.getPackageManager();
         ShadowPackageManager shadowPackageManager = shadowOf(packageManager);
@@ -195,7 +201,7 @@ public final class DeviceLockServiceImplTest {
         final int opMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
                 OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS,
                 Process.myUid(),
-                mContext.getPackageName());
+                DLC_PACKAGE_NAME);
         assertThat(opMode).isEqualTo(AppOpsManager.MODE_ALLOWED);
     }
 
@@ -211,7 +217,7 @@ public final class DeviceLockServiceImplTest {
         final int opMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
                 OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS,
                 Process.myUid(),
-                mContext.getPackageName());
+                DLC_PACKAGE_NAME);
         assertThat(opMode).isEqualTo(AppOpsManager.MODE_DEFAULT);
     }
 
@@ -227,7 +233,7 @@ public final class DeviceLockServiceImplTest {
         final int opMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
                 OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION,
                 Process.myUid(),
-                mContext.getPackageName());
+                DLC_PACKAGE_NAME);
         assertThat(opMode).isEqualTo(AppOpsManager.MODE_ALLOWED);
     }
 
@@ -243,7 +249,7 @@ public final class DeviceLockServiceImplTest {
         final int opMode = mShadowAppOpsManager.unsafeCheckOpNoThrow(
                 OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION,
                 Process.myUid(),
-                mContext.getPackageName());
+                DLC_PACKAGE_NAME);
         assertThat(opMode).isEqualTo(AppOpsManager.MODE_DEFAULT);
     }
 
