@@ -28,6 +28,7 @@ import android.content.IntentFilter;
 import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 import androidx.work.ListenableWorker;
 import androidx.work.WorkerParameters;
 
@@ -54,29 +55,43 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
 
     static final Duration START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS =
             Duration.ofSeconds(30);
+    private final ActivityManager mAm;
     private final DevicePolicyManager mDpm;
 
     public StartLockTaskModeWorker(
             @NonNull Context context,
             @NonNull WorkerParameters workerParams,
             ListeningExecutorService executorService) {
+        this(context,
+                context.getSystemService(DevicePolicyManager.class),
+                context.getSystemService(ActivityManager.class),
+                workerParams,
+                executorService);
+    }
+
+    @VisibleForTesting
+    StartLockTaskModeWorker(
+            @NonNull Context context,
+            @NonNull DevicePolicyManager dpm,
+            @NonNull ActivityManager am,
+            @NonNull WorkerParameters workerParams,
+            ListeningExecutorService executorService) {
         super(context, workerParams);
         mContext = context;
         mExecutorService = executorService;
-        mDpm = Objects.requireNonNull(mContext.getSystemService(DevicePolicyManager.class));
+        mDpm = Objects.requireNonNull(dpm);
+        mAm = Objects.requireNonNull(am);
     }
 
     @NonNull
     @Override
     public ListenableFuture<Result> startWork() {
-        ActivityManager am =
-                Objects.requireNonNull(mContext.getSystemService(ActivityManager.class));
         DevicePolicyController devicePolicyController =
                 ((PolicyObjectsProvider) mContext.getApplicationContext())
                         .getProvisionStateController().getDevicePolicyController();
         ListenableFuture<Boolean> isInLockTaskModeFuture =
                 Futures.submit(
-                        () -> am.getLockTaskModeState() == ActivityManager.LOCK_TASK_MODE_LOCKED,
+                        () -> mAm.getLockTaskModeState() == ActivityManager.LOCK_TASK_MODE_LOCKED,
                         mExecutorService);
         final ListenableFuture<Result> lockTaskFuture =
                 Futures.transformAsync(isInLockTaskModeFuture, isInLockTaskMode -> {
@@ -116,7 +131,7 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                                                 - provisioningStartTime);
                             }
                         }
-                        if (am.getLockTaskModeState() == ActivityManager.LOCK_TASK_MODE_LOCKED) {
+                        if (mAm.getLockTaskModeState() == ActivityManager.LOCK_TASK_MODE_LOCKED) {
                             LogUtil.i(TAG, "Successfully entered lock task mode");
                             return Result.success();
                         } else {
