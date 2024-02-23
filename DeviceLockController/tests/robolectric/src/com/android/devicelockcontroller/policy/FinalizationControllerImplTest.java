@@ -198,6 +198,12 @@ public final class FinalizationControllerImplTest {
                 @NonNull OutcomeReceiver<Void, Exception> callback) {
             executor.execute(() -> callback.onResult(null));
         }
+
+        @Override
+        public void setPostNotificationsSystemFixed(boolean systemFixed, Executor executor,
+                @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
     }
 
     /**

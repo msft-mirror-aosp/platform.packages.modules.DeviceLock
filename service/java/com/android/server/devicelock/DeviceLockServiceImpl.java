@@ -942,4 +942,25 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, true);
         remoteCallback.sendResult(result);
     }
+
+    @Override
+    public void setPostNotificationsSystemFixed(boolean systemFixed,
+            @NonNull RemoteCallback remoteCallback) {
+        final UserHandle userHandle = Binder.getCallingUserHandle();
+        final PackageManager packageManager = mContext.getPackageManager();
+        final int permissionFlags = PackageManager.FLAG_PERMISSION_SYSTEM_FIXED;
+        final int newFlagValues = systemFixed ? permissionFlags : 0;
+        final long identity = Binder.clearCallingIdentity();
+        // Make sure permission hasn't been revoked.
+        packageManager.grantRuntimePermission(mServiceInfo.packageName,
+                permission.POST_NOTIFICATIONS, userHandle);
+        packageManager.updatePermissionFlags(permission.POST_NOTIFICATIONS,
+                mServiceInfo.packageName, permissionFlags, newFlagValues,
+                userHandle);
+        Binder.restoreCallingIdentity(identity);
+
+        final Bundle result = new Bundle();
+        result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, true);
+        remoteCallback.sendResult(result);
+    }
 }
