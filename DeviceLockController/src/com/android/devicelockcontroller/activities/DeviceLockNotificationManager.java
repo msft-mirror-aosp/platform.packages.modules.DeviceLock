@@ -39,6 +39,7 @@ import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 import com.android.devicelockcontroller.util.StringUtil;
+import com.android.internal.annotations.VisibleForTesting;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -60,8 +61,10 @@ public final class DeviceLockNotificationManager {
     private static final String TAG = "DeviceLockNotificationManager";
 
     private static final String PROVISION_NOTIFICATION_CHANNEL_ID_BASE = "devicelock-provision";
-    private static final String DEVICE_RESET_NOTIFICATION_TAG = "devicelock-device-reset";
-    private static final int DEVICE_RESET_NOTIFICATION_ID = 0;
+    @VisibleForTesting
+    public static final String DEVICE_RESET_NOTIFICATION_TAG = "devicelock-device-reset";
+    @VisibleForTesting
+    public static final int DEVICE_RESET_NOTIFICATION_ID = 0;
     private static final int DEFER_PROVISIONING_NOTIFICATION_ID = 1;
 
     private static final ListeningExecutorService sListeningExecutorService =

@@ -16,9 +16,6 @@
 
 package com.android.devicelockcontroller.receivers;
 
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_DISMISSIBLE_UI;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_FACTORY_RESET;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_PERSISTENT_UI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_RETRY;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_SUCCESS;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_UNSPECIFIED;
@@ -31,14 +28,10 @@ import android.content.Intent;
 import androidx.annotation.VisibleForTesting;
 import androidx.work.WorkManager;
 
-import com.android.devicelockcontroller.activities.DeviceLockNotificationManager;
 import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.policy.ProvisionStateController;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
-import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
-import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
-import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
@@ -53,8 +46,6 @@ import java.util.concurrent.Executors;
  * A broadcast receiver to perform the next step in the provision failure flow.
  */
 public final class NextProvisionFailedStepReceiver extends BroadcastReceiver {
-    @VisibleForTesting
-    static final String UNEXPECTED_PROVISION_STATE_ERROR_MESSAGE = "Unexpected provision state!";
     public static final String TAG = "NextProvisionFailedStepReceiver";
     private final Executor mExecutor;
 
@@ -78,43 +69,21 @@ public final class NextProvisionFailedStepReceiver extends BroadcastReceiver {
                 ((PolicyObjectsProvider) applicationContext)
                         .getProvisionStateController();
 
-        DeviceLockControllerSchedulerProvider schedulerProvider =
-                (DeviceLockControllerSchedulerProvider) applicationContext;
-        DeviceLockControllerScheduler scheduler =
-                schedulerProvider.getDeviceLockControllerScheduler();
         GlobalParametersClient globalParameters = GlobalParametersClient.getInstance();
         ListenableFuture<Boolean> needToReportFuture = Futures.transform(
                 globalParameters.getLastReceivedProvisionState(),
                 provisionState -> {
-                    switch (provisionState) {
-                        case PROVISION_STATE_RETRY:
-                            provisionStateController.postSetNextStateForEventRequest(
-                                    PROVISION_RETRY);
-                            // We can not report the state here, because we do not know the
-                            // result of retry. It will be reported after the retry finishes, no
-                            // matter it succeeds or fails.
-                            return false;
-                        case PROVISION_STATE_DISMISSIBLE_UI:
-                            int daysLeftUntilReset = UserParameters.getDaysLeftUntilReset(context);
-                            DeviceLockNotificationManager.sendDeviceResetNotification(context,
-                                    daysLeftUntilReset);
-                            return true;
-                        case PROVISION_STATE_PERSISTENT_UI:
-                            DeviceLockNotificationManager
-                                    .sendDeviceResetInOneDayOngoingNotification(context);
-                            return true;
-                        case PROVISION_STATE_FACTORY_RESET:
-                            scheduler.scheduleResetDeviceAlarm();
-                            return true;
-                        case PROVISION_STATE_SUCCESS:
-                        case PROVISION_STATE_UNSPECIFIED:
-                            return false;
-                        default:
-                            throw new IllegalStateException(
-                                    UNEXPECTED_PROVISION_STATE_ERROR_MESSAGE);
+                    if (provisionState == PROVISION_STATE_RETRY) {
+                        // We cannot report the state here because we do not know the
+                        // result of the retry. It will be reported after the retry finishes no
+                        // matter whether it succeeds or fails.
+                        provisionStateController.postSetNextStateForEventRequest(
+                                PROVISION_RETRY);
+                        return false;
                     }
+                    return !(provisionState == PROVISION_STATE_SUCCESS
+                            || provisionState == PROVISION_STATE_UNSPECIFIED);
                 }, mExecutor);
-
         Futures.addCallback(needToReportFuture, new FutureCallback<>() {
             @Override
             public void onSuccess(Boolean needToReport) {
