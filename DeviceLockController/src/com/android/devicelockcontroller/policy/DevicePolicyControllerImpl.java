@@ -125,6 +125,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                 new RolePolicyHandler(systemDeviceLockManager, bgExecutor),
                 new KioskKeepAlivePolicyHandler(systemDeviceLockManager, bgExecutor),
                 new ControllerKeepAlivePolicyHandler(systemDeviceLockManager, bgExecutor),
+                new NotificationsPolicyHandler(systemDeviceLockManager, bgExecutor),
                 provisionStateController,
                 bgExecutor);
     }
@@ -140,6 +141,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             RolePolicyHandler rolePolicyHandler,
             KioskKeepAlivePolicyHandler kioskKeepAlivePolicyHandler,
             ControllerKeepAlivePolicyHandler controllerKeepAlivePolicyHandler,
+            NotificationsPolicyHandler notificationsPolicyHandler,
             ProvisionStateController provisionStateController,
             Executor bgExecutor) {
         mContext = context;
@@ -154,6 +156,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
         mPolicyList.add(rolePolicyHandler);
         mPolicyList.add(kioskKeepAlivePolicyHandler);
         mPolicyList.add(controllerKeepAlivePolicyHandler);
+        mPolicyList.add(notificationsPolicyHandler);
     }
 
     @Override
