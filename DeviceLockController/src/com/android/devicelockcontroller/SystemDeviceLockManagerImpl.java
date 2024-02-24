@@ -243,6 +243,23 @@ public final class SystemDeviceLockManagerImpl implements SystemDeviceLockManage
         }
     }
 
+    @Override
+    public void setPostNotificationsSystemFixed(boolean systemFixed, Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback) {
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
+        try {
+            mIDeviceLockService.setPostNotificationsSystemFixed(systemFixed,
+                    new RemoteCallback(result -> executor.execute(() -> {
+                        processResult(result, callback, "Failed to change POST_NOTIFICATIONS "
+                                + "SYSTEM_FIXED flag to: " + systemFixed);
+                    }), new Handler(Looper.getMainLooper())));
+        } catch (RemoteException e) {
+            executor.execute(() -> callback.onError(new RuntimeException(e)));
+        }
+    }
+
     private static void processResult(Bundle result,
             @NonNull OutcomeReceiver<Void, Exception> callback, String message) {
         final boolean remoteCallbackResult = result.getBoolean(
