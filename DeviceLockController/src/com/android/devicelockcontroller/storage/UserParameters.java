@@ -51,6 +51,8 @@ public final class UserParameters {
     private static final String KEY_PROVISIONING_START_TIME_MILLIS =
             "provisioning-start-time-millis";
     public static final String KEY_NEED_INITIAL_CHECK_IN = "need-initial-check-in";
+    public static final String KEY_NOTIFICATION_CHANNEL_ID_SUFFIX =
+            "notification-channel-id-suffix";
 
     private UserParameters() {
     }
@@ -212,6 +214,23 @@ public final class UserParameters {
                 provisioningStartTime).apply();
     }
 
+    /** Get the suffix used for the notification channel */
+    @WorkerThread
+    public static String getNotificationChannelIdSuffix(Context context) {
+        ThreadAsserts.assertWorkerThread("getNotificationChannelIdSuffix");
+        return getSharedPreferences(context).getString(KEY_NOTIFICATION_CHANNEL_ID_SUFFIX,
+                /* defValue= */ "");
+    }
+
+    /** Set the suffix used for the notification channel */
+    @WorkerThread
+    public static void setNotificationChannelIdSuffix(Context context,
+            @Nullable String notificationChannelSuffix) {
+        ThreadAsserts.assertWorkerThread("setNotificationChannelIdSuffix");
+        getSharedPreferences(context).edit()
+                .putString(KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, notificationChannelSuffix).apply();
+    }
+
     /**
      * Clear all user parameters.
      */
@@ -242,7 +261,8 @@ public final class UserParameters {
                             + "%s: %s\n"    // resume-provision-time-millis:
                             + "%s: %s\n"    // next-provision-failed-step-time-millis:
                             + "%s: %s\n"    // reset-device-time-millis:
-                            + "%s: %s\n",    // days-left-until-reset:
+                            + "%s: %s\n"    // days-left-until-reset:
+                            + "%s: %s\n",   // notification-channel-suffix:
                     context.getUser(),
                     KEY_PROVISION_STATE, getProvisionState(context),
                     KEY_HOME_PACKAGE_OVERRIDE, getPackageOverridingHome(context),
@@ -252,7 +272,8 @@ public final class UserParameters {
                     KEY_NEXT_PROVISION_FAILED_STEP_TIME_MILLIS,
                     getNextProvisionFailedStepTimeMills(context),
                     KEY_RESET_DEVICE_TIME_MILLIS, getResetDeviceTimeMillis(context),
-                    KEY_DAYS_LEFT_UNTIL_RESET, getDaysLeftUntilReset(context)
+                    KEY_DAYS_LEFT_UNTIL_RESET, getDaysLeftUntilReset(context),
+                    KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, getNotificationChannelIdSuffix(context)
             ));
         });
     }

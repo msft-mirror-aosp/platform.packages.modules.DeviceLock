@@ -138,6 +138,8 @@ public final class DevicePolicyControllerImplTest {
                 new ControllerKeepAlivePolicyHandler(
                         mMockSystemDeviceLockManager,
                         bgExecutor);
+        NotificationsPolicyHandler notificationsPolicyHandler =
+                new NotificationsPolicyHandler(mMockSystemDeviceLockManager, bgExecutor);
         mDevicePolicyController =
                 new DevicePolicyControllerImpl(mTestApp,
                         mMockDpm,
@@ -149,6 +151,7 @@ public final class DevicePolicyControllerImplTest {
                         rolePolicyHandler,
                         kioskKeepAlivePolicyHandler,
                         controllerKeepAlivePolicyHandler,
+                        notificationsPolicyHandler,
                         mMockProvisionStateController,
                         bgExecutor);
     }
@@ -189,6 +192,7 @@ public final class DevicePolicyControllerImplTest {
         setupSetupParameters();
         setupAppOpsPolicyHandlerExpectations();
         setExpectationsOnEnableControllerKeepAlive();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
         when(mMockUserManager.isUserUnlocked()).thenReturn(true);
@@ -318,6 +322,7 @@ public final class DevicePolicyControllerImplTest {
         setExpectationsOnDisableKioskKeepAlive();
         setExpectationsOnDisableControllerKeepAlive();
         setExpectationsOnRemoveFinancedDeviceKioskRole();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         setupFinalizationControllerExpectations();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_SUCCEEDED));
@@ -338,6 +343,7 @@ public final class DevicePolicyControllerImplTest {
         setExpectationsOnDisableKioskKeepAlive();
         setExpectationsOnDisableControllerKeepAlive();
         setExpectationsOnRemoveFinancedDeviceKioskRole();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         setupFinalizationControllerExpectations();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
@@ -597,6 +603,7 @@ public final class DevicePolicyControllerImplTest {
         setExpectationsOnDisableKioskKeepAlive();
         setExpectationsOnDisableControllerKeepAlive();
         setExpectationsOnRemoveFinancedDeviceKioskRole();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         setupFinalizationControllerExpectations();
         GlobalParametersClient.getInstance().setDeviceState(CLEARED).get();
         installKioskAppWithoutCategoryHomeIntentFilter();
@@ -617,6 +624,7 @@ public final class DevicePolicyControllerImplTest {
         setExpectationsOnDisableKioskKeepAlive();
         setExpectationsOnDisableControllerKeepAlive();
         setExpectationsOnRemoveFinancedDeviceKioskRole();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         setupFinalizationControllerExpectations();
         GlobalParametersClient.getInstance().setDeviceState(CLEARED).get();
         installKioskAppWithoutCategoryHomeIntentFilter();
@@ -709,6 +717,7 @@ public final class DevicePolicyControllerImplTest {
         setupSetupParameters();
         setupAppOpsPolicyHandlerExpectations();
         setExpectationsOnEnableControllerKeepAlive();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
 
@@ -729,6 +738,7 @@ public final class DevicePolicyControllerImplTest {
 
         setupAppOpsPolicyHandlerExpectations();
         setExpectationsOnEnableControllerKeepAlive();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
 
@@ -749,6 +759,7 @@ public final class DevicePolicyControllerImplTest {
 
         setupAppOpsPolicyHandlerExpectations();
         setExpectationsOnEnableControllerKeepAlive();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
 
@@ -770,6 +781,7 @@ public final class DevicePolicyControllerImplTest {
 
         setupAppOpsPolicyHandlerExpectations();
         setExpectationsOnEnableControllerKeepAlive();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
 
@@ -801,6 +813,7 @@ public final class DevicePolicyControllerImplTest {
         setupSetupParameters();
         setupAppOpsPolicyHandlerExpectations();
         setExpectationsOnEnableControllerKeepAlive();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         when(mMockProvisionStateController.onUserUnlocked()).thenReturn(
                 Futures.immediateVoidFuture());
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
@@ -924,6 +937,7 @@ public final class DevicePolicyControllerImplTest {
         setExpectationsOnDisableKioskKeepAlive();
         setExpectationsOnDisableControllerKeepAlive();
         setExpectationsOnRemoveFinancedDeviceKioskRole();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         setupFinalizationControllerExpectations();
         when(mMockProvisionStateController.onUserUnlocked()).thenReturn(
                 Futures.immediateVoidFuture());
@@ -956,6 +970,7 @@ public final class DevicePolicyControllerImplTest {
         setupSetupParameters();
         setupAppOpsPolicyHandlerExpectations();
         setExpectationsOnEnableControllerKeepAlive();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_IN_PROGRESS));
         when(mMockUserManager.isUserUnlocked()).thenReturn(true);
@@ -1068,6 +1083,7 @@ public final class DevicePolicyControllerImplTest {
         setExpectationsOnDisableKioskKeepAlive();
         setExpectationsOnDisableControllerKeepAlive();
         setExpectationsOnRemoveFinancedDeviceKioskRole();
+        setExpectationsOnSetPostNotificationsSystemFixed();
         setupFinalizationControllerExpectations();
         when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
                 ProvisionState.PROVISION_SUCCEEDED));
@@ -1254,6 +1270,18 @@ public final class DevicePolicyControllerImplTest {
             return null;
         }).when(mMockSystemDeviceLockManager)
                 .setDeviceFinalized(anyBoolean(),
+                        any(Executor.class),
+                        any());
+    }
+
+    private void setExpectationsOnSetPostNotificationsSystemFixed() {
+        doAnswer((Answer<Boolean>) invocation -> {
+            OutcomeReceiver<Void, Exception> callback = invocation.getArgument(2 /* callback */);
+            callback.onResult(null /* result */);
+
+            return null;
+        }).when(mMockSystemDeviceLockManager)
+                .setPostNotificationsSystemFixed(anyBoolean(),
                         any(Executor.class),
                         any());
     }
