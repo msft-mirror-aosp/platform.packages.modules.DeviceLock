@@ -146,4 +146,16 @@ public interface SystemDeviceLockManager {
     @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
     void setDeviceFinalized(boolean finalized, @CallbackExecutor Executor executor,
             @NonNull OutcomeReceiver<Void, Exception> callback);
+
+    /**
+     * Set or clear the POST_NOTIFICATIONS permission as SYSTEM_FIXED, so it cannot be revoked
+     * in Settings.
+     *
+     * @param systemFixed true if POST_NOTIFICATIONS should be SYSTEM_FIXED.
+     * @param executor    the {@link Executor} on which to invoke the callback.
+     * @param callback    callback this returns either success or an exception.
+     */
+    @RequiresPermission(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER)
+    void setPostNotificationsSystemFixed(boolean systemFixed, Executor executor,
+            @NonNull OutcomeReceiver<Void, Exception> callback);
 }

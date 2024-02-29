@@ -16,13 +16,13 @@
 
 package com.android.devicelockcontroller.schedule;
 
+import static com.android.devicelockcontroller.WorkManagerExceptionHandler.AlarmReason;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.NON_MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_FAILED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_PAUSED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
 import static com.android.devicelockcontroller.provision.worker.AbstractCheckInWorker.BACKOFF_DELAY;
-import static com.android.devicelockcontroller.WorkManagerExceptionHandler.AlarmReason;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -366,10 +366,9 @@ public final class DeviceLockControllerSchedulerImpl implements DeviceLockContro
     }
 
     @Override
-    public void scheduleNextProvisionFailedStepAlarm(boolean shouldRunImmediately) {
+    public void scheduleNextProvisionFailedStepAlarm() {
         LogUtil.d(TAG,
-                "Scheduling next provision failed step alarm. Run immediately: "
-                        + shouldRunImmediately);
+                "Scheduling next provision failed step alarm");
         long lastTimestamp = UserParameters.getNextProvisionFailedStepTimeMills(mContext);
         long nextTimestamp;
         if (lastTimestamp == 0) {
@@ -379,7 +378,7 @@ public final class DeviceLockControllerSchedulerImpl implements DeviceLockContro
                 DEBUG_DEVICELOCK_REPORT_INTERVAL_MINUTES,
                 PROVISION_STATE_REPORT_INTERVAL_DEFAULT_MINUTES)
                 : PROVISION_STATE_REPORT_INTERVAL_DEFAULT_MINUTES;
-        Duration delay = shouldRunImmediately ? Duration.ZERO : Duration.ofMinutes(minutes);
+        Duration delay = Duration.ofMinutes(minutes);
         nextTimestamp = lastTimestamp + delay.toMillis();
         scheduleNextProvisionFailedStepAlarm(
                 Duration.between(Instant.now(mClock), Instant.ofEpochMilli(nextTimestamp)));

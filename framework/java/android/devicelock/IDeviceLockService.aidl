@@ -117,4 +117,9 @@ oneway interface IDeviceLockService {
      * Set device finalized.
      */
      void setDeviceFinalized(in boolean finalized, in RemoteCallback remoteCallback);
+
+     /**
+      * Set/clear controller POST_NOTIFICATIONS FLAG_PERMISSION_SYSTEM_FIXED flag.
+      */
+     void setPostNotificationsSystemFixed(in boolean systemFixed, in RemoteCallback remoteCallback);
 }
