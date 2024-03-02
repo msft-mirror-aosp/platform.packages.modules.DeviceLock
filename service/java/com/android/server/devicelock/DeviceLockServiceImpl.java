@@ -25,6 +25,7 @@ import static android.content.pm.PackageManager.DONT_KILL_APP;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_IMEI;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_MEID;
+import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
 
 import android.Manifest;
 import android.Manifest.permission;
@@ -34,6 +35,7 @@ import android.app.AppOpsManager;
 import android.app.role.RoleManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -41,6 +43,7 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ServiceInfo;
+import android.database.ContentObserver;
 import android.devicelock.DeviceId.DeviceIdType;
 import android.devicelock.DeviceLockManager;
 import android.devicelock.IDeviceLockService;
@@ -50,6 +53,7 @@ import android.devicelock.IIsDeviceLockedCallback;
 import android.devicelock.ILockUnlockDeviceCallback;
 import android.devicelock.ParcelableException;
 import android.net.NetworkPolicyManager;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -58,6 +62,7 @@ import android.os.PowerExemptionManager;
 import android.os.RemoteCallback;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
@@ -69,6 +74,8 @@ import com.android.internal.annotations.VisibleForTesting;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Implementation of {@link android.devicelock.IDeviceLockService} binder service.
@@ -87,6 +94,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     private static final int MAX_ADD_ROLE_HOLDER_TRIES = 4;
 
     private final Context mContext;
+    private final ExecutorService mExecutorService = Executors.newCachedThreadPool();
 
     private final RoleManager mRoleManager;
     private final TelephonyManager mTelephonyManager;
@@ -303,18 +311,38 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         });
     }
 
-    void onUserUnlocked(@NonNull UserHandle userHandle) {
-        getDeviceLockControllerConnector(userHandle).onUserUnlocked(new OutcomeReceiver<>() {
-            @Override
-            public void onResult(Void ignored) {
-                Slog.i(TAG, "User unlocked reported for: " + userHandle);
-            }
+    void onUserUnlocked(@NonNull Context userContext, @NonNull UserHandle userHandle) {
+        mExecutorService.execute(() -> {
+            getDeviceLockControllerConnector(userHandle).onUserUnlocked(new OutcomeReceiver<>() {
+                @Override
+                public void onResult(Void ignored) {
+                    Slog.i(TAG, "User unlocked reported for: " + userHandle);
+                }
 
-            @Override
-            public void onError(Exception ex) {
-                Slog.e(TAG, "Exception reporting user unlocked for: " + userHandle, ex);
-            }
+                @Override
+                public void onError(Exception ex) {
+                    Slog.e(TAG, "Exception reporting user unlocked for: " + userHandle, ex);
+                }
+            });
+            // TODO(b/312521897): Add unit tests for this flow
+            registerUserSetupCompleteListener(userContext, userHandle);
         });
+    }
+
+    private void registerUserSetupCompleteListener(Context userContext, UserHandle userHandle) {
+        final ContentResolver contentResolver = userContext.getContentResolver();
+        Uri setupCompleteUri = Settings.Secure.getUriFor(USER_SETUP_COMPLETE);
+        contentResolver.registerContentObserver(setupCompleteUri,
+                false /* notifyForDescendants */, new ContentObserver(null /* handler */) {
+                    @Override
+                    public void onChange(boolean selfChange, @Nullable Uri uri) {
+                        if (setupCompleteUri.equals(uri)
+                                && Settings.Secure.getInt(
+                                contentResolver, USER_SETUP_COMPLETE, 0) != 0) {
+                            onUserSetupCompleted(userHandle);
+                        }
+                    }
+                });
     }
 
     void onUserSetupCompleted(UserHandle userHandle) {
