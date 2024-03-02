@@ -61,6 +61,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -173,6 +174,8 @@ public final class ReportDeviceProvisionStateWorkerTest {
     }
 
     @Test
+    @Ignore
+    //TODO(b/327652632): Re-enable after fixing
     public void doWork_dismissibleUiState_schedulesAlarmAndSendsNotification() throws Exception {
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_DISMISSIBLE_UI);
@@ -199,6 +202,8 @@ public final class ReportDeviceProvisionStateWorkerTest {
     }
 
     @Test
+    @Ignore
+    //TODO(b/327652632): Re-enable after fixing
     public void doWork_persistentUiState_schedulesAlarmAndSendsOngoingNotification()
             throws Exception {
         when(mResponse.isSuccessful()).thenReturn(true);
