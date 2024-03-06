@@ -16,8 +16,10 @@
 
 package com.android.devicelockcontroller.provision.grpc;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Build;
-import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.util.ArraySet;
 import android.util.Pair;
 
@@ -27,7 +29,7 @@ import androidx.annotation.WorkerThread;
 import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 import com.android.devicelockcontroller.common.DeviceLockConstants.PauseDeviceProvisioningReason;
-import com.android.devicelockcontroller.common.DeviceLockConstants.SetupFailureReason;
+import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
 import com.android.devicelockcontroller.util.LogUtil;
 
 /**
@@ -36,8 +38,11 @@ import com.android.devicelockcontroller.util.LogUtil;
  */
 public abstract class DeviceCheckInClient {
     private static final String TAG = "DeviceCheckInClient";
+    private static final String FILENAME = "debug-check-in-preferences";
+
     public static final String DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME =
             "com.android.devicelockcontroller.debug.DeviceCheckInClientDebug";
+    protected static final String DEBUG_DEVICELOCK_CHECKIN = "debug.devicelock.checkin";
     private static volatile DeviceCheckInClient sClient;
 
     @Nullable
@@ -45,38 +50,59 @@ public abstract class DeviceCheckInClient {
     protected static String sHostName = "";
     protected static int sPortNumber = 0;
     protected static Pair<String, String> sApiKey = new Pair<>("", "");
+    private static volatile boolean sUseDebugClient;
+
+    @Nullable
+    private static volatile SharedPreferences sSharedPreferences;
+
+    @Nullable
+    protected static synchronized SharedPreferences getSharedPreferences(
+            @Nullable Context context) {
+        if (sSharedPreferences == null && context != null) {
+            sSharedPreferences =
+                    context.createContextAsUser(UserHandle.SYSTEM, /* flags= */
+                            0).createDeviceProtectedStorageContext().getSharedPreferences(FILENAME,
+                            Context.MODE_PRIVATE);
+        }
+        return sSharedPreferences;
+    }
 
     /**
-     * Get a instance of DeviceCheckInClient object.
+     * Get an instance of DeviceCheckInClient object.
      */
     public static DeviceCheckInClient getInstance(
+            Context context,
             String className,
             String hostName,
             int portNumber,
             Pair<String, String> apiKey,
             @Nullable String registeredId) {
-        if (sClient == null) {
-            synchronized (DeviceCheckInClient.class) {
-                try {
-                    // In case the initialization is already done by other thread use existing
-                    // instance.
-                    if (sClient != null) {
-                        return sClient;
-                    }
+        boolean useDebugClient = Build.isDebuggable()
+                && getSharedPreferences(context).getBoolean(DEBUG_DEVICELOCK_CHECKIN,
+                /* def= */ false);
+        synchronized (DeviceCheckInClient.class) {
+            try {
+                boolean createRequired =
+                        (sClient == null || sUseDebugClient != useDebugClient)
+                                || (registeredId != null && !registeredId.equals(sRegisteredId))
+                                || (hostName != null && !hostName.equals(sHostName))
+                                || (apiKey != null && !apiKey.equals(sApiKey));
+
+                if (createRequired) {
                     sHostName = hostName;
                     sPortNumber = portNumber;
                     sRegisteredId = registeredId;
                     sApiKey = apiKey;
-                    if (Build.isDebuggable() && SystemProperties.getBoolean(
-                            "debug.devicelock.checkin", true)) {
+                    sUseDebugClient = useDebugClient;
+                    if (Build.isDebuggable() && sUseDebugClient) {
                         className = DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME;
                     }
                     LogUtil.d(TAG, "Creating instance for " + className);
                     Class<?> clazz = Class.forName(className);
                     sClient = (DeviceCheckInClient) clazz.getDeclaredConstructor().newInstance();
-                } catch (Exception e) {
-                    throw new RuntimeException("Failed to get DeviceCheckInClient instance", e);
                 }
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to get DeviceCheckInClient instance", e);
             }
         }
         return sClient;
@@ -106,6 +132,7 @@ public abstract class DeviceCheckInClient {
      *                    DeviceLock program. Could be null if unavailable.
      * @return A class that encapsulate the response from the backend server.
      */
+    @WorkerThread
     public abstract IsDeviceInApprovedCountryGrpcResponse isDeviceInApprovedCountry(
             @Nullable String carrierInfo);
 
@@ -122,7 +149,6 @@ public abstract class DeviceCheckInClient {
     /**
      * Reports the current provision state of the device.
      *
-     * @param reasonOfFailure            one of {@link SetupFailureReason}
      * @param lastReceivedProvisionState one of {@link DeviceProvisionState}.
      *                                   It must be the value from the response when this API
      *                                   was called last time. If this API is called for the first
@@ -136,7 +162,6 @@ public abstract class DeviceCheckInClient {
      */
     @WorkerThread
     public abstract ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
-            @SetupFailureReason int reasonOfFailure,
             @DeviceProvisionState int lastReceivedProvisionState,
-            boolean isSuccessful);
+            boolean isSuccessful, @ProvisionFailureReason int failureReason);
 }

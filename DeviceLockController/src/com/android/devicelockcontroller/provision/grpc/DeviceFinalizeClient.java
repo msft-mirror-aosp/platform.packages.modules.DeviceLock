@@ -21,6 +21,7 @@ import android.os.SystemProperties;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.WorkerThread;
 
 import com.android.devicelockcontroller.util.LogUtil;
 
@@ -35,14 +36,14 @@ public abstract class DeviceFinalizeClient {
     public static final String DEVICE_FINALIZE_CLIENT_DEBUG_CLASS_NAME =
             "com.android.devicelockcontroller.debug.DeviceFinalizeClientDebug";
     private static volatile DeviceFinalizeClient sClient;
-    protected static String sEnrollmentToken = "";
     protected static String sRegisteredId = "";
     protected static String sHostName = "";
     protected static int sPortNumber = 0;
     protected static Pair<String, String> sApiKey = new Pair<>("", "");
+    private static volatile boolean sUseDebugClient;
 
     /**
-     * Get a instance of {@link DeviceFinalizeClient} object.
+     * Get an instance of {@link DeviceFinalizeClient} object.
      * Note that, the arguments will be ignored after first initialization.
      */
     public static DeviceFinalizeClient getInstance(
@@ -50,23 +51,23 @@ public abstract class DeviceFinalizeClient {
             String hostName,
             int portNumber,
             Pair<String, String> apiKey,
-            String registeredId,
-            String enrollmentToken) {
-        if (sClient == null) {
+            String registeredId) {
+        boolean useDebugClient = Build.isDebuggable()
+                && SystemProperties.getBoolean("debug.devicelock.finalize", /* def= */ false);
+        if (sClient == null || sUseDebugClient != useDebugClient) {
             synchronized (DeviceFinalizeClient.class) {
                 // In case the initialization is already done by other thread use existing
                 // instance.
-                if (sClient != null) {
+                if (sClient != null && sUseDebugClient == useDebugClient) {
                     return sClient;
                 }
                 sHostName = hostName;
                 sPortNumber = portNumber;
                 sRegisteredId = registeredId;
-                sEnrollmentToken = enrollmentToken;
                 sApiKey = apiKey;
+                sUseDebugClient = useDebugClient;
                 try {
-                    if (Build.isDebuggable() && SystemProperties.getBoolean(
-                            "debug.devicelock.finalize", true)) {
+                    if (Build.isDebuggable() && sUseDebugClient) {
                         className = DEVICE_FINALIZE_CLIENT_DEBUG_CLASS_NAME;
                     }
                     LogUtil.d(TAG, "Creating instance for " + className);
@@ -83,13 +84,14 @@ public abstract class DeviceFinalizeClient {
     /**
      * Reports that a device completed a Device Lock program.
      */
+    @WorkerThread
     public abstract ReportDeviceProgramCompleteResponse reportDeviceProgramComplete();
 
     /**
      * Class that used to indicate the successfulness / failure status of the response.
      */
     public static final class ReportDeviceProgramCompleteResponse extends
-            DeviceCheckInGrpcResponse {
+            GrpcResponse {
         public ReportDeviceProgramCompleteResponse() {
             super();
         }

@@ -107,6 +107,18 @@ public final class SetupParametersClient extends DlcClient
     }
 
     /**
+     * Dump current values of SetupParameters to logcat.
+     * Note that this API can only be called in debuggable build for debugging purpose.
+     */
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<Void> dump() {
+        return call(() -> {
+            asInterface(getService()).dump();
+            return null;
+        });
+    }
+
+    /**
      * Clear any existing setup parameters.
      * Note that this API can only be called in debuggable build for debugging purpose.
      */
@@ -140,16 +152,6 @@ public final class SetupParametersClient extends DlcClient
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<String> getKioskPackage() {
         return call(() -> asInterface(getService()).getKioskPackage());
-    }
-
-    /**
-     * Get the setup activity for the kiosk app.
-     *
-     * @return Setup activity.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<String> getKioskSetupActivity() {
-        return call(() -> asInterface(getService()).getKioskSetupActivity());
     }
 
     /**

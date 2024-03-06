@@ -16,33 +16,55 @@
 
 package com.android.devicelockcontroller.activities;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE;
+import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_FAILURE;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.content.Context;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.Chronometer;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.activities.util.UrlUtils;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.policy.ProvisionHelper;
+import com.android.devicelockcontroller.policy.ProvisionHelperImpl;
+import com.android.devicelockcontroller.policy.ProvisionStateController;
+import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * A screen which always displays a progress bar.
  */
 public final class ProgressFragment extends Fragment {
 
-    /** The Bundle key for the resource id of the icon. */
-    private static final String KEY_ICON_ID = "key_icon_id";
+    private ProvisionHelper mProvisionHelper;
 
-    /** The Bundle key for the resource id of the header text. */
-    private static final String KEY_HEADER_TEXT_ID = "key_header_text_id";
+    public ProgressFragment() {
+        super();
+    }
 
-    private static final String KEY_SUBHEADER_TEXT_ID = "key_subheader_text_id";
+    @VisibleForTesting
+    ProgressFragment(ProvisionHelper provisionHelper) {
+        super();
+        mProvisionHelper = provisionHelper;
+    }
 
     @Nullable
     @Override
@@ -61,6 +83,15 @@ public final class ProgressFragment extends Fragment {
         TextView subheaderTextView = v.findViewById(R.id.subheader_text);
         checkNotNull(subheaderTextView);
 
+        ProgressBar progressBar = v.findViewById(R.id.progress_bar);
+        checkNotNull(progressBar);
+
+        View bottomView = v.findViewById(R.id.bottom);
+        checkNotNull(bottomView);
+
+        Chronometer countDownTimeView = v.findViewById(R.id.countdown_text);
+        checkNotNull(countDownTimeView);
+
         ProvisioningProgressViewModel provisioningProgressViewModel =
                 new ViewModelProvider(requireActivity()).get(ProvisioningProgressViewModel.class);
         provisioningProgressViewModel.getProvisioningProgressLiveData().observe(
@@ -68,35 +99,67 @@ public final class ProgressFragment extends Fragment {
                     if (provisioningProgress.mIconId != 0) {
                         headerIconImageView.setImageResource(provisioningProgress.mIconId);
                     }
+                    Context context = requireContext();
                     if (provisioningProgress.mHeaderId != 0) {
                         headerTextView.setText(
-                                requireContext().getString(provisioningProgress.mHeaderId,
+                                context.getString(provisioningProgress.mHeaderId,
                                         provisioningProgressViewModel
                                                 .mProviderNameLiveData.getValue()));
                     }
                     if (provisioningProgress.mSubheaderId != 0) {
-                        subheaderTextView.setText(
-                                requireContext().getString(provisioningProgress.mSubheaderId));
+                        UrlUtils.setUrlText(subheaderTextView,
+                                context.getString(provisioningProgress.mSubheaderId,
+                                        provisioningProgressViewModel
+                                                .mSupportUrlLiveData
+                                                .getValue()));
+                    }
+                    if (provisioningProgress.mProgressBarVisible) {
+                        progressBar.setVisibility(View.VISIBLE);
+                    } else {
+                        progressBar.setVisibility(View.GONE);
+                    }
+                    if (provisioningProgress.mBottomViewVisible) {
+                        bottomView.setVisibility(View.VISIBLE);
+                        Button retryButton = bottomView.findViewById(R.id.button_retry);
+                        checkNotNull(retryButton);
+                        PolicyObjectsProvider policyObjects =
+                                (PolicyObjectsProvider) context.getApplicationContext();
+                        ProvisionStateController provisionStateController =
+                                policyObjects.getProvisionStateController();
+                        if (mProvisionHelper == null) {
+                            mProvisionHelper = new ProvisionHelperImpl(
+                                    context,
+                                    provisionStateController);
+                        }
+                        retryButton.setOnClickListener(
+                                view -> mProvisionHelper.scheduleKioskAppInstallation(
+                                        requireActivity(),
+                                        provisioningProgressViewModel,
+                                        /* isProvisionMandatory= */ false));
+
+                        Button exitButton = bottomView.findViewById(R.id.button_exit);
+                        checkNotNull(exitButton);
+                        exitButton.setOnClickListener(
+                                view -> {
+                                    ReportDeviceProvisionStateWorker.reportSetupFailed(
+                                            WorkManager.getInstance(requireContext()),
+                                            provisioningProgress.mFailureReason);
+                                    provisionStateController.postSetNextStateForEventRequest(
+                                            PROVISION_FAILURE);
+                                });
+                    } else {
+                        bottomView.setVisibility(View.GONE);
+                    }
+                    if (provisioningProgress.mCountDownTimerVisible) {
+                        countDownTimeView.setBase(
+                                SystemClock.elapsedRealtime() + TimeUnit.MINUTES.toMillis(
+                                        MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE));
+                        countDownTimeView.start();
+                        countDownTimeView.setVisibility(View.VISIBLE);
+                    } else {
+                        countDownTimeView.setVisibility(View.GONE);
                     }
                 });
-
         return v;
     }
-
-    static ProgressFragment create(int iconId, int headerTextId, int subheaderTextId) {
-        ProgressFragment progressFragment = new ProgressFragment();
-        Bundle bundle = new Bundle();
-        if (iconId != 0) {
-            bundle.putInt(KEY_ICON_ID, iconId);
-        }
-        if (headerTextId != 0) {
-            bundle.putInt(KEY_HEADER_TEXT_ID, headerTextId);
-        }
-        if (subheaderTextId != 0) {
-            bundle.putInt(KEY_SUBHEADER_TEXT_ID, subheaderTextId);
-        }
-        progressFragment.setArguments(bundle);
-        return progressFragment;
-    }
-
 }

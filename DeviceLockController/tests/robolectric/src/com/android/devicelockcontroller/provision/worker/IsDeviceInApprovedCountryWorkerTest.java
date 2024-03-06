@@ -21,6 +21,7 @@ import static com.android.devicelockcontroller.provision.worker.IsDeviceInApprov
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -32,10 +33,15 @@ import androidx.work.ListenableWorker;
 import androidx.work.ListenableWorker.Result;
 import androidx.work.WorkerFactory;
 import androidx.work.WorkerParameters;
-import androidx.work.testing.TestWorkerBuilder;
+import androidx.work.testing.TestListenableWorkerBuilder;
 
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.IsDeviceInApprovedCountryGrpcResponse;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
+
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.testing.TestingExecutors;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -46,9 +52,6 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-
 @RunWith(RobolectricTestRunner.class)
 public final class IsDeviceInApprovedCountryWorkerTest {
     @Rule
@@ -58,14 +61,14 @@ public final class IsDeviceInApprovedCountryWorkerTest {
     @Mock
     private IsDeviceInApprovedCountryGrpcResponse mResponse;
     private IsDeviceInApprovedCountryWorker mWorker;
+    private StatsLogger mStatsLogger;
 
     @Before
     public void setUp() throws Exception {
         final Context context = ApplicationProvider.getApplicationContext();
-        final Executor executor = Executors.newSingleThreadExecutor();
         when(mClient.isDeviceInApprovedCountry(any())).thenReturn(mResponse);
-        mWorker = TestWorkerBuilder.from(
-                        context, IsDeviceInApprovedCountryWorker.class, executor)
+        mWorker = TestListenableWorkerBuilder.from(
+                        context, IsDeviceInApprovedCountryWorker.class)
                 .setWorkerFactory(
                         new WorkerFactory() {
                             @Override
@@ -75,44 +78,57 @@ public final class IsDeviceInApprovedCountryWorkerTest {
                                 return workerClassName.equals(
                                         IsDeviceInApprovedCountryWorker.class.getName())
                                         ? new IsDeviceInApprovedCountryWorker(
-                                        context, workerParameters, mClient)
+                                        context, workerParameters, mClient,
+                                        TestingExecutors.sameThreadScheduledExecutor())
                                         : null;
                             }
                         }).build();
+        StatsLoggerProvider loggerProvider =
+                (StatsLoggerProvider) context.getApplicationContext();
+        mStatsLogger = loggerProvider.getStatsLogger();
     }
 
     @Test
-    public void doWork_responseIsSuccessful_isInApprovedCountry_correctResult() {
+    public void doWork_responseIsSuccessful_isInApprovedCountry_correctResultAndLog() {
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.isDeviceInApprovedCountry()).thenReturn(true);
         Result expected = Result.success(
                 new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, true).build());
 
-        Result actual = mWorker.doWork();
+        Result actual = Futures.getUnchecked(mWorker.startWork());
 
         assertThat(actual).isEqualTo(expected);
+        assertThat(actual.getOutputData().hasKeyWithValueOfType(KEY_IS_IN_APPROVED_COUNTRY,
+                Boolean.class)).isTrue();
+        verify(mStatsLogger).logIsDeviceInApprovedCountry();
     }
 
     @Test
-    public void doWork_responseIsSuccessful_isNotInApprovedCountry_correctResult() {
+    public void doWork_responseIsSuccessful_isNotInApprovedCountry_correctResultAndLog() {
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.isDeviceInApprovedCountry()).thenReturn(false);
         Result expected = Result.success(
                 new Data.Builder().putBoolean(KEY_IS_IN_APPROVED_COUNTRY, false).build());
 
-        Result actual = mWorker.doWork();
+        Result actual = Futures.getUnchecked(mWorker.startWork());
 
         assertThat(actual).isEqualTo(expected);
+        assertThat(actual.getOutputData().hasKeyWithValueOfType(KEY_IS_IN_APPROVED_COUNTRY,
+                Boolean.class)).isTrue();
+        verify(mStatsLogger).logIsDeviceInApprovedCountry();
     }
 
     @Test
-    public void doWork_responseIsNotSuccessful_failureResult() {
+    public void doWork_responseIsNotSuccessful_successResultAndLog() {
         when(mResponse.isSuccessful()).thenReturn(false);
         when(mResponse.isDeviceInApprovedCountry()).thenReturn(false);
-        Result expected = Result.failure();
+        Result expected = Result.success();
 
-        Result actual = mWorker.doWork();
+        Result actual = Futures.getUnchecked(mWorker.startWork());
 
         assertThat(actual).isEqualTo(expected);
+        assertThat(actual.getOutputData().hasKeyWithValueOfType(KEY_IS_IN_APPROVED_COUNTRY,
+                Boolean.class)).isFalse();
+        verify(mStatsLogger).logIsDeviceInApprovedCountry();
     }
 }

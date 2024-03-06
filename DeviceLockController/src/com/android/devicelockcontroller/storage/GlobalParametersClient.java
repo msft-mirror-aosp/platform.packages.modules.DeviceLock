@@ -29,12 +29,13 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.DeviceLockControllerApplication;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
+import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
+import com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import java.util.List;
 import java.util.concurrent.Executors;
 
 /**
@@ -105,53 +106,41 @@ public final class GlobalParametersClient extends DlcClient {
     }
 
     /**
-     * Gets the list of packages allowlisted in lock task mode.
-     *
-     * @return List of packages that are allowed in lock task mode.
+     * Dump current values of SetupParameters to logcat.
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<List<String>> getLockTaskAllowlist() {
-        return call(() -> asInterface(getService()).getLockTaskAllowlist());
-    }
-
-    /**
-     * Sets the list of packages allowlisted in lock task mode.
-     *
-     * @param allowlist List of packages that are allowed in lock task mode.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Void> setLockTaskAllowlist(List<String> allowlist) {
+    public ListenableFuture<Void> dump() {
         return call(() -> {
-            asInterface(getService()).setLockTaskAllowlist(allowlist);
+            asInterface(getService()).dump();
             return null;
         });
     }
 
     /**
-     * Checks if a check-in request needs to be performed.
+     * Checks if provision is ready.
      *
-     * @return true if check-in request needs to be performed.
+     * @return true if device is ready to be provisioned.
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Boolean> needCheckIn() {
-        return call(() -> asInterface(getService()).needCheckIn());
+    public ListenableFuture<Boolean> isProvisionReady() {
+        return call(() -> asInterface(getService()).isProvisionReady());
     }
 
     /**
-     * Sets the value of whether this device needs to perform check-in request.
+     * Sets the value of whether this device is ready for provision.
      *
-     * @param needCheckIn new state of whether the device needs to perform check-in request.
+     * @param isProvisionReady new state of whether the device is ready for provision.
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Void> setNeedCheckIn(boolean needCheckIn) {
+    public ListenableFuture<Void> setProvisionReady(boolean isProvisionReady) {
         return call(() -> {
-            asInterface(getService()).setNeedCheckIn(needCheckIn);
+            asInterface(getService()).setProvisionReady(isProvisionReady);
             return null;
         });
     }
 
     /**
-     * Gets the unique identifier that is regisered to DeviceLock backend server.
+     * Gets the unique identifier that is registered to DeviceLock backend server.
      *
      * @return The registered device unique identifier; null if device has never checked in with
      * backed server.
@@ -199,49 +188,47 @@ public final class GlobalParametersClient extends DlcClient {
     }
 
     /**
-     * Get the enrollment token assigned by the Device Lock backend server.
+     * Gets the current device state.
      *
-     * @return A string value of the enrollment token.
+     * @return current device state
      */
-    @Nullable
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<String> getEnrollmentToken() {
-        return call(() -> asInterface(getService()).getEnrollmentToken());
+    public ListenableFuture<@DeviceState Integer> getDeviceState() {
+        return call(() -> asInterface(getService()).getDeviceState());
     }
 
     /**
-     * Set the enrollment token assigned by the Device Lock backend server.
+     * Sets the current device state.
      *
-     * @param token The string value of the enrollment token.
+     * @param state New state.
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Void> setEnrollmentToken(String token) {
+    public ListenableFuture<Void> setDeviceState(@DeviceState int state) {
         return call(() -> {
-            asInterface(getService()).setEnrollmentToken(token);
+            asInterface(getService()).setDeviceState(state);
             return null;
         });
     }
 
     /**
-     * Get the kiosk app signature.
+     * Gets the current {@link FinalizationState}.
      *
-     * @return the kiosk app signature.
+     * @return current finalization state
      */
-    @Nullable
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<String> getKioskSignature() {
-        return call(() -> asInterface(getService()).getKioskSignature());
+    public ListenableFuture<@FinalizationState Integer> getFinalizationState() {
+        return call(() -> asInterface(getService()).getFinalizationState());
     }
 
     /**
-     * Sets the kiosk app signature.
+     * Sets the current {@link FinalizationState}.
      *
-     * @param signature Kiosk app signature.
+     * @param state new finalization state
      */
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<Void> setKioskSignature(String signature) {
+    public ListenableFuture<Void> setFinalizationState(@FinalizationState int state) {
         return call(() -> {
-            asInterface(getService()).setKioskSignature(signature);
+            asInterface(getService()).setFinalizationState(state);
             return null;
         });
     }

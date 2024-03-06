@@ -16,8 +16,12 @@
 
 package com.android.devicelockcontroller.activities;
 
+import static com.android.devicelockcontroller.activities.DevicePoliciesViewModel.HEADER_DRAWABLE_ID;
+import static com.android.devicelockcontroller.activities.DevicePoliciesViewModel.HEADER_TEXT_ID;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,13 +37,9 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.devicelockcontroller.R;
-import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
-import com.android.devicelockcontroller.policy.SetupController;
-import com.android.devicelockcontroller.util.LogUtil;
-
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.policy.ProvisionHelper;
+import com.android.devicelockcontroller.policy.ProvisionHelperImpl;
 
 /**
  * A screen which lists the polies enforced on the device by the device provider.
@@ -76,65 +76,29 @@ public final class DevicePoliciesFragment extends Fragment {
 
         ImageView imageView = view.findViewById(R.id.header_icon);
         checkNotNull(imageView);
-        viewModel.mHeaderDrawableIdLiveData.observe(getViewLifecycleOwner(),
-                imageView::setImageResource);
+        imageView.setImageResource(HEADER_DRAWABLE_ID);
 
         TextView headerTextView = view.findViewById(R.id.header_text);
         checkNotNull(headerTextView);
         viewModel.mProviderNameLiveData.observe(getViewLifecycleOwner(),
                 providerName -> headerTextView.setText(
-                        getString(viewModel.mHeaderTextIdLiveData.getValue(), providerName)));
-        viewModel.mHeaderTextIdLiveData.observe(getViewLifecycleOwner(),
-                textId -> headerTextView.setText(
-                        getString(textId, viewModel.mProviderNameLiveData.getValue())));
+                        getString(HEADER_TEXT_ID, providerName)));
 
-        TextView footerTextView = view.findViewById(R.id.footer_text);
-        checkNotNull(footerTextView);
-        viewModel.mFooterTextIdLiveData.observe(getViewLifecycleOwner(), footerTextView::setText);
-
-        SetupController setupController =
-                ((PolicyObjectsInterface) getActivity().getApplicationContext())
-                        .getSetupController();
+        Context context = requireContext().getApplicationContext();
+        ProvisionHelper provisionHelper = new ProvisionHelperImpl(context,
+                ((PolicyObjectsProvider) context).getProvisionStateController());
 
         ProvisioningProgressViewModel provisioningProgressViewModel =
                 new ViewModelProvider(requireActivity()).get(ProvisioningProgressViewModel.class);
         Button button = view.findViewById(R.id.button_next);
         checkNotNull(button);
-        button.setOnClickListener(
-                v -> {
-                    provisioningProgressViewModel.setProvisioningProgress(
-                            ProvisioningProgress.GETTING_DEVICE_READY);
-                    Futures.addCallback(
-                            setupController.startSetupFlow(getActivity()),
-                            new FutureCallback<>() {
-                                @Override
-                                public void onSuccess(Void result) {
-                                    LogUtil.i(TAG, "Setup flow has started installing kiosk app");
-                                    provisioningProgressViewModel.setProvisioningProgress(
-                                            ProvisioningProgress.INSTALLING_KIOSK_APP);
-                                }
-
-                                @Override
-                                public void onFailure(Throwable t) {
-                                    LogUtil.e(TAG, "Failed to start setup flow!", t);
-                                    // TODO(b/279969959): show setup failure UI
-                                }
-                            }, MoreExecutors.directExecutor());
+        viewModel.getIsMandatoryLiveData().observe(this,
+                isMandatory -> {
+                    button.setOnClickListener(
+                            v -> provisionHelper.scheduleKioskAppInstallation(requireActivity(),
+                                    provisioningProgressViewModel,
+                                    isMandatory));
+                    button.setVisibility(View.VISIBLE);
                 });
-
-        setupController.addListener(new SetupController.SetupUpdatesCallbacks() {
-            @Override
-            public void setupFailed(int reason) {
-                LogUtil.e(TAG, "Failed to finish setup flow!");
-                // TODO(b/279969959): show setup failure UI
-            }
-
-            @Override
-            public void setupCompleted() {
-                LogUtil.i(TAG, "Successfully finished setup flow!");
-                provisioningProgressViewModel.setProvisioningProgress(
-                        ProvisioningProgress.OPENING_KIOSK_APP);
-            }
-        });
     }
 }

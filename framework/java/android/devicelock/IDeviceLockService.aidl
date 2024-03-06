@@ -86,4 +86,19 @@ oneway interface IDeviceLockService {
      */
     void setExemptFromHibernation(in String packageName, in boolean exempt,
         in RemoteCallback remoteCallback);
+
+    /**
+     * Enable kiosk keepalive.
+     */
+     void enableKioskKeepalive(in String packageName, in RemoteCallback remoteCallback);
+
+    /**
+     * Disable kiosk keepalive.
+     */
+     void disableKioskKeepalive(in RemoteCallback remoteCallback);
+
+    /**
+     * Set device finalized.
+     */
+     void setDeviceFinalized(in boolean finalized, in RemoteCallback remoteCallback);
 }
