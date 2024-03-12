@@ -16,6 +16,9 @@
 
 package com.android.devicelockcontroller.activities;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.UNKNOWN_REASON;
+
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -25,11 +28,25 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.util.LogUtil;
 
 /**
  * The activity displayed when provisioning is in progress.
  */
 public final class ProvisioningActivity extends AppCompatActivity {
+
+    private static final String TAG = "ProvisioningActivity";
+
+    static final String EXTRA_SHOW_PROVISION_FAILED_UI_ON_START =
+            "com.android.devicelockcontroller.activities.extra.SHOW_PROVISION_FAILED_UI_ON_START";
+
+    /**
+     * An extra boolean set on the provisioning activity intent to signal that it should
+     * show the provisioning failed screen on start.
+     */
+    public static final String EXTRA_SHOW_CRITICAL_PROVISION_FAILED_UI_ON_START =
+            "com.android.devicelockcontroller.activities.extra.SHOW_CRITICAL_PROVISION"
+                    + "_FAILED_UI_ON_START";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -49,7 +66,15 @@ public final class ProvisioningActivity extends AppCompatActivity {
                     .replace(R.id.fragment_container, progressFragment)
                     .commit();
         });
-
+        final Intent intent = getIntent();
+        if (intent.getBooleanExtra(EXTRA_SHOW_CRITICAL_PROVISION_FAILED_UI_ON_START, false)) {
+            LogUtil.d(TAG, "showing critical provision failed ui");
+            viewModel.setProvisioningProgress(ProvisioningProgress.MANDATORY_FAILED_PROVISION);
+        } else if (intent.getBooleanExtra(EXTRA_SHOW_PROVISION_FAILED_UI_ON_START, false)) {
+            LogUtil.d(TAG, "showing provision failed ui");
+            viewModel.setProvisioningProgress(
+                    ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(UNKNOWN_REASON));
+        }
         getSupportFragmentManager()
                 .beginTransaction()
                 .add(R.id.fragment_container, new DevicePoliciesFragment())

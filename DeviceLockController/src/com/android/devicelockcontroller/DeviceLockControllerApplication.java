@@ -18,86 +18,107 @@ package com.android.devicelockcontroller;
 
 import android.app.Application;
 import android.content.Context;
-import android.os.UserManager;
 
-import androidx.annotation.MainThread;
+import androidx.annotation.GuardedBy;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.work.Configuration;
 import androidx.work.DelegatingWorkerFactory;
 import androidx.work.ListenableWorker;
 
 import com.android.devicelockcontroller.policy.DevicePolicyController;
-import com.android.devicelockcontroller.policy.DevicePolicyControllerImpl;
 import com.android.devicelockcontroller.policy.DeviceStateController;
-import com.android.devicelockcontroller.policy.DeviceStateControllerImpl;
-import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
-import com.android.devicelockcontroller.policy.SetupController;
-import com.android.devicelockcontroller.policy.SetupControllerImpl;
-import com.android.devicelockcontroller.policy.TaskWorkerFactory;
+import com.android.devicelockcontroller.policy.FinalizationController;
+import com.android.devicelockcontroller.policy.FinalizationControllerImpl;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.policy.ProvisionStateController;
+import com.android.devicelockcontroller.policy.ProvisionStateControllerImpl;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerImpl;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerImpl;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.util.LogUtil;
 
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 /**
  * Application class for Device Lock Controller.
  */
 public class DeviceLockControllerApplication extends Application implements
-        PolicyObjectsInterface, Configuration.Provider {
+        PolicyObjectsProvider,
+        Configuration.Provider,
+        DeviceLockControllerSchedulerProvider,
+        FcmRegistrationTokenProvider,
+        PlayInstallPackageTaskClassProvider,
+        StatsLoggerProvider {
     private static final String TAG = "DeviceLockControllerApplication";
 
-    private DevicePolicyController mPolicyController;
-
     private static Context sApplicationContext;
-    private SetupController mSetupController;
+    @GuardedBy("this")
+    private ProvisionStateController mProvisionStateController;
+    @GuardedBy("this")
+    private FinalizationController mFinalizationController;
+    @GuardedBy("this")
+    private DeviceLockControllerScheduler mDeviceLockControllerScheduler;
+    @GuardedBy("this")
+    private StatsLogger mStatsLogger;
+
+    private WorkManagerExceptionHandler mWorkManagerExceptionHandler;
+
+    public DeviceLockControllerApplication() {
+        super();
+
+        mWorkManagerExceptionHandler = new WorkManagerExceptionHandler(this);
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
         sApplicationContext = getApplicationContext();
         LogUtil.i(TAG, "onCreate");
+    }
 
-        final boolean isUserProfile =
-                sApplicationContext.getSystemService(UserManager.class).isProfile();
+    @Override
+    public DeviceStateController getDeviceStateController() {
+        return getProvisionStateController().getDeviceStateController();
+    }
 
-        if (isUserProfile) {
-            return;
+    @Override
+    public synchronized ProvisionStateController getProvisionStateController() {
+        if (mProvisionStateController == null) {
+            mProvisionStateController = new ProvisionStateControllerImpl(this);
         }
-
-        // Make sure policies are enforced when the controller is started.
-        getStateController().enforcePoliciesForCurrentState().addListener(
-                () -> LogUtil.i(TAG, "Policies enforced"), MoreExecutors.directExecutor());
+        return mProvisionStateController;
     }
 
     @Override
-    @MainThread
-    public DeviceStateController getStateController() {
-        return getPolicyController().getStateController();
-    }
-
-    @Override
-    @MainThread
     public DevicePolicyController getPolicyController() {
-        if (mPolicyController == null) {
-            mPolicyController = new DevicePolicyControllerImpl(this,
-                    new DeviceStateControllerImpl(this));
-        }
-
-        return mPolicyController;
+        return getProvisionStateController().getDevicePolicyController();
     }
 
     @Override
-    public SetupController getSetupController() {
-        if (mSetupController == null) {
-            mSetupController = new SetupControllerImpl(this, getStateController(),
-                    getPolicyController());
+    public synchronized FinalizationController getFinalizationController() {
+        if (mFinalizationController == null) {
+            mFinalizationController = new FinalizationControllerImpl(this);
         }
-        return mSetupController;
+        return mFinalizationController;
     }
 
     @Override
-    public void destroyObjects() {
-        mPolicyController = null;
-        mSetupController = null;
+    public synchronized StatsLogger getStatsLogger() {
+        if (null == mStatsLogger) {
+            mStatsLogger = new StatsLoggerImpl();
+        }
+        return mStatsLogger;
+    }
+
+    @Override
+    public synchronized void destroyObjects() {
+        mProvisionStateController = null;
+        mFinalizationController = null;
     }
 
     public static Context getAppContext() {
@@ -108,15 +129,34 @@ public class DeviceLockControllerApplication extends Application implements
     @Override
     public Configuration getWorkManagerConfiguration() {
         final DelegatingWorkerFactory factory = new DelegatingWorkerFactory();
-        factory.addFactory(new TaskWorkerFactory());
+        factory.addFactory(new DeviceLockControllerWorkerFactory());
         return new Configuration.Builder()
                 .setWorkerFactory(factory)
                 .setMinimumLoggingLevel(android.util.Log.INFO)
+                .setInitializationExceptionHandler(
+                        mWorkManagerExceptionHandler::initializationExceptionHandler)
+                .setTaskExecutor(mWorkManagerExceptionHandler.getWorkManagerTaskExecutor())
                 .build();
     }
 
+    @Override
     @Nullable
     public Class<? extends ListenableWorker> getPlayInstallPackageTaskClass() {
         return null;
+    }
+
+    @Override
+    @NonNull
+    public ListenableFuture<String> getFcmRegistrationToken() {
+        return Futures.immediateFuture(null);
+    }
+
+    @Override
+    public synchronized DeviceLockControllerScheduler getDeviceLockControllerScheduler() {
+        if (mDeviceLockControllerScheduler == null) {
+            mDeviceLockControllerScheduler = new DeviceLockControllerSchedulerImpl(this,
+                    getProvisionStateController());
+        }
+        return mDeviceLockControllerScheduler;
     }
 }

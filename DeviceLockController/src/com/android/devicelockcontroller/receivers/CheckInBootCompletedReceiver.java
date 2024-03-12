@@ -17,51 +17,40 @@
 package com.android.devicelockcontroller.receivers;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.os.UserManager;
+import android.content.pm.PackageManager;
 
 import androidx.annotation.VisibleForTesting;
 
-import com.android.devicelockcontroller.policy.DeviceStateController;
-import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
-import com.android.devicelockcontroller.provision.worker.DeviceCheckInHelper;
-import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
 import com.android.devicelockcontroller.util.LogUtil;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * Boot completed broadcast receiver to enqueue the check-in work for provision when device boots
  * for the first time.
- * Note that this boot completed receiver differs with {@link LockTaskBootCompletedReceiver} in the
- * way that it only runs for system user.
+ *
+ * Only runs on system user and is disabled after check-in completes successfully.
  */
 public final class CheckInBootCompletedReceiver extends BroadcastReceiver {
 
     private static final String TAG = "CheckInBootCompletedReceiver";
+    private final Executor mExecutor;
+
+    public CheckInBootCompletedReceiver() {
+        mExecutor = Executors.newSingleThreadExecutor();
+    }
 
     @VisibleForTesting
-    static void checkInIfNeeded(DeviceStateController stateController,
-            DeviceCheckInHelper checkInHelper) {
-        if (stateController.isCheckInNeeded()) {
-            Futures.addCallback(GlobalParametersClient.getInstance().needCheckIn(),
-                    new FutureCallback<>() {
-                        @Override
-                        public void onSuccess(Boolean needCheckIn) {
-                            if (needCheckIn) {
-                                checkInHelper.enqueueDeviceCheckInWork(/* isExpedited= */ false);
-                            }
-                        }
-
-                        @Override
-                        public void onFailure(Throwable t) {
-                            LogUtil.e(TAG, "Failed to know if we need to perform check-in!", t);
-                        }
-                    }, MoreExecutors.directExecutor());
-        }
+    CheckInBootCompletedReceiver(Executor executor) {
+        mExecutor = executor;
     }
 
     @Override
@@ -70,15 +59,35 @@ public final class CheckInBootCompletedReceiver extends BroadcastReceiver {
 
         LogUtil.i(TAG, "Received boot completed intent");
 
-        final boolean isUserProfile =
-                context.getSystemService(UserManager.class).isProfile();
-
-        if (isUserProfile) {
+        if (!context.getUser().isSystem()) {
+            // This is not *supposed* to happen since the receiver is marked systemUserOnly but
+            // there seems to be some edge case where it does. See b/304318606.
+            // In this case, we'll just disable and return early.
+            LogUtil.w(TAG, "Called check in boot receiver on non-system user!");
+            disableCheckInBootCompletedReceiver(context);
             return;
         }
 
-        checkInIfNeeded(
-                ((PolicyObjectsInterface) context.getApplicationContext()).getStateController(),
-                new DeviceCheckInHelper(context));
+        final DeviceLockControllerSchedulerProvider schedulerProvider =
+                (DeviceLockControllerSchedulerProvider) context.getApplicationContext();
+        final DeviceLockControllerScheduler scheduler =
+                schedulerProvider.getDeviceLockControllerScheduler();
+
+        ListenableFuture<Void> scheduleCheckIn = scheduler.maybeScheduleInitialCheckIn();
+
+        final PendingResult pendingResult = goAsync();
+
+        scheduleCheckIn.addListener(pendingResult::finish, mExecutor);
+    }
+
+    /**
+     * Disable the receiver for the current user
+     *
+     * @param context context of current user
+     */
+    public static void disableCheckInBootCompletedReceiver(Context context) {
+        context.getPackageManager().setComponentEnabledSetting(
+                new ComponentName(context, CheckInBootCompletedReceiver.class),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
     }
 }

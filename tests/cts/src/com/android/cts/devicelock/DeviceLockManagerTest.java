@@ -192,7 +192,7 @@ public final class DeviceLockManagerTest {
                         () -> {
                             lockDeviceFuture.get(TIMEOUT, TimeUnit.SECONDS);
                         });
-        assertThat(lockDeviceResponseException.getCause())
+        assertThat(lockDeviceResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -207,7 +207,7 @@ public final class DeviceLockManagerTest {
                         () -> {
                             unlockDeviceFuture.get(TIMEOUT, TimeUnit.SECONDS);
                         });
-        assertThat(lockDeviceResponseException.getCause())
+        assertThat(lockDeviceResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -222,7 +222,7 @@ public final class DeviceLockManagerTest {
                         () -> {
                             isDeviceLockedFuture.get(TIMEOUT, TimeUnit.SECONDS);
                         });
-        assertThat(isDeviceLockedResponseException.getCause())
+        assertThat(isDeviceLockedResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -237,7 +237,7 @@ public final class DeviceLockManagerTest {
                         () -> {
                             deviceIdFuture.get(TIMEOUT, TimeUnit.SECONDS);
                         });
-        assertThat(isDeviceLockedResponseException.getCause())
+        assertThat(isDeviceLockedResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -254,12 +254,9 @@ public final class DeviceLockManagerTest {
         try {
             addFinancedDeviceKioskRole();
 
-            boolean locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
-            assertThat(locked).isFalse();
-
             getLockDeviceFuture().get(TIMEOUT, TimeUnit.SECONDS);
 
-            locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
+            boolean locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
             assertThat(locked).isTrue();
 
             getUnlockDeviceFuture().get(TIMEOUT, TimeUnit.SECONDS);

@@ -28,9 +28,6 @@ import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.android.controller.ServiceController;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @RunWith(RobolectricTestRunner.class)
 public class GlobalParametersServiceTest extends AbstractGlobalParametersTestBase {
     private IGlobalParametersService mIGlobalParametersService;
@@ -43,26 +40,6 @@ public class GlobalParametersServiceTest extends AbstractGlobalParametersTestBas
                 globalParametersServiceController.create().get();
         mIGlobalParametersService =
                 (IGlobalParametersService) globalParametersService.onBind(new Intent());
-    }
-
-    @Test
-    public void getLockTaskAllowlist_shouldReturnExpectedAllowlist() throws RemoteException {
-        assertThat(mIGlobalParametersService.getLockTaskAllowlist()).isEmpty();
-        final ArrayList<String> expectedAllowlist = new ArrayList<>();
-        expectedAllowlist.add(ALLOWLIST_PACKAGE_0);
-        expectedAllowlist.add(ALLOWLIST_PACKAGE_1);
-        mIGlobalParametersService.setLockTaskAllowlist(expectedAllowlist);
-        final List<String> actualAllowlist = mIGlobalParametersService.getLockTaskAllowlist();
-        assertThat(actualAllowlist).containsExactlyElementsIn(expectedAllowlist);
-    }
-
-    @Test
-    public void needCheckIn_shouldReturnExpectedResult() throws RemoteException {
-        assertThat(mIGlobalParametersService.needCheckIn()).isNotEqualTo(NEED_CHECK_IN);
-
-        mIGlobalParametersService.setNeedCheckIn(NEED_CHECK_IN);
-
-        assertThat(mIGlobalParametersService.needCheckIn()).isEqualTo(NEED_CHECK_IN);
     }
 
     @Test
@@ -82,15 +59,6 @@ public class GlobalParametersServiceTest extends AbstractGlobalParametersTestBas
         mIGlobalParametersService.setProvisionForced(FORCED_PROVISION);
 
         assertThat(mIGlobalParametersService.isProvisionForced()).isEqualTo(FORCED_PROVISION);
-    }
-
-    @Test
-    public void getEnrollmentToken_shouldReturnExpectedResult() throws RemoteException {
-        assertThat(mIGlobalParametersService.getEnrollmentToken()).isNull();
-
-        mIGlobalParametersService.setEnrollmentToken(ENROLLMENT_TOKEN);
-
-        assertThat(mIGlobalParametersService.getEnrollmentToken()).isEqualTo(ENROLLMENT_TOKEN);
     }
 
     @Test

@@ -16,7 +16,18 @@
 
 package com.android.server.devicelock;
 
+import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
+
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.os.Process;
+import android.os.UserHandle;
+import android.os.UserManager;
+import android.provider.Settings;
 import android.util.Slog;
 
 import com.android.server.SystemService;
@@ -50,20 +61,65 @@ public final class DeviceLockService extends SystemService {
         Slog.d(TAG, "onBootPhase: " + phase);
     }
 
+    @NonNull
+    private static Context getUserContext(@NonNull Context context, @NonNull UserHandle user) {
+        if (Process.myUserHandle().equals(user)) {
+            return context;
+        } else {
+            return context.createContextAsUser(user, 0 /* flags */);
+        }
+    }
+
     @Override
-    public void onUserSwitching(TargetUser from, TargetUser to) {
+    public boolean isUserSupported(@NonNull TargetUser user) {
+        final UserManager userManager =
+                getUserContext(getContext(),
+                        user.getUserHandle()).getSystemService(UserManager.class);
+        return !userManager.isProfile();
+    }
+
+    @Override
+    public void onUserSwitching(@NonNull TargetUser from, @NonNull TargetUser to) {
         Objects.requireNonNull(to);
-        Slog.d(TAG, "onUserSwitching");
-        mImpl.setDeviceLockControllerPackageDefaultEnabledState(to.getUserHandle());
+        Slog.d(TAG, "onUserSwitching from: " + from + " to: " + to);
+        final UserHandle userHandle = to.getUserHandle();
+        mImpl.enforceDeviceLockControllerPackageEnabledState(userHandle);
+        mImpl.onUserSwitching(userHandle);
     }
 
     @Override
-    public void onUserUnlocking(TargetUser user) {
-        Slog.d(TAG, "onUserUnlocking");
+    public void onUserUnlocking(@NonNull TargetUser user) {
+        Slog.d(TAG, "onUserUnlocking: " + user);
     }
 
     @Override
-    public void onUserStopping(TargetUser user) {
-        Slog.d(TAG, "onUserStopping");
+    public void onUserUnlocked(@NonNull TargetUser user) {
+        Slog.d(TAG, "onUserUnlocked: " + user);
+        final UserHandle userHandle = user.getUserHandle();
+        mImpl.onUserUnlocked(userHandle);
+        // TODO(b/312521897): Add unit tests for this flow
+        registerUserSetupCompleteListener(userHandle);
+    }
+
+    @Override
+    public void onUserStopping(@NonNull TargetUser user) {
+        Slog.d(TAG, "onUserStopping: " + user);
+    }
+
+    private void registerUserSetupCompleteListener(UserHandle userHandle) {
+        final ContentResolver contentResolver = getUserContext(getContext(), userHandle)
+                .getContentResolver();
+        Uri setupCompleteUri = Settings.Secure.getUriFor(USER_SETUP_COMPLETE);
+        contentResolver.registerContentObserver(setupCompleteUri,
+                false /* notifyForDescendants */, new ContentObserver(null /* handler */) {
+                    @Override
+                    public void onChange(boolean selfChange, @Nullable Uri uri) {
+                        if (setupCompleteUri.equals(uri)
+                                && Settings.Secure.getInt(
+                                        contentResolver, USER_SETUP_COMPLETE, 0) != 0) {
+                            mImpl.onUserSetupCompleted(userHandle);
+                        }
+                    }
+                });
     }
 }

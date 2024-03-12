@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.provision.worker;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -28,9 +29,16 @@ import androidx.work.ListenableWorker;
 import androidx.work.ListenableWorker.Result;
 import androidx.work.WorkerFactory;
 import androidx.work.WorkerParameters;
-import androidx.work.testing.TestWorkerBuilder;
+import androidx.work.testing.TestListenableWorkerBuilder;
 
+import com.android.devicelockcontroller.policy.FinalizationController;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.provision.grpc.DeviceFinalizeClient;
+
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.testing.TestingExecutors;
+
+import io.grpc.Status;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -41,25 +49,27 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-
-import io.grpc.Status;
-
 @RunWith(RobolectricTestRunner.class)
 public final class ReportDeviceLockProgramCompleteWorkerTest {
     @Rule
     public final MockitoRule mMocks = MockitoJUnit.rule();
     @Mock
     private DeviceFinalizeClient mClient;
+    @Mock
+    private PolicyObjectsProvider mPolicyObjectsProvider;
+    @Mock
+    private FinalizationController mFinalizationController;
     private ReportDeviceLockProgramCompleteWorker mWorker;
 
     @Before
     public void setUp() throws Exception {
         final Context context = ApplicationProvider.getApplicationContext();
-        final Executor executor = Executors.newSingleThreadExecutor();
-        mWorker = TestWorkerBuilder.from(
-                        context, ReportDeviceLockProgramCompleteWorker.class, executor)
+        when(mPolicyObjectsProvider.getFinalizationController())
+                .thenReturn(mFinalizationController);
+        when(mFinalizationController.notifyFinalizationReportResult(any()))
+                .thenReturn(Futures.immediateVoidFuture());
+        mWorker = TestListenableWorkerBuilder.from(
+                        context, ReportDeviceLockProgramCompleteWorker.class)
                 .setWorkerFactory(
                         new WorkerFactory() {
                             @Override
@@ -69,7 +79,8 @@ public final class ReportDeviceLockProgramCompleteWorkerTest {
                                 return workerClassName.equals(
                                         ReportDeviceLockProgramCompleteWorker.class.getName())
                                         ? new ReportDeviceLockProgramCompleteWorker(context,
-                                        workerParameters, mClient)
+                                        workerParameters, mClient, mPolicyObjectsProvider,
+                                        TestingExecutors.sameThreadScheduledExecutor())
                                         : null;
                             }
                         }).build();
@@ -80,7 +91,7 @@ public final class ReportDeviceLockProgramCompleteWorkerTest {
         when(mClient.reportDeviceProgramComplete()).thenReturn(
                 new DeviceFinalizeClient.ReportDeviceProgramCompleteResponse());
 
-        assertThat(mWorker.doWork()).isEqualTo(Result.success());
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
     }
 
     @Test
@@ -88,14 +99,14 @@ public final class ReportDeviceLockProgramCompleteWorkerTest {
         when(mClient.reportDeviceProgramComplete()).thenReturn(
                 new DeviceFinalizeClient.ReportDeviceProgramCompleteResponse(Status.UNAVAILABLE));
 
-        assertThat(mWorker.doWork()).isEqualTo(Result.retry());
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.retry());
     }
 
     @Test
     public void doWork_responseHasFatalError_returnFailure() {
         when(mClient.reportDeviceProgramComplete()).thenReturn(
-                new DeviceFinalizeClient.ReportDeviceProgramCompleteResponse(Status.UNKNOWN));
+                new DeviceFinalizeClient.ReportDeviceProgramCompleteResponse(Status.UNIMPLEMENTED));
 
-        assertThat(mWorker.doWork()).isEqualTo(Result.failure());
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.failure());
     }
 }
