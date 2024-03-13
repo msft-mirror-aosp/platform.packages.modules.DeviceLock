@@ -17,6 +17,8 @@
 package com.android.server.devicelock;
 
 import static android.app.AppOpsManager.OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION;
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_IMEI;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_MEID;
 import static android.devicelock.IDeviceLockService.KEY_REMOTE_CALLBACK_RESULT;
@@ -76,10 +78,15 @@ import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowTelephonyManager;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Tests for {@link com.android.server.devicelock.DeviceLockServiceImpl}.
+ *
+ * TODO(b/329330992): Add tests for multi-user scenarios and system user specific logic
  */
 @RunWith(RobolectricTestRunner.class)
 public final class DeviceLockServiceImplTest {
@@ -95,6 +102,8 @@ public final class DeviceLockServiceImplTest {
     private Context mContext;
     private ShadowTelephonyManager mShadowTelephonyManager;
     private ShadowAppOpsManager mShadowAppOpsManager;
+    private ShadowPackageManager mShadowPackageManager;
+    private PackageManager mPackageManager;
 
     @Mock
     private IDeviceLockControllerService mDeviceLockControllerService;
@@ -104,9 +113,10 @@ public final class DeviceLockServiceImplTest {
     private ShadowApplication mShadowApplication;
 
     private DeviceLockServiceImpl mService;
+    private final ExecutorService mExecutorService = Executors.newSingleThreadExecutor();
 
     @Before
-    public void setup() {
+    public void setup() throws Exception {
         mContext = ApplicationProvider.getApplicationContext();
         mShadowApplication = shadowOf((Application) mContext);
         mShadowApplication.grantPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
@@ -114,25 +124,28 @@ public final class DeviceLockServiceImplTest {
                 mContext.getSystemServiceName(PowerExemptionManager.class),
                 mPowerExemptionManager);
 
-        PackageManager packageManager = mContext.getPackageManager();
-        ShadowPackageManager shadowPackageManager = shadowOf(packageManager);
-        shadowPackageManager.setPackagesForUid(Process.myUid(),
+        mPackageManager = mContext.getPackageManager();
+        mShadowPackageManager = shadowOf(mPackageManager);
+        mShadowPackageManager.setPackagesForUid(Process.myUid(),
                 new String[]{mContext.getPackageName()});
 
         PackageInfo dlcPackageInfo = new PackageInfo();
         dlcPackageInfo.packageName = DLC_PACKAGE_NAME;
-        shadowPackageManager.installPackage(dlcPackageInfo);
+        mShadowPackageManager.installPackage(dlcPackageInfo);
 
         Intent intent = new Intent(SERVICE_ACTION);
         ResolveInfo resolveInfo = makeDlcResolveInfo();
-        shadowPackageManager.addResolveInfoForIntent(intent, resolveInfo);
+        mShadowPackageManager.addResolveInfoForIntent(intent, resolveInfo);
 
         TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
         mShadowTelephonyManager = shadowOf(telephonyManager);
 
         mShadowAppOpsManager = shadowOf(mContext.getSystemService(AppOpsManager.class));
 
-        mService = new DeviceLockServiceImpl(mContext, telephonyManager);
+        mService = new DeviceLockServiceImpl(mContext, telephonyManager, mExecutorService,
+                mContext.getFilesDir());
+        waitUntilBgExecutorIdle();
+        shadowOf(Looper.getMainLooper()).idle();
     }
 
     @Test
@@ -295,6 +308,52 @@ public final class DeviceLockServiceImplTest {
         assertThat(powerOpMode).isEqualTo(AppOpsManager.MODE_DEFAULT);
     }
 
+    @Test
+    public void setDeviceFinalized_disablesPackage() throws Exception {
+        AtomicBoolean succeeded = new AtomicBoolean(false);
+
+        mService.setDeviceFinalized(true, new RemoteCallback(result -> succeeded.set(true)));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isTrue();
+    }
+
+    @Test
+    public void onUserSwitching_ifNotFinalized_enables() throws Exception {
+        // GIVEN DLC is disabled and device is not finalized
+        mPackageManager.setApplicationEnabledSetting(
+                DLC_PACKAGE_NAME, COMPONENT_ENABLED_STATE_DISABLED, /* flags= */ 0);
+
+        // WHEN the service checks finalization
+        mService.onUserSwitching(Process.myUserHandle());
+
+        waitUntilBgExecutorIdle();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // THEN DLC is enabled
+        assertThat(mPackageManager.getApplicationEnabledSetting(DLC_PACKAGE_NAME))
+                .isEqualTo(COMPONENT_ENABLED_STATE_DEFAULT);
+    }
+
+    @Test
+    public void onUserSwitching_ifFinalized_doesNothing() throws Exception {
+        // GIVEN DLC is disabled and device is finalized
+        mService.setDeviceFinalized(true, new RemoteCallback(result -> {}));
+        waitUntilBgExecutorIdle();
+        assertThat(mPackageManager.getApplicationEnabledSetting(DLC_PACKAGE_NAME))
+                .isEqualTo(COMPONENT_ENABLED_STATE_DISABLED);
+
+        // WHEN there is a user switch
+        mService.onUserSwitching(Process.myUserHandle());
+
+        waitUntilBgExecutorIdle();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // THEN DLC stays disabled
+        assertThat(mPackageManager.getApplicationEnabledSetting(DLC_PACKAGE_NAME))
+                .isEqualTo(COMPONENT_ENABLED_STATE_DISABLED);
+    }
+
     /**
      * Make the resolve info for the DLC package.
      */
@@ -325,5 +384,9 @@ public final class DeviceLockServiceImplTest {
             connection.onServiceConnected(new ComponentName(DLC_PACKAGE_NAME, DLC_SERVICE_NAME),
                     binder);
         }, ONE_SEC_MILLIS);
+    }
+
+    private void waitUntilBgExecutorIdle() throws InterruptedException, ExecutionException {
+        mExecutorService.submit(() -> {}).get();
     }
 }

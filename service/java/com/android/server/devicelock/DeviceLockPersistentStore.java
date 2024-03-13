@@ -17,7 +17,6 @@
 package com.android.server.devicelock;
 
 import android.annotation.WorkerThread;
-import android.os.Environment;
 import android.util.AtomicFile;
 import android.util.Slog;
 import android.util.Xml;
@@ -33,7 +32,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
  * Class that manages persisting device state data for the system service.
@@ -46,11 +44,12 @@ public final class DeviceLockPersistentStore {
     private static final String TAG_DEVICE_STATE = "device_state";
     private static final String ATTR_IS_DEVICE_FINALIZED = "is_device_finalized";
 
-    private final Executor mBgExecutor = Executors.newSingleThreadExecutor();
+    private final Executor mBgExecutor;
     private final File mFile;
 
-    DeviceLockPersistentStore() {
-        final File systemDir = new File(Environment.getDataDirectory(), SYSTEM_DIR);
+    DeviceLockPersistentStore(Executor bgExecutor, File dataDirectory) {
+        mBgExecutor = bgExecutor;
+        final File systemDir = new File(dataDirectory, SYSTEM_DIR);
         final File deviceLockDir = new File(systemDir, DEVICE_LOCK_DIR);
         if (!deviceLockDir.exists()) {
             final boolean madeDirs = deviceLockDir.mkdirs();
@@ -92,8 +91,8 @@ public final class DeviceLockPersistentStore {
             try (FileOutputStream fileOutputStream = atomicFile.startWrite()) {
                 try {
                     XmlSerializer serializer = Xml.newSerializer();
-                    serializer.setOutput(fileOutputStream, Xml.Encoding.UTF_8.name());
-                    serializer.startDocument(Xml.Encoding.UTF_8.name(), true /* standalone */);
+                    serializer.setOutput(fileOutputStream, Xml.Encoding.UTF_16.name());
+                    serializer.startDocument(Xml.Encoding.UTF_16.name(), true /* standalone */);
                     writeToXml(serializer, finalized);
                     serializer.endDocument();
                     fileOutputStream.flush();
@@ -126,7 +125,7 @@ public final class DeviceLockPersistentStore {
 
             try (FileInputStream inputStream = atomicFile.openRead()) {
                 XmlPullParser parser = Xml.newPullParser();
-                parser.setInput(inputStream, Xml.Encoding.UTF_8.name());
+                parser.setInput(inputStream, /* inputEncoding= */ null);
                 return getStateFromXml(parser);
             } catch (XmlPullParserException | IOException e) {
                 Slog.e(TAG, "Failed to read XML", e);

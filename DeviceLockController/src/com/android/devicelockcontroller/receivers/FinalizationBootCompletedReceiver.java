@@ -22,11 +22,18 @@ import android.content.Intent;
 import android.os.UserManager;
 
 import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.util.LogUtil;
+
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * Boot complete receiver to initialize finalization state on device.
  */
 public final class FinalizationBootCompletedReceiver extends BroadcastReceiver {
+    private static final String TAG = FinalizationBootCompletedReceiver.class.getSimpleName();
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -41,7 +48,18 @@ public final class FinalizationBootCompletedReceiver extends BroadcastReceiver {
         }
 
         // Initialize finalization controller to apply device finalization state
-        ((PolicyObjectsProvider) context.getApplicationContext())
-                .getFinalizationController().enforceInitialState();
+        ListenableFuture<Void> enforced = ((PolicyObjectsProvider) context.getApplicationContext())
+                .getFinalizationController().enforceDiskState(/* force= */ false);
+        Futures.addCallback(enforced, new FutureCallback<>() {
+            @Override
+            public void onSuccess(Void result) {
+                // no-op
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LogUtil.e(TAG, "Failed to enforce finalization state on boot!", t);
+            }
+        }, MoreExecutors.directExecutor());
     }
 }

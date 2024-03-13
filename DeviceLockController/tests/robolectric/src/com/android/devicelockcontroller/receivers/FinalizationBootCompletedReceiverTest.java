@@ -47,6 +47,6 @@ public final class FinalizationBootCompletedReceiverTest {
     public void onReceive_initializeFinalizationController() {
         mReceiver.onReceive(mTestApplication, INTENT);
 
-        verify(mTestApplication.getFinalizationController()).enforceInitialState();
+        verify(mTestApplication.getFinalizationController()).enforceDiskState(false);
     }
 }
