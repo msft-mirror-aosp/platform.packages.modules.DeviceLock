@@ -27,11 +27,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 public interface FinalizationController {
 
     /**
-     * Initializes the controller and enforces the initial state.
+     * Enforces the disk state.
      *
+     * @param force if true, forcefully reset the state to the disk state and enforce it.
+     *              Otherwise, only enforce if the state is uninitialized
      * @return future for when the state has been enforced
      */
-    ListenableFuture<Void> enforceInitialState();
+    ListenableFuture<Void> enforceDiskState(boolean force);
 
     /**
      * Notifies the controller that the device restrictions have been cleared and that the device

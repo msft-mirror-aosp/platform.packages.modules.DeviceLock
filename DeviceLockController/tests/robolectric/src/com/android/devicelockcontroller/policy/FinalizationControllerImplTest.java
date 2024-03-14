@@ -56,7 +56,7 @@ public final class FinalizationControllerImplTest {
 
     private static final int TIMEOUT_MS = 1000;
 
-    private final SystemDeviceLockManager mSystemDeviceLockManager =
+    private final TestSystemDeviceLockManager mSystemDeviceLockManager =
             new TestSystemDeviceLockManager();
     private Context mContext;
     private FinalizationControllerImpl mFinalizationController;
@@ -111,6 +111,7 @@ public final class FinalizationControllerImplTest {
 
         // THEN the disk value is set to finalized
         assertThat(mGlobalParametersClient.getFinalizationState().get()).isEqualTo(FINALIZED);
+        assertThat(mSystemDeviceLockManager.finalized).isTrue();
     }
 
     @Test
@@ -122,8 +123,8 @@ public final class FinalizationControllerImplTest {
 
         // WHEN the controller is initialized
         mFinalizationController = makeFinalizationController();
-        Futures.getChecked(mFinalizationController.enforceInitialState(), Exception.class,
-                TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        Futures.getChecked(mFinalizationController.enforceDiskState(/* force= */false),
+                Exception.class, TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
         // THEN the state from disk is used and is applied immediately, reporting the work.
         ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mContext)
@@ -132,12 +133,57 @@ public final class FinalizationControllerImplTest {
         assertThat(workInfos).isNotEmpty();
     }
 
+    @Test
+    public void enforceDiskState_noForce_usesCurrentState() throws Exception {
+        // GIVEN the controller has an unreported state
+        Futures.getChecked(
+                mGlobalParametersClient.setFinalizationState(FINALIZED_UNREPORTED),
+                Exception.class);
+        mFinalizationController = makeFinalizationController();
+        Futures.getChecked(mFinalizationController.enforceDiskState(/* force= */ false),
+                Exception.class, TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        // GIVEN the disk state is finalized (e.g. on another user)
+        Futures.getChecked(
+                mGlobalParametersClient.setFinalizationState(FINALIZED),
+                Exception.class);
+
+        // WHEN the controller enforces disk state without force
+        Futures.getChecked(mFinalizationController.enforceDiskState(/* force= */ false),
+                Exception.class);
+
+        // THEN the disk state is not enforced
+        assertThat(mSystemDeviceLockManager.finalized).isFalse();
+    }
+
+    @Test
+    public void enforceDiskState_force_usesDiskState() throws Exception {
+        // GIVEN the controller has an unreported state
+        Futures.getChecked(
+                mGlobalParametersClient.setFinalizationState(FINALIZED_UNREPORTED),
+                Exception.class);
+        mFinalizationController = makeFinalizationController();
+        Futures.getChecked(mFinalizationController.enforceDiskState(/* force= */ false),
+                Exception.class, TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        // GIVEN the disk state is finalized (e.g. on another user)
+        Futures.getChecked(
+                mGlobalParametersClient.setFinalizationState(FINALIZED),
+                Exception.class);
+
+        // WHEN the controller enforces disk state with force
+        Futures.getChecked(mFinalizationController.enforceDiskState(/* force= */ true),
+                Exception.class);
+
+        // THEN the state from disk is used and enforced.
+        assertThat(mSystemDeviceLockManager.finalized).isTrue();
+    }
+
     private FinalizationControllerImpl makeFinalizationController() {
         return new FinalizationControllerImpl(
                 mContext, mDispatchQueue, mBgExecutor, TestWorker.class, mSystemDeviceLockManager);
     }
 
     private static final class TestSystemDeviceLockManager implements SystemDeviceLockManager {
+        public boolean finalized = false;
 
         @Override
         public void addFinancedDeviceKioskRole(@NonNull String packageName, Executor executor,
@@ -196,6 +242,7 @@ public final class FinalizationControllerImplTest {
         @Override
         public void setDeviceFinalized(boolean finalized, Executor executor,
                 @NonNull OutcomeReceiver<Void, Exception> callback) {
+            this.finalized = finalized;
             executor.execute(() -> callback.onResult(null));
         }
 
