@@ -115,7 +115,12 @@ public final class DeviceLockControllerService extends Service {
 
                 @Override
                 public void onUserSwitching(RemoteCallback remoteCallback) {
-                    Futures.addCallback(mPolicyController.enforceCurrentPolicies(),
+                    Futures.addCallback(
+                            Futures.transformAsync(mPolicyController.enforceCurrentPolicies(),
+                                    // Force read from disk in case it progressed on the other user
+                                    unused -> mFinalizationController.enforceDiskState(
+                                            /* force= */ true),
+                                    MoreExecutors.directExecutor()),
                             remoteCallbackWrapper(remoteCallback),
                             MoreExecutors.directExecutor());
                 }
