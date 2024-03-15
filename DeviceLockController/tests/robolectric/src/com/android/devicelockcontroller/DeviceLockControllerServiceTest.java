@@ -18,6 +18,13 @@ package com.android.devicelockcontroller;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
@@ -28,11 +35,14 @@ import android.os.RemoteException;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.rule.ServiceTestRule;
 
+import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.FinalizationController;
 import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
+
+import com.google.common.util.concurrent.Futures;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -46,14 +56,6 @@ import org.robolectric.shadows.ShadowPackageManager;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import static com.google.common.truth.Truth.assertThat;
-
-import com.google.common.util.concurrent.Futures;
 
 @RunWith(RobolectricTestRunner.class)
 public final class DeviceLockControllerServiceTest {
@@ -208,6 +210,25 @@ public final class DeviceLockControllerServiceTest {
         serviceStub.clearDeviceRestrictions(new RemoteCallback((result -> {})));
 
         verify(mStatsLogger).logKioskAppRequest(eq(KIOSK_APP_UID));
+    }
+
+    @Test
+    public void onUserSwitching_enforcePoliciesAndFinalizationState()
+            throws RemoteException, TimeoutException {
+        Intent serviceIntent = new Intent(mTestApp, DeviceLockControllerService.class);
+        IBinder binder = mServiceRule.bindService(serviceIntent);
+        DevicePolicyController policyController = mTestApp.getPolicyController();
+        when(policyController.enforceCurrentPolicies()).thenReturn(Futures.immediateVoidFuture());
+        FinalizationController finalizationController = mTestApp.getFinalizationController();
+        when(finalizationController.enforceDiskState(anyBoolean())).thenReturn(
+                Futures.immediateVoidFuture());
+
+        assertThat(binder).isNotNull();
+        IDeviceLockControllerService.Stub serviceStub = (IDeviceLockControllerService.Stub) binder;
+        serviceStub.onUserSwitching(new RemoteCallback(result -> {}));
+
+        verify(policyController).enforceCurrentPolicies();
+        verify(finalizationController).enforceDiskState(true);
     }
 
     private static void setupSetupParameters() throws InterruptedException, ExecutionException {
