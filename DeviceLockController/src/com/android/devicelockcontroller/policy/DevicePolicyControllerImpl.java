@@ -29,7 +29,6 @@ import static com.android.devicelockcontroller.policy.ProvisionStateController.P
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_PAUSED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_SUCCEEDED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
-import static com.android.devicelockcontroller.policy.StartLockTaskModeWorker.START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS;
 import static com.android.devicelockcontroller.policy.StartLockTaskModeWorker.START_LOCK_TASK_MODE_WORK_NAME;
 
 import android.app.admin.DevicePolicyManager;
@@ -44,7 +43,6 @@ import android.os.UserManager;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.VisibleForTesting;
-import androidx.work.BackoffPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.Operation;
@@ -95,6 +93,8 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
     private final Executor mBgExecutor;
     static final String ACTION_DEVICE_LOCK_KIOSK_SETUP =
             "com.android.devicelock.action.KIOSK_SETUP";
+    private static final String DEVICE_LOCK_VERSION_EXTRA = "DEVICE_LOCK_VERSION";
+    private static final int DEVICE_LOCK_VERSION = 2;
     private final UserManager mUserManager;
 
     /**
@@ -411,6 +411,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                         throw new IllegalStateException(
                                 "Failed to get setup activity intent for kiosk app!");
                     }
+                    kioskSetupIntent.putExtra(DEVICE_LOCK_VERSION_EXTRA, DEVICE_LOCK_VERSION);
                     return kioskSetupIntent.setComponent(new ComponentName(kioskPackageName,
                             resolveInfo.activityInfo.name));
                 }, mBgExecutor);
@@ -497,8 +498,6 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
         OneTimeWorkRequest startLockTask = new OneTimeWorkRequest.Builder(
                 StartLockTaskModeWorker.class)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .setBackoffCriteria(BackoffPolicy.LINEAR,
-                        START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS)
                 .build();
         final ListenableFuture<Operation.State.SUCCESS> enqueueResult =
                 workManager.enqueueUniqueWork(START_LOCK_TASK_MODE_WORK_NAME,

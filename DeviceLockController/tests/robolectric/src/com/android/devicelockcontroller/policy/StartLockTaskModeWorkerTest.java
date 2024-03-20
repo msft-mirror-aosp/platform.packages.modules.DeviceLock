@@ -197,18 +197,4 @@ public final class StartLockTaskModeWorkerTest {
         // THEN the work fails
         assertThat(result).isEqualTo(Result.failure());
     }
-
-    @Test
-    public void doWork_retriesIfNotInLockTaskMode() throws Exception {
-        // GIVEN device is not locked and still not locked after worker finishes
-        when(mAm.getLockTaskModeState())
-                .thenReturn(ActivityManager.LOCK_TASK_MODE_NONE)
-                .thenReturn(ActivityManager.LOCK_TASK_MODE_NONE);
-
-        // WHEN the work finishes
-        final Result result = mBgExecutor.submit(() -> mWorker.startWork().get()).get();
-
-        // THEN the work retries
-        assertThat(result).isEqualTo(Result.retry());
-    }
 }
