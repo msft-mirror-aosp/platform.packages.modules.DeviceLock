@@ -77,6 +77,11 @@ public final class SetupParametersService extends Service {
                 }
 
                 @Override
+                public boolean isDebuggingAllowed() {
+                    return SetupParameters.isDebuggingAllowed(mContext);
+                }
+
+                @Override
                 @ProvisioningType
                 public int getProvisioningType() {
                     return SetupParameters.getProvisioningType(mContext);
