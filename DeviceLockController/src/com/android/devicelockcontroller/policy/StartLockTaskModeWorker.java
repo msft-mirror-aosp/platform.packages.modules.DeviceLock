@@ -40,7 +40,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
-import java.time.Duration;
 import java.util.Objects;
 
 /**
@@ -53,8 +52,6 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
     private final Context mContext;
     private final ListeningExecutorService mExecutorService;
 
-    static final Duration START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS =
-            Duration.ofSeconds(30);
     private final ActivityManager mAm;
     private final DevicePolicyManager mDpm;
 
@@ -131,13 +128,7 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                                                 - provisioningStartTime);
                             }
                         }
-                        if (mAm.getLockTaskModeState() == ActivityManager.LOCK_TASK_MODE_LOCKED) {
-                            LogUtil.i(TAG, "Successfully entered lock task mode");
-                            return Result.success();
-                        } else {
-                            LogUtil.i(TAG, "Retry entering lock task mode");
-                            return Result.retry();
-                        }
+                        return Result.success();
                     }, mExecutorService);
         }, mExecutorService);
         return Futures.catchingAsync(lockTaskFuture, Exception.class,
