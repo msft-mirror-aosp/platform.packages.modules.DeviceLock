@@ -36,3 +36,13 @@ android_robolectric_test {
     ],
     test_suites: ["general-tests"],
 }
+
+filegroup {
+    name: "devicelockcontroller-test-application-sources",
+    srcs: [
+        "src/com/android/devicelockcontroller/TestDeviceLockControllerApplication.java",
+    ],
+    visibility: [
+        "//vendor:__subpackages__",
+    ],
+}
