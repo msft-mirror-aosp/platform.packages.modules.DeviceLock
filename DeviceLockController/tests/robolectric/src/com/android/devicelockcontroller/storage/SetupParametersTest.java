@@ -48,6 +48,7 @@ public final class SetupParametersTest extends AbstractSetupParametersTestBase {
         assertThat(SetupParameters.getKioskPackage(mContext)).isEqualTo(KIOSK_PACKAGE);
         assertThat(SetupParameters.getOutgoingCallsDisabled(mContext)).isTrue();
         assertThat(SetupParameters.isNotificationsInLockTaskModeEnabled(mContext)).isTrue();
+        assertThat(SetupParameters.isDebuggingAllowed(mContext)).isEqualTo(ALLOW_DEBUGGING);
 
         final List<String> expectedKioskAllowlist = new ArrayList<>();
         expectedKioskAllowlist.add(KIOSK_ALLOWLIST_PACKAGE_0);

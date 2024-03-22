@@ -187,6 +187,13 @@ public final class DeviceCheckInClientDebug extends DeviceCheckInClient {
                 return DebugLogUtil.logAndReturn(TAG,
                         getSharedPreference(DEBUG_DEVICELOCK_CHECKIN_APPROVED_COUNTRY, true));
             }
+
+            @Override
+            public boolean isDebuggingAllowed() {
+                // This value should not matter since the device is already on a debug build and
+                // can use debugging.
+                return true;
+            }
         };
     }
 

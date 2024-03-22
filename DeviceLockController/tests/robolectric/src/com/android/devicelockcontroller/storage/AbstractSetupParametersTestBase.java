@@ -16,6 +16,7 @@
 
 package com.android.devicelockcontroller.storage;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ALLOWLIST;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_APP_PROVIDER_NAME;
@@ -44,6 +45,7 @@ abstract class AbstractSetupParametersTestBase {
     @ProvisioningType
     protected static final int PROVISIONING_TYPE = TYPE_FINANCED;
     protected static final boolean MANDATORY_PROVISION = true;
+    protected static final boolean ALLOW_DEBUGGING = true;
     protected static final boolean DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES = true;
     protected static final String TERMS_AND_CONDITIONS_URL = "https://www.example.com/terms";
     protected static final String SUPPORT_URL = "https://www.example.com/support";
@@ -62,6 +64,7 @@ abstract class AbstractSetupParametersTestBase {
         bundle.putStringArrayList(EXTRA_KIOSK_ALLOWLIST, actualKioskAllowlist);
         bundle.putInt(EXTRA_PROVISIONING_TYPE, PROVISIONING_TYPE);
         bundle.putBoolean(EXTRA_MANDATORY_PROVISION, MANDATORY_PROVISION);
+        bundle.putBoolean(EXTRA_ALLOW_DEBUGGING, ALLOW_DEBUGGING);
         bundle.putString(EXTRA_KIOSK_APP_PROVIDER_NAME, KIOSK_APP_PROVIDER_NAME);
         bundle.putBoolean(EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES,
                 DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES);
