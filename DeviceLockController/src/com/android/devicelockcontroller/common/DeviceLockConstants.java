@@ -120,6 +120,13 @@ public final class DeviceLockConstants {
      */
     public static final String EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE =
             "com.android.devicelockcontroller.KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE";
+
+    /**
+     * Used to control if adb debugging should be allowed on prod devices. The default value is
+     * false.
+     */
+    public static final String EXTRA_ALLOW_DEBUGGING =
+            "com.android.devicelockcontroller.ALLOW_DEBUGGING";
     public static final String EXTRA_KIOSK_ALLOWLIST =
             "com.android.devicelockcontroller.KIOSK_ALLOWLIST";
     public static final String EXTRA_PROVISIONING_TYPE =
