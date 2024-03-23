@@ -185,6 +185,16 @@ public final class SetupParametersClient extends DlcClient
     }
 
     /**
+     * Check if adb debugging is allowed even on prod devices.
+     *
+     * @return True if adb debugging is allowed
+     */
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<Boolean> isDebuggingAllowed() {
+        return call(() -> asInterface(getService()).isDebuggingAllowed());
+    }
+
+    /**
      * Get the provisioning type of this configuration.
      *
      * @return The type of provisioning which could be one of {@link ProvisioningType}.

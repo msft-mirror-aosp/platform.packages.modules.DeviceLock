@@ -16,6 +16,7 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_DISABLE_OUTGOING_CALLS;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
@@ -23,6 +24,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -198,6 +200,27 @@ public final class UserRestrictionsPolicyHandlerTest {
     }
 
     @Test
+    public void onProvisionInProgress_withDebuggingAllowed_shouldNotDisallowDebuggingFeatures()
+            throws ExecutionException, InterruptedException {
+        Bundle preferences = new Bundle();
+        preferences.putString(EXTRA_KIOSK_PACKAGE, TEST_PACKAGE);
+        preferences.putBoolean(EXTRA_ALLOW_DEBUGGING, true);
+        SetupParametersClient.getInstance().createPrefs(preferences).get();
+
+        Bundle userRestrictions = new Bundle();
+        when(mMockUserManager.getUserRestrictions()).thenReturn(userRestrictions);
+        UserRestrictionsPolicyHandler handler = new UserRestrictionsPolicyHandler(mMockDpm,
+                mMockUserManager,
+                /* isDebug =*/ false,
+                Executors.newSingleThreadExecutor());
+
+        handler.onProvisionInProgress().get();
+
+        verify(mMockDpm, never()).addUserRestriction(any(),
+                eq(UserManager.DISALLOW_DEBUGGING_FEATURES));
+    }
+
+    @Test
     public void onLockedDebug_withDisableOutgoingCallShouldSetExpectedUserRestrictions()
             throws ExecutionException, InterruptedException {
         Bundle preferences = new Bundle();
@@ -272,6 +295,27 @@ public final class UserRestrictionsPolicyHandlerTest {
                         UserManager.DISALLOW_DEBUGGING_FEATURES,
                         UserManager.DISALLOW_OUTGOING_CALLS,
                         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES});
+    }
+
+    @Test
+    public void onLocked_withDebuggingAllowed_shouldNotDisallowDebuggingFeatures()
+            throws ExecutionException, InterruptedException {
+        Bundle preferences = new Bundle();
+        preferences.putString(EXTRA_KIOSK_PACKAGE, TEST_PACKAGE);
+        preferences.putBoolean(EXTRA_ALLOW_DEBUGGING, true);
+        SetupParametersClient.getInstance().createPrefs(preferences).get();
+
+        Bundle userRestrictions = new Bundle();
+        when(mMockUserManager.getUserRestrictions()).thenReturn(userRestrictions);
+        UserRestrictionsPolicyHandler handler = new UserRestrictionsPolicyHandler(mMockDpm,
+                mMockUserManager,
+                /* isDebug =*/ false,
+                Executors.newSingleThreadExecutor());
+
+        handler.onLocked().get();
+
+        verify(mMockDpm, never()).addUserRestriction(any(),
+                eq(UserManager.DISALLOW_DEBUGGING_FEATURES));
     }
 
     @Test
@@ -426,6 +470,27 @@ public final class UserRestrictionsPolicyHandlerTest {
                 new String[]{UserManager.DISALLOW_SAFE_BOOT,
                         UserManager.DISALLOW_DEBUGGING_FEATURES,
                         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES});
+    }
+
+    @Test
+    public void onUnlocked_withDebuggingAllowed_shouldNotDisallowDebuggingFeatures()
+            throws ExecutionException, InterruptedException {
+        Bundle preferences = new Bundle();
+        preferences.putString(EXTRA_KIOSK_PACKAGE, TEST_PACKAGE);
+        preferences.putBoolean(EXTRA_ALLOW_DEBUGGING, true);
+        SetupParametersClient.getInstance().createPrefs(preferences).get();
+
+        Bundle userRestrictions = new Bundle();
+        when(mMockUserManager.getUserRestrictions()).thenReturn(userRestrictions);
+        UserRestrictionsPolicyHandler handler = new UserRestrictionsPolicyHandler(mMockDpm,
+                mMockUserManager,
+                /* isDebug =*/ false,
+                Executors.newSingleThreadExecutor());
+
+        handler.onUnlocked().get();
+
+        verify(mMockDpm, never()).addUserRestriction(any(),
+                eq(UserManager.DISALLOW_DEBUGGING_FEATURES));
     }
 
     @Test
