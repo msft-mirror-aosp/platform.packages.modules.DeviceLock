@@ -93,7 +93,7 @@ public final class ReportDeviceLockProgramCompleteWorker extends ListenableWorke
             DeviceFinalizeClient.ReportDeviceProgramCompleteResponse response =
                     client.reportDeviceProgramComplete();
             if (response.hasRecoverableError()) {
-                LogUtil.w(TAG, "Report finalization failed w/ recoverable error" + response
+                LogUtil.w(TAG, "Report finalization failed w/ recoverable error " + response
                         + "\nRetrying...");
                 return Futures.immediateFuture(Result.retry());
             }

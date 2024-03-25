@@ -172,7 +172,7 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                             isSuccessful,
                             failureReason);
             if (response.hasRecoverableError()) {
-                LogUtil.w(TAG, "Report provision state failed w/ recoverable error" + response
+                LogUtil.w(TAG, "Report provision state failed w/ recoverable error " + response
                         + "\nRetrying...");
                 return Result.retry();
             }
