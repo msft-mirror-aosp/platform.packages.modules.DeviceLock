@@ -94,6 +94,26 @@ public final class FinalizationControllerImplTest {
     }
 
     @Test
+    public void finalizeNotEnrolledDevice_doesNotStartReportingWork() throws Exception {
+        mFinalizationController = makeFinalizationController();
+
+        // WHEN a non enrolled device is finalized
+        ListenableFuture<Void> finalizeFuture =
+                mFinalizationController.finalizeNotEnrolledDevice();
+        Futures.getChecked(finalizeFuture, Exception.class, TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+        // THEN work manager has no work scheduled to report the device is finalized and the disk
+        // value is set to finalized
+        ListenableFuture<List<WorkInfo>> workInfosFuture = WorkManager.getInstance(mContext)
+                .getWorkInfosForUniqueWork(REPORT_DEVICE_LOCK_PROGRAM_COMPLETE_WORK_NAME);
+        List<WorkInfo> workInfos = Futures.getChecked(workInfosFuture, Exception.class);
+        assertThat(workInfos).isEmpty();
+        assertThat(mGlobalParametersClient.getFinalizationState().get())
+                .isEqualTo(FINALIZED);
+        assertThat(mSystemDeviceLockManager.finalized).isTrue();
+    }
+
+    @Test
     public void reportingFinishedSuccessfully_fullyFinalizes() throws Exception {
         mFinalizationController = makeFinalizationController();
 
