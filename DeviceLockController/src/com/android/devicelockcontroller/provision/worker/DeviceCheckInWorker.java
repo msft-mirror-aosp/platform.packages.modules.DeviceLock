@@ -100,7 +100,7 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                                         deviceIds, carrierInfo, fcmToken);
                         mStatsLogger.logGetDeviceCheckInStatus();
                         if (response.hasRecoverableError()) {
-                            LogUtil.w(TAG, "Check-in failed w/ recoverable error" + response
+                            LogUtil.w(TAG, "Check-in failed w/ recoverable error " + response
                                     + "\nRetrying...");
                             mStatsLogger.logCheckInRetry(
                                     StatsLogger.CheckInRetryReason.RPC_FAILURE);

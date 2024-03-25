@@ -115,7 +115,7 @@ public final class PauseProvisioningWorker extends AbstractCheckInWorker {
                     REASON_UNSPECIFIED);
             PauseDeviceProvisioningGrpcResponse response = client.pauseDeviceProvisioning(reason);
             if (response.hasRecoverableError()) {
-                LogUtil.w(TAG, "Report paused provisioning failed w/ recoverable error" + response
+                LogUtil.w(TAG, "Report paused provisioning failed w/ recoverable error " + response
                         + "\nRetrying...");
                 return Result.retry();
             }
