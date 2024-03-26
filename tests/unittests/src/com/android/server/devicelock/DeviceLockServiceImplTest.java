@@ -22,6 +22,7 @@ import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_IMEI;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_MEID;
 import static android.devicelock.IDeviceLockService.KEY_REMOTE_CALLBACK_RESULT;
+import static android.os.UserHandle.USER_SYSTEM;
 
 import static com.android.server.devicelock.DeviceLockControllerPackageUtils.SERVICE_ACTION;
 import static com.android.server.devicelock.DeviceLockServiceImpl.MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER;
@@ -58,6 +59,8 @@ import android.os.Looper;
 import android.os.PowerExemptionManager;
 import android.os.Process;
 import android.os.RemoteCallback;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.telephony.TelephonyManager;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -75,8 +78,10 @@ import org.mockito.stubbing.Answer;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.shadows.ShadowAppOpsManager;
 import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.shadows.ShadowBinder;
 import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowTelephonyManager;
+import org.robolectric.shadows.ShadowUserManager;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -86,13 +91,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Tests for {@link com.android.server.devicelock.DeviceLockServiceImpl}.
  *
- * TODO(b/329330992): Add tests for multi-user scenarios and system user specific logic
+ * TODO(b/329330992): Add tests for multi-user scenarios where users have different finalization
+ * states. Robolectric does not support creating contexts as other users, so the package manager
+ * infos are the same for all users. This makes it infeasible to unit test scenarios where the
+ * package states are different for different users.
+ *
  */
 @RunWith(RobolectricTestRunner.class)
 public final class DeviceLockServiceImplTest {
     private static final String DLC_PACKAGE_NAME = "test.package";
 
     private static final String DLC_SERVICE_NAME = "test.service";
+
+    private static final String SYSTEM_USER_NAME = "system";
+    private static final int USER_SECONDARY = 10;
+    private static final String SECONDARY_USER_NAME = "secondary";
 
     private static final long ONE_SEC_MILLIS = 1000;
 
@@ -104,6 +117,9 @@ public final class DeviceLockServiceImplTest {
     private ShadowAppOpsManager mShadowAppOpsManager;
     private ShadowPackageManager mShadowPackageManager;
     private PackageManager mPackageManager;
+    private ShadowUserManager mShadowUserManager;
+    private UserHandle mSystemUser;
+    private UserHandle mSecondaryUser;
 
     @Mock
     private IDeviceLockControllerService mDeviceLockControllerService;
@@ -141,6 +157,11 @@ public final class DeviceLockServiceImplTest {
         mShadowTelephonyManager = shadowOf(telephonyManager);
 
         mShadowAppOpsManager = shadowOf(mContext.getSystemService(AppOpsManager.class));
+
+        mShadowUserManager = shadowOf(mContext.getSystemService(UserManager.class));
+        mSystemUser = mShadowUserManager.addUser(USER_SYSTEM, SYSTEM_USER_NAME, /* flags= */ 0);
+        mSecondaryUser = mShadowUserManager.addUser(USER_SECONDARY, SECONDARY_USER_NAME,
+                /* flags= */ 0);
 
         mService = new DeviceLockServiceImpl(mContext, telephonyManager, mExecutorService,
                 mContext.getFilesDir());
@@ -309,23 +330,41 @@ public final class DeviceLockServiceImplTest {
     }
 
     @Test
-    public void setDeviceFinalized_disablesPackage() throws Exception {
-        AtomicBoolean succeeded = new AtomicBoolean(false);
+    public void setDeviceFinalized_nonSystemUser_disablesPackage() throws Exception {
+        ShadowBinder.setCallingUserHandle(mSecondaryUser);
 
+        AtomicBoolean succeeded = new AtomicBoolean(false);
         mService.setDeviceFinalized(true, new RemoteCallback(result -> succeeded.set(true)));
         waitUntilBgExecutorIdle();
 
         assertThat(succeeded.get()).isTrue();
+        assertThat(mPackageManager.getApplicationEnabledSetting(DLC_PACKAGE_NAME))
+                .isEqualTo(COMPONENT_ENABLED_STATE_DISABLED);
     }
 
     @Test
-    public void onUserSwitching_ifNotFinalized_enables() throws Exception {
-        // GIVEN DLC is disabled and device is not finalized
+    public void setDeviceFinalized_systemUser_butOtherUserUnfinalized_doesNotDisablePackage()
+            throws Exception {
+        ShadowBinder.setCallingUserHandle(mSystemUser);
+
+        AtomicBoolean succeeded = new AtomicBoolean(false);
+        mService.setDeviceFinalized(true, new RemoteCallback(result -> succeeded.set(true)));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isTrue();
+        assertThat(mPackageManager.getApplicationEnabledSetting(DLC_PACKAGE_NAME))
+                .isEqualTo(COMPONENT_ENABLED_STATE_DEFAULT);
+    }
+
+    @Test
+    public void onUserSwitching_ifNotFinalizedAndDlcDisabled_enables() throws Exception {
+        // GIVEN device is not finalized and DLC is disabled
+        ShadowBinder.setCallingUserHandle(mSecondaryUser);
         mPackageManager.setApplicationEnabledSetting(
                 DLC_PACKAGE_NAME, COMPONENT_ENABLED_STATE_DISABLED, /* flags= */ 0);
 
         // WHEN the service checks finalization
-        mService.onUserSwitching(Process.myUserHandle());
+        mService.onUserSwitching(mSecondaryUser);
 
         waitUntilBgExecutorIdle();
         shadowOf(Looper.getMainLooper()).idle();
@@ -336,15 +375,16 @@ public final class DeviceLockServiceImplTest {
     }
 
     @Test
-    public void onUserSwitching_ifFinalized_doesNothing() throws Exception {
-        // GIVEN DLC is disabled and device is finalized
+    public void onUserSwitching_ifFinalizedAndDisabledOnSecondary_doesNothing() throws Exception {
+        // GIVEN device is finalized and DLC is disabled on a secondary user
+        ShadowBinder.setCallingUserHandle(mSecondaryUser);
         mService.setDeviceFinalized(true, new RemoteCallback(result -> {}));
         waitUntilBgExecutorIdle();
         assertThat(mPackageManager.getApplicationEnabledSetting(DLC_PACKAGE_NAME))
                 .isEqualTo(COMPONENT_ENABLED_STATE_DISABLED);
 
-        // WHEN there is a user switch
-        mService.onUserSwitching(Process.myUserHandle());
+        // WHEN there is a user switch to a secondary user
+        mService.onUserSwitching(mSecondaryUser);
 
         waitUntilBgExecutorIdle();
         shadowOf(Looper.getMainLooper()).idle();
