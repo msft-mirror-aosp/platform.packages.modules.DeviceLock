@@ -166,7 +166,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
             case STOP_CHECK_IN:
                 final ListenableFuture<Void> clearRestrictionsFuture =
                         ((PolicyObjectsProvider) mAppContext).getFinalizationController()
-                                .notifyRestrictionsCleared();
+                                .finalizeNotEnrolledDevice();
                 Futures.addCallback(clearRestrictionsFuture,
                         new FutureCallback<>() {
                             @Override
@@ -176,11 +176,10 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
 
                             @Override
                             public void onFailure(Throwable t) {
-                                LogUtil.e(TAG, "Failed to clear restrictions", t);
+                                LogUtil.e(TAG, "Failed to finalize device", t);
                             }
                         }, MoreExecutors.directExecutor()
                 );
-                disableCheckInBootCompletedReceiver(mAppContext);
                 return true;
             case STATUS_UNSPECIFIED:
             default:

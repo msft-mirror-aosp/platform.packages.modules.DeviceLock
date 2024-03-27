@@ -111,6 +111,9 @@ final class FinalizationStateDispatchQueue {
         if (oldState == UNFINALIZED && newState == FINALIZED_UNREPORTED) {
             return true;
         }
+        if (oldState == UNFINALIZED && newState == FINALIZED) {
+            return true;
+        }
         if (oldState == FINALIZED_UNREPORTED && newState == FINALIZED) {
             return true;
         }

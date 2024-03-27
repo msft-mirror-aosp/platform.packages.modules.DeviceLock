@@ -17,6 +17,7 @@
 package com.android.devicelockcontroller.provision.worker;
 
 import static android.os.Looper.getMainLooper;
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_MEID;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
@@ -25,6 +26,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_C
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -122,6 +124,8 @@ public final class DeviceCheckInHelperTest {
         mFinalizationController = mTestApplication.getFinalizationController();
         when(mFinalizationController.notifyRestrictionsCleared()).thenReturn(
                 Futures.immediateVoidFuture());
+        when(mFinalizationController.finalizeNotEnrolledDevice()).thenReturn(
+                Futures.immediateVoidFuture());
 
         mTelephonyManager = Shadows.shadowOf(
                 mTestApplication.getSystemService(TelephonyManager.class));
@@ -154,13 +158,13 @@ public final class DeviceCheckInHelperTest {
     }
 
     @Test
-    public void testHandleGetDeviceCheckInStatusResponse_stopCheckIn_clearsRestrictions() {
+    public void testHandleGetDeviceCheckInStatusResponse_stopCheckIn_finalizesNonEnrolledDevice() {
         final GetDeviceCheckInStatusGrpcResponse response = createStopResponse();
 
         assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response,
                 mock(DeviceLockControllerScheduler.class))).isTrue();
         Shadows.shadowOf(getMainLooper()).idle();
-        verify(mFinalizationController).notifyRestrictionsCleared();
+        verify(mFinalizationController).finalizeNotEnrolledDevice();
     }
 
     @Test
