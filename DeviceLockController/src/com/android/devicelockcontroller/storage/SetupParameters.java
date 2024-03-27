@@ -16,6 +16,7 @@
 
 package com.android.devicelockcontroller.storage;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ALLOWLIST;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_APP_PROVIDER_NAME;
@@ -62,6 +63,7 @@ final class SetupParameters {
             "kiosk-disable-outgoing-calls";
     private static final String KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE =
             "kiosk-enable-notifications-in-lock-task-mode";
+    private static final String KEY_ALLOW_DEBUGGING = "allow-debugging";
     private static final String KEY_PROVISIONING_TYPE = "provisioning-type";
     private static final String KEY_MANDATORY_PROVISION = "mandatory-provision";
     private static final String KEY_KIOSK_APP_PROVIDER_NAME = "kiosk-app-provider-name";
@@ -97,6 +99,7 @@ final class SetupParameters {
                 + "%s: %s\n"    // kiosk-allowlist:
                 + "%s: %s\n"    // kiosk-disable-outgoing-calls:
                 + "%s: %s\n"    // kiosk-enable-notifications-in-lock-task-mode:
+                + "%s: %s\n"    // allow-debugging:
                 + "%s: %d\n"    // provisioning-type:
                 + "%s: %s\n"    // mandatory-provision:
                 + "%s: %s\n"    // kiosk-app-provider-name:
@@ -108,6 +111,7 @@ final class SetupParameters {
                 KEY_KIOSK_DISABLE_OUTGOING_CALLS, getOutgoingCallsDisabled(context),
                 KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE,
                 isNotificationsInLockTaskModeEnabled(context),
+                KEY_ALLOW_DEBUGGING, isDebuggingAllowed(context),
                 KEY_PROVISIONING_TYPE, getProvisioningType(context),
                 KEY_MANDATORY_PROVISION, isProvisionMandatory(context),
                 KEY_KIOSK_APP_PROVIDER_NAME, getKioskAppProviderName(context),
@@ -147,6 +151,7 @@ final class SetupParameters {
                 new ArraySet<>(bundle.getStringArrayList(EXTRA_KIOSK_ALLOWLIST)));
         editor.putInt(KEY_PROVISIONING_TYPE, bundle.getInt(EXTRA_PROVISIONING_TYPE));
         editor.putBoolean(KEY_MANDATORY_PROVISION, bundle.getBoolean(EXTRA_MANDATORY_PROVISION));
+        editor.putBoolean(KEY_ALLOW_DEBUGGING, bundle.getBoolean(EXTRA_ALLOW_DEBUGGING));
         editor.putString(KEY_KIOSK_APP_PROVIDER_NAME,
                 bundle.getString(EXTRA_KIOSK_APP_PROVIDER_NAME));
         editor.putBoolean(KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES,
@@ -201,6 +206,16 @@ final class SetupParameters {
     static boolean isNotificationsInLockTaskModeEnabled(Context context) {
         return getSharedPreferences(context)
                 .getBoolean(KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE, false /* defValue */);
+    }
+
+    /**
+     * Check if adb debugging is allowed even on prod devices.
+     *
+     * @param context Context used to get the shared preferences.
+     * @return True if adb debugging is allowed.
+     */
+    static boolean isDebuggingAllowed(Context context) {
+        return getSharedPreferences(context).getBoolean(KEY_ALLOW_DEBUGGING, false /* defValue */);
     }
 
     /**

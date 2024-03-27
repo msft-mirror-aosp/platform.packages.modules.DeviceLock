@@ -69,7 +69,7 @@ public final class IsDeviceInApprovedCountryWorker extends AbstractCheckInWorker
             ((StatsLoggerProvider) mContext.getApplicationContext()).getStatsLogger()
                     .logIsDeviceInApprovedCountry();
             if (response.hasRecoverableError()) {
-                LogUtil.w(TAG, "Is in approve country failed w/ recoverable error" + response
+                LogUtil.w(TAG, "Is in approve country failed w/ recoverable error " + response
                         + "\nRetrying...");
                 return Result.retry();
             }

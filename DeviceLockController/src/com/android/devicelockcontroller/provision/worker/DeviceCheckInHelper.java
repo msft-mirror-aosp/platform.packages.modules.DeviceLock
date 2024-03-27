@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.provision.worker;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_MEID;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
@@ -205,6 +206,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         provisionBundle.putInt(EXTRA_PROVISIONING_TYPE, response.getProvisioningType());
         provisionBundle.putBoolean(EXTRA_MANDATORY_PROVISION,
                 response.isProvisioningMandatory());
+        provisionBundle.putBoolean(EXTRA_ALLOW_DEBUGGING, response.isDebuggingAllowed());
         Futures.getUnchecked(
                 SetupParametersClient.getInstance().createPrefs(provisionBundle));
         Futures.getUnchecked(globalParametersClient.setProvisionReady(true));
