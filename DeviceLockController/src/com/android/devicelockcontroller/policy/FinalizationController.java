@@ -44,6 +44,13 @@ public interface FinalizationController {
     ListenableFuture<Void> notifyRestrictionsCleared();
 
     /**
+     * Finalize a device that is not enrolled in the program, without reporting to the backend.
+     *
+     * @return future for when finalization has been handled
+     */
+    ListenableFuture<Void> finalizeNotEnrolledDevice();
+
+    /**
      * Notifies the controller of the result of reporting the finalization state to the server
      *
      * @param response from the server

@@ -173,6 +173,13 @@ public final class FinalizationControllerImpl implements FinalizationController 
     }
 
     @Override
+    public ListenableFuture<Void> finalizeNotEnrolledDevice() {
+        return Futures.transformAsync(enforceInitialStateIfNeeded(),
+                unused -> mDispatchQueue.enqueueStateChange(FINALIZED),
+                mBgExecutor);
+    }
+
+    @Override
     public ListenableFuture<Void> notifyFinalizationReportResult(
             ReportDeviceProgramCompleteResponse response) {
         if (response.isSuccessful()) {
