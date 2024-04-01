@@ -22,6 +22,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.Device
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_FACTORY_RESET;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_PERSISTENT_UI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_RETRY;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.when;
 
 import android.app.NotificationManager;
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Looper;
 import android.service.notification.StatusBarNotification;
 
@@ -85,6 +87,7 @@ public final class ReportDeviceProvisionStateWorkerTest {
     @Mock
     private ReportDeviceProvisionStateGrpcResponse mResponse;
     private StatsLogger mStatsLogger;
+    private SetupParametersClient mSetupParametersClient;
     private ReportDeviceProvisionStateWorker mWorker;
     private TestDeviceLockControllerApplication mTestApp;
     private ListeningExecutorService mExecutorService =
@@ -121,7 +124,10 @@ public final class ReportDeviceProvisionStateWorkerTest {
         StatsLoggerProvider loggerProvider =
                 (StatsLoggerProvider) mTestApp.getApplicationContext();
         mStatsLogger = loggerProvider.getStatsLogger();
-        SetupParametersClient.getInstance(mTestApp, mExecutorService);
+        mSetupParametersClient = SetupParametersClient.getInstance(mTestApp, mExecutorService);
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(EXTRA_MANDATORY_PROVISION, true);
+        mSetupParametersClient.createPrefs(bundle).get();
     }
 
     @Test
@@ -162,7 +168,27 @@ public final class ReportDeviceProvisionStateWorkerTest {
     }
 
     @Test
-    public void doWork_retryState_schedulesAlarm() {
+    public void doWork_mandatory_doesNotSendNotificationOrScheduleAlarm() throws Exception {
+        when(mResponse.isSuccessful()).thenReturn(true);
+        when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_DISMISSIBLE_UI);
+        when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
+
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
+
+        // THEN we do send the notification or set an alarm
+        ShadowNotificationManager shadowNotificationManager = Shadows.shadowOf(
+                mTestApp.getSystemService(NotificationManager.class));
+        StatusBarNotification[] activeNotifs = shadowNotificationManager.getActiveNotifications();
+        assertThat(activeNotifs).isEmpty();
+        verify(mTestApp.getDeviceLockControllerScheduler(), never())
+                .scheduleNextProvisionFailedStepAlarm();
+    }
+
+    @Test
+    public void doWork_deferred_retryState_schedulesAlarm() throws Exception {
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(EXTRA_MANDATORY_PROVISION, false);
+        mSetupParametersClient.createPrefs(bundle).get();
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_RETRY);
         when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
@@ -176,7 +202,11 @@ public final class ReportDeviceProvisionStateWorkerTest {
     @Test
     @Ignore
     //TODO(b/327652632): Re-enable after fixing
-    public void doWork_dismissibleUiState_schedulesAlarmAndSendsNotification() throws Exception {
+    public void doWork_deferred_dismissibleUiState_schedulesAlarmAndSendsNotification()
+            throws Exception {
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(EXTRA_MANDATORY_PROVISION, false);
+        mSetupParametersClient.createPrefs(bundle).get();
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_DISMISSIBLE_UI);
         when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
@@ -204,8 +234,11 @@ public final class ReportDeviceProvisionStateWorkerTest {
     @Test
     @Ignore
     //TODO(b/327652632): Re-enable after fixing
-    public void doWork_persistentUiState_schedulesAlarmAndSendsOngoingNotification()
+    public void doWork_deferred_persistentUiState_schedulesAlarmAndSendsOngoingNotification()
             throws Exception {
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(EXTRA_MANDATORY_PROVISION, false);
+        mSetupParametersClient.createPrefs(bundle).get();
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_PERSISTENT_UI);
         when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
@@ -231,8 +264,11 @@ public final class ReportDeviceProvisionStateWorkerTest {
     }
 
     @Test
-    public void doWork_factoryResetState_schedulesResetDeviceAlarm()
+    public void doWork_deferred_factoryResetState_schedulesResetDeviceAlarm()
             throws Exception {
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(EXTRA_MANDATORY_PROVISION, false);
+        mSetupParametersClient.createPrefs(bundle).get();
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_FACTORY_RESET);
         when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
