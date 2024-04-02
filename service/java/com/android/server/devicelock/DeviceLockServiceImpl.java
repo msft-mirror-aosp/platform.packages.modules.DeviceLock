@@ -559,6 +559,16 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         });
     }
 
+    private boolean hasGsm() {
+        return mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_GSM);
+    }
+
+    private boolean hasCdma() {
+        return mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA);
+    }
+
     @VisibleForTesting
     void getDeviceId(@NonNull IGetDeviceIdCallback callback, int deviceIdTypeBitmap) {
         try {
@@ -574,7 +584,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         List<String> imeiList = new ArrayList<String>();
         List<String> meidList = new ArrayList<String>();
 
-        if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
+        if (hasGsm() && ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0)) {
             for (int i = 0; i < activeModemCount; i++) {
                 String imei = mTelephonyManager.getImei(i);
                 if (!TextUtils.isEmpty(imei)) {
@@ -583,7 +593,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             }
         }
 
-        if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
+        if (hasCdma() && ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0)) {
             for (int i = 0; i < activeModemCount; i++) {
                 String meid = mTelephonyManager.getMeid(i);
                 if (!TextUtils.isEmpty(meid)) {
