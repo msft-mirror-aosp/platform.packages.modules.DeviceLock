@@ -214,11 +214,11 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                 // no-op
                 break;
             case PROVISION_STATE_DISMISSIBLE_UI:
-                DeviceLockNotificationManager.sendDeviceResetNotification(mContext,
-                        daysLeftUntilReset);
+                DeviceLockNotificationManager.getInstance()
+                        .sendDeviceResetNotification(mContext, daysLeftUntilReset);
                 break;
             case PROVISION_STATE_PERSISTENT_UI:
-                DeviceLockNotificationManager
+                DeviceLockNotificationManager.getInstance()
                         .sendDeviceResetInOneDayOngoingNotification(mContext);
                 break;
             default:

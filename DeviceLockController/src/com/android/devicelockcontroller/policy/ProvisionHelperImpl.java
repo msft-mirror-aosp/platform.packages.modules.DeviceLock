@@ -352,8 +352,8 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
                 /* requestCode= */ 0, new Intent(context, ResumeProvisionReceiver.class),
                 PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
         LocalDateTime resumeDateTime = LocalDateTime.now().plusHours(1);
-        DeviceLockNotificationManager.sendDeferredProvisioningNotification(context, resumeDateTime,
-                pendingIntent);
+        DeviceLockNotificationManager.getInstance()
+                .sendDeferredProvisioningNotification(context, resumeDateTime, pendingIntent);
     }
 
     /**

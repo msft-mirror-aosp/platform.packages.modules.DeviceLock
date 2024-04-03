@@ -421,7 +421,7 @@ public final class DeviceLockControllerSchedulerImpl implements DeviceLockContro
     private void scheduleResetDeviceAlarm(Duration delay) {
         scheduleResetDeviceAlarmInternal(delay);
         Instant whenExpectedToRun = Instant.now(mClock).plus(delay);
-        DeviceLockNotificationManager.sendDeviceResetTimerNotification(mContext,
+        DeviceLockNotificationManager.getInstance().sendDeviceResetTimerNotification(mContext,
                 SystemClock.elapsedRealtime() + delay.toMillis());
         UserParameters.setResetDeviceTimeMillis(mContext, whenExpectedToRun.toEpochMilli());
     }
