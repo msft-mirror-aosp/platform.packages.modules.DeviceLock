@@ -50,6 +50,7 @@ import androidx.work.testing.TestListenableWorkerBuilder;
 import androidx.work.testing.WorkManagerTestInitHelper;
 
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
+import com.android.devicelockcontroller.activities.DeviceLockNotificationManager;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStateGrpcResponse;
 import com.android.devicelockcontroller.stats.StatsLogger;
@@ -63,7 +64,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -74,7 +74,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowNotificationManager;
 
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @RunWith(RobolectricTestRunner.class)
@@ -90,7 +90,7 @@ public final class ReportDeviceProvisionStateWorkerTest {
     private SetupParametersClient mSetupParametersClient;
     private ReportDeviceProvisionStateWorker mWorker;
     private TestDeviceLockControllerApplication mTestApp;
-    private ListeningExecutorService mExecutorService =
+    private final ListeningExecutorService mExecutorService =
             MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
 
     @Before
@@ -128,6 +128,7 @@ public final class ReportDeviceProvisionStateWorkerTest {
         Bundle bundle = new Bundle();
         bundle.putBoolean(EXTRA_MANDATORY_PROVISION, true);
         mSetupParametersClient.createPrefs(bundle).get();
+        DeviceLockNotificationManager.createAndSetDeviceLockNotificationManager(mExecutorService);
     }
 
     @Test
@@ -200,8 +201,6 @@ public final class ReportDeviceProvisionStateWorkerTest {
     }
 
     @Test
-    @Ignore
-    //TODO(b/327652632): Re-enable after fixing
     public void doWork_deferred_dismissibleUiState_schedulesAlarmAndSendsNotification()
             throws Exception {
         Bundle bundle = new Bundle();
@@ -213,10 +212,10 @@ public final class ReportDeviceProvisionStateWorkerTest {
 
         assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
 
-        CountDownLatch latch = new CountDownLatch(1);
-        Futures.getUnchecked(mExecutorService.submit(latch::countDown));
-        latch.await();
+        waitUntilExecutorIdle(mExecutorService);
+        waitUntilExecutorIdle(mExecutorService);
         Shadows.shadowOf(Looper.getMainLooper()).idle();
+        waitUntilExecutorIdle(mExecutorService);
 
         // THEN we schedule to try again later and send a notification to the user
         verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm();
@@ -232,8 +231,6 @@ public final class ReportDeviceProvisionStateWorkerTest {
     }
 
     @Test
-    @Ignore
-    //TODO(b/327652632): Re-enable after fixing
     public void doWork_deferred_persistentUiState_schedulesAlarmAndSendsOngoingNotification()
             throws Exception {
         Bundle bundle = new Bundle();
@@ -245,10 +242,10 @@ public final class ReportDeviceProvisionStateWorkerTest {
 
         assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
 
-        CountDownLatch latch = new CountDownLatch(1);
-        Futures.getUnchecked(mExecutorService.submit(latch::countDown));
-        latch.await();
+        waitUntilExecutorIdle(mExecutorService);
+        waitUntilExecutorIdle(mExecutorService);
         Shadows.shadowOf(Looper.getMainLooper()).idle();
+        waitUntilExecutorIdle(mExecutorService);
 
         // THEN we schedule to try again later and send an undismissable notification to the user
         verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm();
@@ -275,13 +272,15 @@ public final class ReportDeviceProvisionStateWorkerTest {
 
         assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
 
-        CountDownLatch latch = new CountDownLatch(1);
-        Futures.getUnchecked(mExecutorService.submit(latch::countDown));
-        latch.await();
+        waitUntilExecutorIdle(mExecutorService);
         Shadows.shadowOf(Looper.getMainLooper()).idle();
 
         // THEN we schedule reset.
         // Note that the scheduler class sends the notification
         verify(mTestApp.getDeviceLockControllerScheduler()).scheduleResetDeviceAlarm();
+    }
+
+    private static void waitUntilExecutorIdle(ExecutorService executorService) {
+        Futures.getUnchecked(executorService.submit(() -> {}));
     }
 }
