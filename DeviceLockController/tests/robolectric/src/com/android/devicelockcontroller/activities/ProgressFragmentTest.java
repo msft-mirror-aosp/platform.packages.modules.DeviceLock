@@ -162,10 +162,12 @@ public final class ProgressFragmentTest {
 
         // Check Header Icon
         if (mProvisioningProgress.mIconId != 0) {
-            ShadowDrawable drawable = Shadows.shadowOf(((ImageView) activity.findViewById(
-                    R.id.header_icon)).getDrawable());
+            ImageView headerIcon = activity.findViewById(R.id.header_icon);
+            ShadowDrawable drawable = Shadows.shadowOf(headerIcon.getDrawable());
+
             assertThat(drawable.getCreatedFromResId()).isEqualTo(
                     mProvisioningProgress.mIconId);
+            assertThat(headerIcon.isImportantForAccessibility()).isFalse();
         }
 
         // Check header text
