@@ -25,6 +25,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.work.WorkerParameters;
 
 import com.android.devicelockcontroller.FcmRegistrationTokenProvider;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
@@ -79,12 +80,14 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                 deviceIds -> {
                     if (deviceIds.isEmpty()) {
                         LogUtil.w(TAG, "CheckIn failed. No device identifier available!");
-                        // This device cannot be financed since it does not have any suitable
-                        // device identifiers. Similarly to STOP_CHECK_IN, disable the check in
-                        // boot completed receiver.
-                        disableCheckInBootCompletedReceiver(mContext);
-
-                        return Futures.immediateFuture(Result.failure());
+                        // Similarly to STOP_CHECK_IN, finalize the device (without reporting it
+                        // to the backend, since it's not part of the financing program).
+                        final ListenableFuture<Void> finalizeDeviceFuture =
+                                ((PolicyObjectsProvider) mContext).getFinalizationController()
+                                        .finalizeNotEnrolledDevice();
+                        return Futures.transformAsync(finalizeDeviceFuture,
+                                unused -> Futures.immediateFuture(Result.failure()),
+                                mExecutorService);
                     }
                     String carrierInfo = mCheckInHelper.getCarrierInfo();
                     Context applicationContext = mContext.getApplicationContext();
