@@ -186,6 +186,15 @@ public final class ProgressFragmentTest {
             URLSpan[] spans = actualUrlSubHeader.getSpans(/* queryStart= */ 0,
                     actualUrlSubHeader.length(), URLSpan.class);
 
+            // Assert text itself matches
+            Truth.assertThat(actualSubHeaderText.toString()).isEqualTo(
+                    Html.fromHtml(
+                        activity.getString(mProvisioningProgress.mSubheaderId,
+                                provisioningProgressViewModel.mProviderNameLiveData.getValue(),
+                                provisioningProgressViewModel.mSupportUrlLiveData.getValue()),
+                            Html.FROM_HTML_MODE_COMPACT).toString());
+
+            // Assert linked text goes to URL
             assertThat(spans.length).isLessThan(2);
             if (spans.length == 1) {
                 spans[0].onClick(subHeaderView);
