@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,15 @@
 
 package com.android.devicelockcontroller.activities;
 
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION_START_DEVICE_FINANCING_PROVISIONING;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.robolectric.Shadows.shadowOf;
 
-import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Looper;
-import android.widget.Button;
 import android.widget.ImageView;
 
 import com.android.devicelockcontroller.R;
@@ -39,9 +38,13 @@ import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.shadows.ShadowDrawable;
 
+/**
+ * Tests for {@link DevicePoliciesFragment}
+ *
+ * TODO(b/332973351): Add more unit tests for different scenarios
+ */
 @RunWith(RobolectricTestRunner.class)
-public final class ProvisionInfoFragmentTest {
-
+public final class DevicePoliciesFragmentTest {
     private ActivityController<EmptyTestFragmentActivity> mActivityController;
     private EmptyTestFragmentActivity mActivity;
 
@@ -51,7 +54,7 @@ public final class ProvisionInfoFragmentTest {
         intent.setAction(ACTION_START_DEVICE_FINANCING_PROVISIONING);
         mActivityController = Robolectric.buildActivity(EmptyTestFragmentActivity.class, intent);
         mActivity = mActivityController.get();
-        mActivity.setFragment(new ProvisionInfoFragment());
+        mActivity.setFragment(new DevicePoliciesFragment());
         mActivityController.setup();
     }
 
@@ -63,7 +66,7 @@ public final class ProvisionInfoFragmentTest {
         ShadowDrawable drawable = Shadows.shadowOf(((ImageView) mActivity.findViewById(
                 R.id.header_icon)).getDrawable());
         assertThat(drawable.getCreatedFromResId()).isEqualTo(
-                ProvisionInfoViewModel.HEADER_DRAWABLE_ID);
+                DevicePoliciesViewModel.HEADER_DRAWABLE_ID);
     }
 
     @Test
@@ -72,24 +75,5 @@ public final class ProvisionInfoFragmentTest {
 
         ImageView imageView = mActivity.findViewById(R.id.header_icon);
         assertThat(imageView.isImportantForAccessibility()).isFalse();
-    }
-
-    @Test
-    public void clickNextButton_startTheProvisioningActivity() {
-        Intent intent = new Intent();
-        intent.setAction(ACTION_START_DEVICE_FINANCING_PROVISIONING);
-        ActivityController<EmptyTestFragmentActivity> activityController =
-                Robolectric.buildActivity(
-                        EmptyTestFragmentActivity.class, intent);
-        EmptyTestFragmentActivity activity = activityController.get();
-        activity.setFragment(new ProvisionInfoFragment());
-        activityController.setup();
-
-        // Check next button clickable
-        Button next = activity.findViewById(R.id.button_next);
-        assertThat(next.callOnClick()).isTrue();
-        Intent nextIntent = Shadows.shadowOf(activity).getNextStartedActivity();
-        assertThat(nextIntent.getComponent()).isEqualTo(
-                new ComponentName(activity, ProvisioningActivity.class));
     }
 }
