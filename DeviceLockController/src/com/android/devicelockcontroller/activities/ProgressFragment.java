@@ -117,6 +117,9 @@ public final class ProgressFragment extends Fragment {
                         UrlUtils.setUrlText(subheaderTextView,
                                 context.getString(provisioningProgress.mSubheaderId,
                                         provisioningProgressViewModel
+                                                .mProviderNameLiveData
+                                                .getValue(),
+                                        provisioningProgressViewModel
                                                 .mSupportUrlLiveData
                                                 .getValue()));
                     }
