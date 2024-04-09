@@ -25,6 +25,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
@@ -32,6 +33,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.work.ListenableWorker;
 import androidx.work.WorkerParameters;
 
+import com.android.devicelockcontroller.activities.LockedHomeActivity;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
@@ -96,7 +98,6 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                         LogUtil.i(TAG, "Lock task mode is active now");
                         return Futures.immediateFuture(Result.success());
                     }
-
                     return Futures.transform(
                             devicePolicyController.getLaunchIntentForCurrentState(),
                             launchIntent -> {
@@ -113,7 +114,7 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                                             + " is not permitted in lock task mode");
                                     return Result.failure();
                                 }
-                                setPreferredActivityForHome(launchIntentComponent);
+                                enableLockedHomeTrampolineActivity();
                                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                                         | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                                 LogUtil.i(TAG, "Launching activity for intent: " + launchIntent);
@@ -145,15 +146,13 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                 mExecutorService);
     }
 
-    private void setPreferredActivityForHome(ComponentName activity) {
-
-        final String currentPackage = UserParameters.getPackageOverridingHome(mContext);
-        if (currentPackage != null && !currentPackage.equals(activity.getPackageName())) {
-            mDpm.clearPackagePersistentPreferredActivities(null /* admin */, currentPackage);
-        } else {
-            mDpm.addPersistentPreferredActivity(null /* admin */, getHomeIntentFilter(), activity);
-            UserParameters.setPackageOverridingHome(mContext, activity.getPackageName());
-        }
+    private void enableLockedHomeTrampolineActivity() {
+        ComponentName lockedHomeActivity = new ComponentName(mContext, LockedHomeActivity.class);
+        mContext.getPackageManager().setComponentEnabledSetting(
+                lockedHomeActivity, PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP);
+        mDpm.addPersistentPreferredActivity(/* admin= */ null, getHomeIntentFilter(),
+                lockedHomeActivity);
     }
 
     private static IntentFilter getHomeIntentFilter() {
