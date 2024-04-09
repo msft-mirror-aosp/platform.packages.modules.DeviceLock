@@ -203,11 +203,13 @@ public final class UserParameters {
         getSharedPreferences(context).edit().putInt(KEY_DAYS_LEFT_UNTIL_RESET, days).apply();
     }
 
+    /** Get the provisioning start time */
     public static long getProvisioningStartTimeMillis(Context context) {
         return getSharedPreferences(context).getLong(KEY_PROVISIONING_START_TIME_MILLIS,
                 /* defValue = */-1L);
     }
 
+    /** Set the provisioning start time */
     public static void setProvisioningStartTimeMillis(Context context,
             @CurrentTimeMillisLong long provisioningStartTime) {
         getSharedPreferences(context).edit().putLong(KEY_PROVISIONING_START_TIME_MILLIS,

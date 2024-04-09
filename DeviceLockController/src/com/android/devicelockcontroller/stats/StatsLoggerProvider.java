@@ -20,5 +20,8 @@ package com.android.devicelockcontroller.stats;
  * Interface for getting {@link StatsLogger}
  */
 public interface StatsLoggerProvider {
+    /**
+     * Get an instance of a stats logger.
+     */
     StatsLogger getStatsLogger();
 }

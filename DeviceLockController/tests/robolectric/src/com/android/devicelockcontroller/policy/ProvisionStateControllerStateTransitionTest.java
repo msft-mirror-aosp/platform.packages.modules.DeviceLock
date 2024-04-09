@@ -54,6 +54,7 @@ public class ProvisionStateControllerStateTransitionTest {
     @ProvisionStateController.ProvisionState
     public int mNextState;
 
+    /** Valid state transitions and corresponding event. */
     @ParameterizedRobolectricTestRunner.Parameters(name =
             "Transition from {0} to {2} when {1} event happens")
     public static List<Object[]> parameters() {
