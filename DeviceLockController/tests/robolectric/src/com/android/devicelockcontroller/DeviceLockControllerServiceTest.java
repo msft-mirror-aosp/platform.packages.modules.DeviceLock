@@ -201,8 +201,8 @@ public final class DeviceLockControllerServiceTest {
         DeviceStateController deviceStateController = mTestApp.getDeviceStateController();
         when(deviceStateController.clearDevice()).thenReturn(Futures.immediateVoidFuture());
         FinalizationController finalizationController = mTestApp.getFinalizationController();
-        when(finalizationController.notifyRestrictionsCleared()).
-                thenReturn(Futures.immediateVoidFuture());
+        when(finalizationController.notifyRestrictionsCleared())
+                .thenReturn(Futures.immediateVoidFuture());
 
         assertThat(binder).isNotNull();
 

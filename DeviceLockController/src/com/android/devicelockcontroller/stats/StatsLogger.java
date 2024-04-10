@@ -88,7 +88,8 @@ public interface StatsLogger {
      * Logs the analytics event of retrying a check in request.
      *
      * @param reason The reason of the retry, the enum corresponds to the RetryReason in
-     *               frameworks/proto_logging/stats/atoms/devicelock/devicelock_extension_atoms.proto
+     *               frameworks/proto_logging/stats/atoms/devicelock/
+     *               devicelock_extension_atoms.proto
      */
     void logCheckInRetry(@CheckInRetryReason int reason);
 
@@ -111,7 +112,8 @@ public interface StatsLogger {
      * Logs the analytics event of a provision failure.
      *
      * @param reason The reason of the failure, the enum corresponds to the FailureReason in
-     *               frameworks/proto_logging/stats/atoms/devicelock/devicelock_extension_atoms.proto
+     *               frameworks/proto_logging/stats/atoms/devicelock/
+     *               devicelock_extension_atoms.proto
      */
     void logProvisionFailure(@ProvisionFailureReasonStats int reason);
 

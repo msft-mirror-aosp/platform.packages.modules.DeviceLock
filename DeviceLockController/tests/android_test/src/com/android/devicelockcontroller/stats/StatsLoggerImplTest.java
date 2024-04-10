@@ -51,13 +51,12 @@ import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCC
 import static com.android.devicelockcontroller.stats.StatsLoggerImpl.TEX_ID_SUCCESSFUL_UNLOCKING_COUNT;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
+import com.android.devicelockcontroller.DevicelockStatsLog;
 import com.android.modules.expresslog.Counter;
 import com.android.modules.utils.testing.ExtendedMockitoRule;
 
 import org.junit.Rule;
 import org.junit.Test;
-
-import com.android.devicelockcontroller.DevicelockStatsLog;
 
 import java.util.concurrent.TimeUnit;
 
