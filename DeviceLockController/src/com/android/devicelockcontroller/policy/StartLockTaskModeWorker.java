@@ -92,45 +92,49 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                         mExecutorService);
         final ListenableFuture<Result> lockTaskFuture =
                 Futures.transformAsync(isInLockTaskModeFuture, isInLockTaskMode -> {
-            if (isInLockTaskMode) {
-                LogUtil.i(TAG, "Lock task mode is active now");
-                return Futures.immediateFuture(Result.success());
-            }
+                    if (isInLockTaskMode) {
+                        LogUtil.i(TAG, "Lock task mode is active now");
+                        return Futures.immediateFuture(Result.success());
+                    }
 
-            return Futures.transform(
-                    devicePolicyController.getLaunchIntentForCurrentState(),
-                    launchIntent -> {
-                        if (launchIntent == null) {
-                            LogUtil.e(TAG, "Failed to enter lock task mode: no intent to launch");
-                            return Result.failure();
-                        }
-                        ComponentName launchIntentComponent = launchIntent.getComponent();
-                        String packageName = launchIntentComponent.getPackageName();
-                        if (!Objects.requireNonNull(mDpm).isLockTaskPermitted(packageName)) {
-                            LogUtil.e(TAG, packageName + " is not permitted in lock task mode");
-                            return Result.failure();
-                        }
-                        setPreferredActivityForHome(launchIntentComponent);
-                        launchIntent.addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        LogUtil.i(TAG, "Launching activity for intent: " + launchIntent);
-                        mContext.startActivity(launchIntent,
-                                ActivityOptions.makeBasic().setLockTaskEnabled(true).toBundle());
-                        // If the intent of the activity to be launched is the Kiosk app, we treat
-                        // this as the end of the provisioning time.
-                        if (launchIntent.getAction() == ACTION_DEVICE_LOCK_KIOSK_SETUP) {
-                            long provisioningStartTime = UserParameters
-                                    .getProvisioningStartTimeMillis(mContext);
-                            if (provisioningStartTime > 0) {
-                                ((StatsLoggerProvider) mContext.getApplicationContext())
-                                        .getStatsLogger()
-                                        .logProvisioningComplete(SystemClock.elapsedRealtime()
-                                                - provisioningStartTime);
-                            }
-                        }
-                        return Result.success();
-                    }, mExecutorService);
-        }, mExecutorService);
+                    return Futures.transform(
+                            devicePolicyController.getLaunchIntentForCurrentState(),
+                            launchIntent -> {
+                                if (launchIntent == null) {
+                                    LogUtil.e(TAG, "Failed to enter lock task mode: "
+                                            + "no intent to launch");
+                                    return Result.failure();
+                                }
+                                ComponentName launchIntentComponent = launchIntent.getComponent();
+                                String packageName = launchIntentComponent.getPackageName();
+                                if (!Objects.requireNonNull(mDpm)
+                                        .isLockTaskPermitted(packageName)) {
+                                    LogUtil.e(TAG, packageName
+                                            + " is not permitted in lock task mode");
+                                    return Result.failure();
+                                }
+                                setPreferredActivityForHome(launchIntentComponent);
+                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                        | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                LogUtil.i(TAG, "Launching activity for intent: " + launchIntent);
+                                mContext.startActivity(launchIntent, ActivityOptions.makeBasic()
+                                        .setLockTaskEnabled(true).toBundle());
+                                // If the intent of the activity to be launched is the Kiosk app,
+                                // we treat this as the end of the provisioning time.
+                                if (launchIntent.getAction() == ACTION_DEVICE_LOCK_KIOSK_SETUP) {
+                                    long provisioningStartTime = UserParameters
+                                            .getProvisioningStartTimeMillis(mContext);
+                                    if (provisioningStartTime > 0) {
+                                        ((StatsLoggerProvider) mContext.getApplicationContext())
+                                                .getStatsLogger()
+                                                .logProvisioningComplete(
+                                                        SystemClock.elapsedRealtime()
+                                                                - provisioningStartTime);
+                                    }
+                                }
+                                return Result.success();
+                            }, mExecutorService);
+                }, mExecutorService);
         return Futures.catchingAsync(lockTaskFuture, Exception.class,
                 ex -> Futures.transform(devicePolicyController
                         .enforceCurrentPoliciesForCriticalFailure(),

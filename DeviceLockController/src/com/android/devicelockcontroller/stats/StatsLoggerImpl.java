@@ -51,7 +51,6 @@ import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailur
 import static com.android.devicelockcontroller.stats.StatsLogger.ProvisionFailureReasonStats.UNKNOWN;
 
 import com.android.devicelockcontroller.DevicelockStatsLog;
-
 import com.android.modules.expresslog.Counter;
 
 import java.util.concurrent.TimeUnit;

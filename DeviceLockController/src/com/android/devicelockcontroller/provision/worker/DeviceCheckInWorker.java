@@ -16,8 +16,6 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
-import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
-
 import android.content.Context;
 
 import androidx.annotation.NonNull;
