@@ -24,7 +24,7 @@
     <string name="setup_info_title_text" msgid="299562193092219293">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> бул түзмөктү кантип башкарат"</string>
     <string name="setup_failed_title_text" msgid="9045111389981992536">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> колдонмосу орнотулбай жатат"</string>
     <string name="setup_failed_reset_device_text" msgid="178419033440060908">"Кайталоо үчүн түзмөк баштапкы абалга келтирилүүдө."</string>
-    <string name="setup_failed_reset_device_timer_text" msgid="5270970227714985986">"{count,plural, =1{Түзмөктү баштапкы абалга келтирип, кайра тууралап көрүңүз. 1 секунддан кийин ал автоматтык түрдө баштапкы абалга келтирилет.}other{Түзмөктү баштапкы абалга келтирип, кайра тууралап көрүңүз. # секунддан кийин ал автоматтык түрдө баштапкы абалга келтирилет.}}"</string>
+    <string name="setup_failed_reset_device_timer_text" msgid="5270970227714985986">"{count,plural, =1{Түзмөктү баштапкы абалга келтирип, кайра тууралап көрүңүз. 1 секунддан кийин ал автоматтык түрдө баштапкы абалга келет.}other{Түзмөктү баштапкы абалга келтирип, кайра тууралап көрүңүз. # секунддан кийин ал автоматтык түрдө баштапкы абалга келет.}}"</string>
     <string name="setup_progress_title_text" msgid="2388779167610656852">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> колдонмосу орнотулууда<xliff:g id="ELLIPSIS">…</xliff:g>"</string>
     <string name="setup_finish_title_text" msgid="2810842695806992743">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> колдонмосу ачылууда<xliff:g id="ELLIPSIS">…</xliff:g>"</string>
     <string name="setup_error_title_text" msgid="1123742279081942535">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> колдонмосу ачылбай жатат"</string>
@@ -74,7 +74,7 @@
     <string name="restrictions_lifted" msgid="5785586265984319396">"Түзмөгүңүздөгү бардык чектөөлөр алынды"</string>
     <string name="uninstall_kiosk_app" msgid="3459557395024053988">"Киоск колдонмосун түзмөгүңүздөн чыгарып салсаңыз болот"</string>
     <string name="getting_device_ready" msgid="2829009584599871699">"Түзмөгүңүз даярдалууда…"</string>
-    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"Бул бир нече мүнөткө созулушу мүмкүн"</string>
+    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"Бир нече мүнөткө созулушу мүмкүн"</string>
     <string name="installing_kiosk_app" msgid="324208168205545860">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> колдонмосу орнотулууда…"</string>
     <string name="opening_kiosk_app" msgid="2021888641430165654">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> колдонмосу ачылууда…"</string>
     <string name="settings_banner_title" msgid="527041021011279252">"Түзмөк <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> тарабынан камсыздалган"</string>
@@ -121,8 +121,8 @@
     <string name="settings_contact_provider" msgid="2481819956474692039">"<xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g> менен байланышыңыз<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>"</string>
     <string name="settings_contact_provider_preference_key" msgid="2703619536229342624">"settings_contact_provider_preference_key"</string>
     <string name="provision_notification_channel_name" msgid="6123500714047647805">"Камсыздоо"</string>
-    <string name="device_reset_in_days_notification_title" msgid="920859483535317727">"{count,plural, =1{Түзмөк 1 күндөн кийин баштапкы абалга келтирилет}other{Түзмөк # күндөн кийин баштапкы абалга келтирилет}}"</string>
-    <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Түзмөк <xliff:g id="TIMER">%s</xliff:g> кийин баштапкы абалга келтирилет"</string>
+    <string name="device_reset_in_days_notification_title" msgid="920859483535317727">"{count,plural, =1{Түзмөк 1 күндөн кийин баштапкы абалга келет}other{Түзмөк # күндөн кийин баштапкы абалга келет}}"</string>
+    <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Түзмөк <xliff:g id="TIMER">%s</xliff:g> кийин баштапкы абалга келет"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Түзмөктөгү бардык нерселер жок кылынат. Түзмөктү каттоо боюнча жардам алуу үчүн <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> менен байланышыңыз"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Каржы берилген жок"</string>
     <string name="click_to_contact_financier" msgid="9107827438262930445">"Финансист менен байланышуу жолдорун көрүү үчүн бул жерди чыкылдатыңыз. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Кеңири маалымат<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
