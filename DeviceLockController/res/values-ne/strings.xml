@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"डिभाइस <xliff:g id="TIMER">%s</xliff:g> पछि रिसेट हुने छ"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"डिभाइसमा रहेका सबै डेटा मेटाइने छ। आफ्नो डिभाइस दर्ता गर्न <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> मा सम्पर्क गर्नुहोस्"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"किस्तामा भुक्तानी गर्ने प्रावधान प्राप्त गर्न सकिएन"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"किस्तामा भुक्तानी गर्ने सुविधा प्रदायकलाई सम्पर्क गर्ने तरिकाहरूका बारेमा जान्न कृपया यहाँ क्लिक गर्नुहोस्। <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>थप जान्नुहोस्<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"आफ्नो डिभाइस दर्ता गर्न सहायता प्राप्त गर्नका निम्ति <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g>मा सम्पर्क गर्नुहोस्<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>।"</string>
     <string name="exit" msgid="645084771882733921">"बाहिरिनुहोस्"</string>
     <string name="retry" msgid="7497287909193345356">"फेरि प्रयास गर्नु…"</string>
 </resources>

@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"ਡੀਵਾਈਸ <xliff:g id="TIMER">%s</xliff:g> ਵਿੱਚ ਰੀਸੈੱਟ ਹੋ ਜਾਵੇਗਾ"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"ਸਾਰੇ ਡੀਵਾਈਸ ਡਾਟੇ ਨੂੰ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ। ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਨੂੰ ਦਰਜ ਕਰਨ ਵਿੱਚ ਮਦਦ ਲਈ, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ਨੂੰ ਸੰਪਰਕ ਕਰੋ"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"ਵਿੱਤ ਵਿਵਸਥਾ ਅਸਫਲ ਰਹੀ"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਫਾਈਨੈਂਸਰ ਨਾਲ ਸੰਪਰਕ ਕਰਨ ਦੇ ਤਰੀਕਿਆਂ ਲਈ ਇੱਥੇ ਕਲਿੱਕ ਕਰੋ। <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>ਹੋਰ ਜਾਣੋ<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"ਆਪਣੇ ਡੀਵਾਈਸ ਨੂੰ ਦਰਜ ਕਰਨ ਵਿੱਚ ਮਦਦ ਲਈ, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ਨੂੰ ਸੰਪਰਕ ਕਰੋ<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>।"</string>
     <string name="exit" msgid="645084771882733921">"ਬਾਹਰ ਜਾਓ"</string>
     <string name="retry" msgid="7497287909193345356">"ਮੁੜ-ਕੋਸ਼ਿਸ਼ ਕਰੋ"</string>
 </resources>

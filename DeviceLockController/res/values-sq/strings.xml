@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Pajisja do të rivendoset pas: <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Të gjitha të dhënat e pajisjes do të fshihen. Për ndihmë në lidhje me regjistrimin e pajisjes, kontakto <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Përgatitja e financimit nuk u krye"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Kliko këtu për mënyrat për të kontaktuar me financuesin tënd. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Mëso më shumë<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Për ndihmë në lidhje me regjistrimin e pajisjes, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>kontakto me <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Dil"</string>
     <string name="retry" msgid="7497287909193345356">"Riprovo"</string>
 </resources>
