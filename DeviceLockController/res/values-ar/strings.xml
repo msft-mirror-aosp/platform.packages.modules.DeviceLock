@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"ستتم إعادة ضبط الجهاز بعد ‎<xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"سيتم حذف جميع البيانات على الجهاز. للحصول على المساعدة في تسجيل جهازك، يُرجى التواصل مع \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"."</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"تعذَّر توفير التمويل"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"يُرجى النقر هنا لمعرفة طُرق التواصل مع جهة التمويل الخاصة بك. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>مزيد من المعلومات<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"للحصول على مساعدة في تسجيل جهازك، يُرجى <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>التواصل مع \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"خروج"</string>
     <string name="retry" msgid="7497287909193345356">"إعادة المحاولة"</string>
 </resources>

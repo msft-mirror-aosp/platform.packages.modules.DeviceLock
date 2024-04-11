@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"<xliff:g id="TIMER">%s</xliff:g> barru berrezarriko da gailua"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Gailuko datu guztiak ezabatuko dira. Gailua erregistratzearen inguruko laguntza jasotzeko, jarri <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> hornitzailearekin harremanetan"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Finantzaketaren hornikuntzak huts egin du"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Sakatu hau zure finantzariarekin harremanetan jartzeko zer modu dituzun ikusteko. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Lortu informazio gehiago<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Gailua erregistratzearen inguruko laguntza jasotzeko, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>jarri <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> hornitzailearekin harremanetan<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Irten"</string>
     <string name="retry" msgid="7497287909193345356">"Saiatu berriro"</string>
 </resources>

@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"<xliff:g id="TIMER">%s</xliff:g>-এর মধ্যে ডিভাইস রিসেট হবে"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"ডিভাইসের সব ডেটা মুছে ফেলা হবে। আপনার ডিভাইস এনরোল করার জন্য <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>-এর সাথে যোগাযোগ করুন"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"ফাইন্যান্সিং প্রভিশন করা যায়নি"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"আপনার অর্থদাতার সাথে কীভাবে যোগাযোগ করবেন তা জানতে, এখানে ক্লিক করুন। <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>আরও জানুন<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"আপনার ডিভাইস এনরোল করতে সাহায্য পাওয়ার জন্য <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g>-এর সাথে যোগাযোগ করুন<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>।"</string>
     <string name="exit" msgid="645084771882733921">"বেরিয়ে আসুন"</string>
     <string name="retry" msgid="7497287909193345356">"আবার চেষ্টা করুন"</string>
 </resources>
