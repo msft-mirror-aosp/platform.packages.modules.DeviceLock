@@ -37,7 +37,6 @@ import java.util.concurrent.Executors;
  */
 public final class UserParameters {
     private static final String FILENAME = "user-params";
-    private static final String KEY_HOME_PACKAGE_OVERRIDE = "home_override_package";
     private static final String TAG = "UserParameters";
     private static final String KEY_PROVISION_STATE = "provision-state";
     private static final String KEY_BOOT_TIME_MILLS = "boot-time-mills";
@@ -91,30 +90,6 @@ public final class UserParameters {
     /** Mark initial check-in has been scheduled. */
     public static void initialCheckInScheduled(Context context) {
         getSharedPreferences(context).edit().putBoolean(KEY_NEED_INITIAL_CHECK_IN, false).apply();
-    }
-
-    /**
-     * Gets the name of the package overriding home.
-     *
-     * @param context Context used to get the shared preferences.
-     * @return Package overriding home.
-     */
-    @WorkerThread
-    @Nullable
-    public static String getPackageOverridingHome(Context context) {
-        ThreadAsserts.assertWorkerThread("getPackageOverridingHome");
-        return getSharedPreferences(context).getString(KEY_HOME_PACKAGE_OVERRIDE, null);
-    }
-
-    /**
-     * Sets the name of the package overriding home.
-     *
-     * @param context     Context used to get the shared preferences.
-     * @param packageName Package overriding home.
-     */
-    public static void setPackageOverridingHome(Context context, @Nullable String packageName) {
-        getSharedPreferences(context).edit()
-                .putString(KEY_HOME_PACKAGE_OVERRIDE, packageName).apply();
     }
 
     /** Get the device boot time */
@@ -257,7 +232,6 @@ public final class UserParameters {
             LogUtil.d(TAG, String.format(Locale.US,
                     "Dumping UserParameters for user: %s ...\n"
                             + "%s: %s\n"    // user_state:
-                            + "%s: %s\n"    // home_override_package:
                             + "%s: %s\n"    // boot-time-mills:
                             + "%s: %s\n"    // next-check-in-time-millis:
                             + "%s: %s\n"    // resume-provision-time-millis:
@@ -267,7 +241,6 @@ public final class UserParameters {
                             + "%s: %s\n",   // notification-channel-suffix:
                     context.getUser(),
                     KEY_PROVISION_STATE, getProvisionState(context),
-                    KEY_HOME_PACKAGE_OVERRIDE, getPackageOverridingHome(context),
                     KEY_BOOT_TIME_MILLS, getBootTimeMillis(context),
                     KEY_NEXT_CHECK_IN_TIME_MILLIS, getNextCheckInTimeMillis(context),
                     KEY_RESUME_PROVISION_TIME_MILLIS, getResumeProvisionTimeMillis(context),

@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"పరికరం <xliff:g id="TIMER">%s</xliff:g>లో రీసెట్ అవుతుంది"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"మొత్తం పరికరం డేటా తొలగించబడుతుంది. మీ పరికరాన్ని ఎన్‌రోల్ చేయడంలో సహాయం కోసం, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>ని సంప్రదించండి"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"ఫైనాన్సింగ్ కేటాయింపు విఫలమైంది"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"మీ ఫైనాన్షియర్‌ను కాంటాక్ట్ చేయగల మార్గాల కోసం దయచేసి ఇక్కడ క్లిక్ చేయండి. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>మరింత తెలుసుకోండి<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"మీ పరికరాన్ని ఎన్‌రోల్ చేయడం కోసం, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g>‌ను సంప్రదించండి<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"నిష్క్రమించు"</string>
     <string name="retry" msgid="7497287909193345356">"మళ్లీ ట్రై చేయండి"</string>
 </resources>

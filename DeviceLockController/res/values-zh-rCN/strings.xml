@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"设备将在 <xliff:g id="TIMER">%s</xliff:g>后重置"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"系统将删除所有设备数据。如需注册设备方面的帮助，请与<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>联系。"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"分期付款设备配置失败"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"请点击此处查看分期付款提供商的联系方式。<xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>了解详情<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"如需注册设备方面的帮助，请<xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>联系<xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>。"</string>
     <string name="exit" msgid="645084771882733921">"退出"</string>
     <string name="retry" msgid="7497287909193345356">"重试"</string>
 </resources>

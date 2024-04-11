@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Ierīce tiks atiestatīta pēc: <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Visi ierīces dati tiks izdzēsti. Lai saņemtu palīdzību par ierīces reģistrēšanu, sazinieties ar <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>."</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Neizdevās nodrošināt finansējumu"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Lūdzu, noklikšķiniet šeit, lai uzzinātu, kā sazināties ar finansētāju. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Uzziniet vairāk<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>."</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Lai saņemtu palīdzību saistībā ar ierīces reģistrēšanu, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>sazinieties ar <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Iziet"</string>
     <string name="retry" msgid="7497287909193345356">"Mēģināt vēlreiz"</string>
 </resources>
