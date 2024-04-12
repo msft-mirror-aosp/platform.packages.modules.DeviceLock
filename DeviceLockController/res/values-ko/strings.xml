@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"<xliff:g id="TIMER">%s</xliff:g> 후 기기 초기화"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"기기의 모든 데이터가 삭제됩니다. 기기 등록과 관련해 도움이 필요하면 <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>에 문의하세요."</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"파이낸싱 프로비저닝 실패함"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"여기를 클릭하여 금융 기관에 문의하는 방법을 확인하세요. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>자세히 알아보기<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"기기 등록과 관련해 도움이 필요하면 <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g>에 문의<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>하세요"</string>
     <string name="exit" msgid="645084771882733921">"종료"</string>
     <string name="retry" msgid="7497287909193345356">"다시 시도"</string>
 </resources>

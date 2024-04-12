@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"<xliff:g id="TIMER">%s</xliff:g>-നുള്ളിൽ ഉപകരണം റീസെറ്റ് ചെയ്യും"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"എല്ലാ ഉപകരണ ഡാറ്റയും ഇല്ലാതാക്കും. നിങ്ങളുടെ ഉപകരണം എൻറോൾ ചെയ്യുന്നതിനുള്ള സഹായത്തിന്, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> എന്നതിനെ ബന്ധപ്പെടുക"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"ഫിനാൻസിംഗ് പ്രൊവിഷനിംഗ് പരാജയപ്പെട്ടു"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"നിങ്ങളുടെ സാമ്പത്തിക വിദഗ്‌ധരെ ബന്ധപ്പെടുന്നതിനുള്ള മാർഗ്ഗങ്ങൾക്കായി ഇവിടെ ക്ലിക്ക് ചെയ്യുക. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>കൂടുതലറിയുക<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"നിങ്ങളുടെ ഉപകരണം എൻറോൾ ചെയ്യുന്നതിനുള്ള സഹായത്തിന്, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g> എന്നതിനെ ബന്ധപ്പെടുക."</string>
     <string name="exit" msgid="645084771882733921">"പുറത്ത് കടക്കുക"</string>
     <string name="retry" msgid="7497287909193345356">"വീണ്ടും ശ്രമിക്കുക"</string>
 </resources>

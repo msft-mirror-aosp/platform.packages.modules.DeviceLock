@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Peranti akan ditetapkan semula dalam masa <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Semua data peranti akan dipadamkan. Untuk mendapatkan bantuan berkenaan dengan pendaftaran peranti anda, hubungi <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Peruntukan pembiayaan telah gagal"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Sila klik di sini untuk mengetahui cara menghubungi pembiaya anda. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Ketahui lebih lanjut<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Untuk mendapatkan bantuan berkenaan dengan pendaftaran peranti anda, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>hubungi <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Keluar"</string>
     <string name="retry" msgid="7497287909193345356">"Cuba lagi"</string>
 </resources>
