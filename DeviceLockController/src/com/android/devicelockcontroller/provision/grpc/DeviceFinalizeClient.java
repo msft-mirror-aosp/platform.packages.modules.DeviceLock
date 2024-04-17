@@ -27,8 +27,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
+import com.android.devicelockcontroller.provision.grpc.impl.DeviceFinalizeClientImpl;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import io.grpc.ClientInterceptor;
 import io.grpc.Status;
 
 /**
@@ -75,10 +77,9 @@ public abstract class DeviceFinalizeClient {
      */
     public static DeviceFinalizeClient getInstance(
             Context context,
-            String className,
             String hostName,
             int portNumber,
-            Pair<String, String> apiKey,
+            ClientInterceptor clientInterceptor,
             String registeredId) {
         boolean useDebugClient = false;
         String hostNameOverride = "";
@@ -101,15 +102,18 @@ public abstract class DeviceFinalizeClient {
                 sHostName = hostName;
                 sPortNumber = portNumber;
                 sRegisteredId = registeredId;
-                sApiKey = apiKey;
                 sUseDebugClient = useDebugClient;
                 try {
                     if (Build.isDebuggable() && sUseDebugClient) {
-                        className = DEVICE_FINALIZE_CLIENT_DEBUG_CLASS_NAME;
+                        final String className = DEVICE_FINALIZE_CLIENT_DEBUG_CLASS_NAME;
+                        LogUtil.d(TAG, "Creating instance for " + className);
+                        Class<?> clazz = Class.forName(className);
+                        sClient =
+                                (DeviceFinalizeClient) clazz.getDeclaredConstructor().newInstance();
+                    } else {
+                        sClient = new DeviceFinalizeClientImpl(clientInterceptor);
                     }
-                    LogUtil.d(TAG, "Creating instance for " + className);
-                    Class<?> clazz = Class.forName(className);
-                    sClient = (DeviceFinalizeClient) clazz.getDeclaredConstructor().newInstance();
+
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to get DeviceFinalizeClient instance", e);
                 }

@@ -52,6 +52,7 @@ import com.android.devicelockcontroller.provision.grpc.PauseDeviceProvisioningGr
 import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStateGrpcResponse;
 import com.android.devicelockcontroller.util.ThreadAsserts;
 
+import io.grpc.ClientInterceptor;
 import io.grpc.StatusRuntimeException;
 import io.grpc.okhttp.OkHttpChannelBuilder;
 
@@ -63,12 +64,12 @@ import io.grpc.okhttp.OkHttpChannelBuilder;
 public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     private final DeviceLockCheckinServiceBlockingStub mBlockingStub;
 
-    public DeviceCheckInClientImpl() {
+    public DeviceCheckInClientImpl(ClientInterceptor clientInterceptor) {
         mBlockingStub = DeviceLockCheckinServiceGrpc.newBlockingStub(
                         OkHttpChannelBuilder
                                 .forAddress(sHostName, sPortNumber)
                                 .build())
-                .withInterceptors(new ApiKeyClientInterceptor(sApiKey));
+                .withInterceptors(clientInterceptor);
     }
 
     @Override
