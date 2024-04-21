@@ -20,7 +20,7 @@
     <string name="app_name" msgid="5655878067457216814">"DeviceLockController"</string>
     <string name="next_button" msgid="1856423430963548653">"अर्को"</string>
     <string name="reset_button" msgid="4649354411129240809">"रिसेट गर्नुहोस्"</string>
-    <string name="setup_more_button" msgid="4456370972302510109">"थप देखाइयोस्"</string>
+    <string name="setup_more_button" msgid="4456370972302510109">"थप देखाउनुहोस्"</string>
     <string name="setup_info_title_text" msgid="299562193092219293">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> ले यो डिभाइस कसरी व्यवस्थापन गर्न सक्छ"</string>
     <string name="setup_failed_title_text" msgid="9045111389981992536">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> एप इन्स्टल गर्न सकिएन"</string>
     <string name="setup_failed_reset_device_text" msgid="178419033440060908">"फेरि प्रयास गर्न डिभाइस रिसेट गरिँदै छ।"</string>
