@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.provision.grpc;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.UserHandle;
 import android.util.ArraySet;
@@ -104,6 +105,9 @@ public abstract class DeviceCheckInClient {
                                 || (hostName != null && !hostName.equals(sHostName));
 
                 if (createRequired) {
+                    if (sClient != null) {
+                        sClient.cleanUp();
+                    }
                     sHostName = hostName;
                     sPortNumber = portNumber;
                     sRegisteredId = registeredId;
@@ -115,7 +119,8 @@ public abstract class DeviceCheckInClient {
                         sClient =
                                 (DeviceCheckInClient) clazz.getDeclaredConstructor().newInstance();
                     } else {
-                        sClient = new DeviceCheckInClientImpl(clientInterceptor);
+                        sClient = new DeviceCheckInClientImpl(clientInterceptor,
+                                context.getSystemService(ConnectivityManager.class));
                     }
                 }
             } catch (Exception e) {
@@ -181,4 +186,10 @@ public abstract class DeviceCheckInClient {
     public abstract ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
             @DeviceProvisionState int lastReceivedProvisionState,
             boolean isSuccessful, @ProvisionFailureReason int failureReason);
+
+    /**
+     * Called when this device check in client is no longer in use and should clean up its
+     * resources.
+     */
+    public void cleanUp() {};
 }
