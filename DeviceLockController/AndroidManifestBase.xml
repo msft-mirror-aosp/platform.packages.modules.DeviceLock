@@ -77,6 +77,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="com.android.devicelockcontroller.activities.LockedHomeActivity"
+            android:enabled="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
 
         <activity
             android:name="com.android.devicelockcontroller.activities.ProvisioningActivity"

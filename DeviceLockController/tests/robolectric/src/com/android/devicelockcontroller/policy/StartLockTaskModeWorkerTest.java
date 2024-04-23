@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -29,6 +31,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 
 import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
@@ -39,6 +42,7 @@ import androidx.work.WorkerParameters;
 import androidx.work.testing.TestListenableWorkerBuilder;
 
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
+import com.android.devicelockcontroller.activities.LockedHomeActivity;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -80,6 +84,7 @@ public final class StartLockTaskModeWorkerTest {
     @Mock
     private ActivityManager mAm;
     private TestDeviceLockControllerApplication mTestApp;
+    private PackageManager mPackageManager;
     private DevicePolicyController mDevicePolicyController;
     private Intent mLockTaskIntent;
     private StartLockTaskModeWorker mWorker;
@@ -87,6 +92,7 @@ public final class StartLockTaskModeWorkerTest {
     @Before
     public void setUp() throws Exception {
         mTestApp = ApplicationProvider.getApplicationContext();
+        mPackageManager = mTestApp.getPackageManager();
         mWorker = TestListenableWorkerBuilder.from(mTestApp, StartLockTaskModeWorker.class)
                 .setWorkerFactory(
                         new WorkerFactory() {
@@ -136,7 +142,10 @@ public final class StartLockTaskModeWorkerTest {
         assertThat(launchedIntent.getFlags() & Intent.FLAG_ACTIVITY_NEW_TASK).isNotEqualTo(0);
         assertThat(launchedIntent.getFlags() & Intent.FLAG_ACTIVITY_CLEAR_TASK).isNotEqualTo(0);
         verify(mDpm).addPersistentPreferredActivity(any(), any(),
-                eq(launchedIntent.getComponent()));
+                eq(new ComponentName(mTestApp, LockedHomeActivity.class)));
+        assertThat(mPackageManager.getComponentEnabledSetting(
+                new ComponentName(mTestApp, LockedHomeActivity.class))).isEqualTo(
+                        COMPONENT_ENABLED_STATE_ENABLED);
     }
 
     @Test

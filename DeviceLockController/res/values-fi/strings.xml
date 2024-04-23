@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Laite nollataan, kun <xliff:g id="TIMER">%s</xliff:g> on kulunut"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Kaikki laitteen data poistetaan. Jos tarvitset apua laitteen rekisteröintiin, ota yhteyttä palveluntarjoajaan: <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Rahoituksen tarjoaminen epäonnistui"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Klikkaa tästä, niin näet tapoja ottaa yhteyttä rahoittajaan. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Lue lisää<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Jos tarvitset apua laitteen rekisteröintiin, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>ota yhteyttä: <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Sulje"</string>
     <string name="retry" msgid="7497287909193345356">"Yritä uudelleen"</string>
 </resources>

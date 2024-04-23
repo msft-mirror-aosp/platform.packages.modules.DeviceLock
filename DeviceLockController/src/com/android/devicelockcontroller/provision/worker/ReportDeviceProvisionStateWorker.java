@@ -48,6 +48,7 @@ import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerPr
 import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
@@ -154,11 +155,13 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
         GlobalParametersClient globalParametersClient = GlobalParametersClient.getInstance();
         ListenableFuture<Integer> lastState =
                 globalParametersClient.getLastReceivedProvisionState();
+        ListenableFuture<Boolean> isMandatory =
+                SetupParametersClient.getInstance().isProvisionMandatory();
         DeviceLockControllerSchedulerProvider schedulerProvider =
                 (DeviceLockControllerSchedulerProvider) mContext;
         DeviceLockControllerScheduler scheduler =
                 schedulerProvider.getDeviceLockControllerScheduler();
-        return Futures.whenAllSucceed(mClient, lastState).call(() -> {
+        return Futures.whenAllSucceed(mClient, lastState, isMandatory).call(() -> {
             boolean isSuccessful = getInputData().getBoolean(
                     KEY_IS_PROVISION_SUCCESSFUL, /* defaultValue= */ false);
             int failureReason = getInputData().getInt(KEY_PROVISION_FAILURE_REASON,
@@ -188,13 +191,15 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
             }
             int nextState = response.getNextClientProvisionState();
             Futures.getUnchecked(globalParametersClient.setLastReceivedProvisionState(nextState));
-            onNextProvisionStateReceived(nextState, daysLeftUntilReset);
-            if (nextState == PROVISION_STATE_FACTORY_RESET) {
-                scheduler.scheduleResetDeviceAlarm();
-            } else if (nextState != PROVISION_STATE_SUCCESS) {
-                scheduler.scheduleNextProvisionFailedStepAlarm();
-            }
             mStatsLogger.logReportDeviceProvisionState();
+            if (!Futures.getDone(isMandatory)) {
+                onNextProvisionStateReceived(nextState, daysLeftUntilReset);
+                if (nextState == PROVISION_STATE_FACTORY_RESET) {
+                    scheduler.scheduleResetDeviceAlarm();
+                } else if (nextState != PROVISION_STATE_SUCCESS) {
+                    scheduler.scheduleNextProvisionFailedStepAlarm();
+                }
+            }
             return Result.success();
         }, mExecutorService);
     }
@@ -209,11 +214,11 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                 // no-op
                 break;
             case PROVISION_STATE_DISMISSIBLE_UI:
-                DeviceLockNotificationManager.sendDeviceResetNotification(mContext,
-                        daysLeftUntilReset);
+                DeviceLockNotificationManager.getInstance()
+                        .sendDeviceResetNotification(mContext, daysLeftUntilReset);
                 break;
             case PROVISION_STATE_PERSISTENT_UI:
-                DeviceLockNotificationManager
+                DeviceLockNotificationManager.getInstance()
                         .sendDeviceResetInOneDayOngoingNotification(mContext);
                 break;
             default:

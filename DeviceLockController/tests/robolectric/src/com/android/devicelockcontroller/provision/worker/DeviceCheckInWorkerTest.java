@@ -29,9 +29,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
@@ -44,9 +42,9 @@ import androidx.work.testing.TestListenableWorkerBuilder;
 
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.common.DeviceId;
+import com.android.devicelockcontroller.policy.FinalizationController;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
-import com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
@@ -80,10 +78,13 @@ public class DeviceCheckInWorkerTest {
     private GetDeviceCheckInStatusGrpcResponse mResponse;
     private StatsLogger mStatsLogger;
     private DeviceCheckInWorker mWorker;
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private TestDeviceLockControllerApplication mContext =
+            ApplicationProvider.getApplicationContext();
+    private FinalizationController mFinalizationController;
 
     @Before
     public void setUp() throws Exception {
+        mFinalizationController = mContext.getFinalizationController();
         when(mClient.getDeviceCheckInStatus(
                 eq(TEST_DEVICE_IDS), anyString(), isNull())).thenReturn(mResponse);
         mWorker = TestListenableWorkerBuilder.from(
@@ -205,6 +206,9 @@ public class DeviceCheckInWorkerTest {
 
     @Test
     public void checkIn_deviceIdsUnavailable_shouldNotSendCheckInRequest() {
+        when(mFinalizationController.finalizeNotEnrolledDevice()).thenReturn(
+                Futures.immediateVoidFuture());
+
         // GIVEN only device ids available
         setDeviceIdAvailability(/* isAvailable= */ false);
         setCarrierInfoAvailability(/* isAvailable= */ false);
@@ -216,12 +220,8 @@ public class DeviceCheckInWorkerTest {
         verify(mClient, never()).getDeviceCheckInStatus(eq(TEST_DEVICE_IDS), eq(EMPTY_CARRIER_INFO),
                 isNull());
 
-        // THEN CheckInBootCompletedReceiver should be disabled
-        assertThat(mContext.getPackageManager()
-                .getComponentEnabledSetting(new ComponentName(mContext,
-                        CheckInBootCompletedReceiver.class)))
-                .isEqualTo(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
-
+        // THEN non enrolled device should be finalized
+        verify(mFinalizationController).finalizeNotEnrolledDevice();
     }
 
     private void setDeviceIdAvailability(boolean isAvailable) {

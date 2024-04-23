@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Dispozitivul se va reseta în <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Toate datele dispozitivului vor fi șterse. Pentru ajutor la înregistrarea dispozitivului, contactează <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Provizionarea finanțării nu a reușit"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Dă clic aici pentru mai multe modalități de a lua legătura cu expertul financiar. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Află mai multe<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Pentru ajutor la înregistrarea dispozitivului, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>contactează <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Ieși"</string>
     <string name="retry" msgid="7497287909193345356">"Încearcă din nou"</string>
 </resources>
