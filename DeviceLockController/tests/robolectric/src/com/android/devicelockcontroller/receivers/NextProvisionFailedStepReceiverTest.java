@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller.receivers;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_DISMISSIBLE_UI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_PERSISTENT_UI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_RETRY;
@@ -28,12 +33,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.content.Intent;
+import android.net.NetworkRequest;
 import android.os.Handler;
 import android.os.HandlerThread;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.work.Configuration;
-import androidx.work.NetworkType;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 import androidx.work.testing.SynchronousExecutor;
@@ -152,8 +157,11 @@ public class NextProvisionFailedStepReceiverTest {
                 REPORT_PROVISION_STATE_WORK_NAME).get();
         assertThat(actualWorks.size()).isEqualTo(1);
         WorkInfo actualWorkInfo = actualWorks.get(0);
-        assertThat(actualWorkInfo.getConstraints().getRequiredNetworkType()).isEqualTo(
-                NetworkType.CONNECTED);
+        NetworkRequest networkRequest = actualWorkInfo.getConstraints().getRequiredNetworkRequest();
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)).isTrue();
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_TRUSTED)).isTrue();
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_INTERNET)).isTrue();
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_VPN)).isTrue();
     }
 
     private static void verifyReportProvisionStateWorkNotScheduled(WorkManager workManager)
