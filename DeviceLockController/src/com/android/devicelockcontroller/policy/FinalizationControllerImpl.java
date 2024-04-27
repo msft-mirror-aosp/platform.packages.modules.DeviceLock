@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState.FINALIZED;
 import static com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState.FINALIZED_UNREPORTED;
 import static com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState.UNFINALIZED;
@@ -28,6 +33,7 @@ import android.app.AlarmManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.NetworkRequest;
 import android.os.OutcomeReceiver;
 
 import androidx.annotation.NonNull;
@@ -238,8 +244,14 @@ public final class FinalizationControllerImpl implements FinalizationController 
     private void requestWorkToReportFinalized() {
         WorkManager workManager =
                 WorkManager.getInstance(mContext);
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiredNetworkRequest(request, NetworkType.CONNECTED)
                 .build();
         OneTimeWorkRequest work =
                 new OneTimeWorkRequest.Builder(mReportDeviceFinalizedWorkerClass)
