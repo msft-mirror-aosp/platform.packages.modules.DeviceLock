@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static androidx.work.WorkInfo.State.FAILED;
 import static androidx.work.WorkInfo.State.SUCCEEDED;
 
@@ -32,6 +37,7 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.sqlite.SQLiteException;
+import android.net.NetworkRequest;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
@@ -325,9 +331,15 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
 
     @NonNull
     private static OneTimeWorkRequest getIsDeviceInApprovedCountryWork() {
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
         return new OneTimeWorkRequest.Builder(IsDeviceInApprovedCountryWorker.class)
-                .setConstraints(new Constraints.Builder().setRequiredNetworkType(
-                        NetworkType.CONNECTED).build())
+                .setConstraints(new Constraints.Builder().setRequiredNetworkRequest(
+                        request, NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY)
                 .build();
     }

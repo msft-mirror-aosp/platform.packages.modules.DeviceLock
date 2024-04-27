@@ -101,6 +101,7 @@ java_library {
     ],
     libs: [
         "devicelockcontroller-proto-lite",
+        "framework-connectivity",
     ],
     visibility: [
         "//packages/modules/DeviceLock:__subpackages__",
@@ -147,7 +148,7 @@ android_library {
         "framework-statsd",
         "modules-utils-expresslog",
         "devicelockcontroller-proto-lite",
-
+        "framework-connectivity",
     ],
     static_libs: [
         "androidx.annotation_annotation",
