@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_DISMISSIBLE_UI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_FACTORY_RESET;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_PERSISTENT_UI;
@@ -25,6 +30,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.Device
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.DEADLINE_PASSED;
 
 import android.content.Context;
+import android.net.NetworkRequest;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
@@ -104,8 +110,14 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
     }
 
     private static void enqueueReportWork(Data inputData, WorkManager workManager) {
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiredNetworkRequest(request, NetworkType.CONNECTED)
                 .build();
         OneTimeWorkRequest work =
                 new OneTimeWorkRequest.Builder(ReportDeviceProvisionStateWorker.class)
