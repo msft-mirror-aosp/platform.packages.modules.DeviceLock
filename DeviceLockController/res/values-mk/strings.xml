@@ -92,7 +92,7 @@
     <string name="settings_safe_mode_preference_key" msgid="2106617747358027424">"settings_safe_mode_preference_key"</string>
     <string name="settings_config_date_time" msgid="3406612829802458778">"да ги менува датумот, времето и часовната зона"</string>
     <string name="settings_config_date_time_preference_key" msgid="1838160765185598823">"settings_config_date_time_preference_key"</string>
-    <string name="settings_developer_options" msgid="880701002025216672">"да користи „Опции за програмери“"</string>
+    <string name="settings_developer_options" msgid="880701002025216672">"да користи „Програмерски опции“"</string>
     <string name="settings_developer_options_preference_key" msgid="6807036808722582954">"settings_developer_options_preference_key"</string>
     <string name="settings_credit_provider_capabilities_category" msgid="1274440595211820868">"Ако има проблем со уредот, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> може:"</string>
     <string name="settings_credit_provider_capabilities_category_preference_key" msgid="4571685720898641262">"settings_credit_provider_capabilities_category_preference_key"</string>
