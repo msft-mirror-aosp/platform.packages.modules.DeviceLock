@@ -86,6 +86,8 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     private final DeviceLockCheckinServiceBlockingStub mDefaultBlockingStub;
     private final ClientInterceptor mClientInterceptor;
     private final ConnectivityManager mConnectivityManager;
+    private final ChannelFactory mChannelFactory;
+    private final ManagedChannel mDefaultChannel;
     private final NetworkCallback mNetworkCallback = new NetworkCallback() {
         @Override
         public void onCapabilitiesChanged(@NonNull Network network,
@@ -136,12 +138,21 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
 
     public DeviceCheckInClientImpl(ClientInterceptor clientInterceptor,
             ConnectivityManager connectivityManager) {
+        this(clientInterceptor, connectivityManager,
+                (host, port, socketFactory) -> OkHttpChannelBuilder
+                        .forAddress(host, port)
+                        .socketFactory(socketFactory)
+                        .build());
+    }
+
+    DeviceCheckInClientImpl(ClientInterceptor clientInterceptor,
+            ConnectivityManager connectivityManager,
+            ChannelFactory channelFactory) {
         mClientInterceptor = clientInterceptor;
         mConnectivityManager = connectivityManager;
-        final ManagedChannel defaultChannel = OkHttpChannelBuilder
-                .forAddress(sHostName, sPortNumber)
-                .build();
-        mDefaultBlockingStub = DeviceLockCheckinServiceGrpc.newBlockingStub(defaultChannel)
+        mChannelFactory = channelFactory;
+        mDefaultChannel = mChannelFactory.buildChannel(sHostName, sPortNumber);
+        mDefaultBlockingStub = DeviceLockCheckinServiceGrpc.newBlockingStub(mDefaultChannel)
                 .withInterceptors(clientInterceptor);
         HandlerThread handlerThread = new HandlerThread("NetworkCallbackThread");
         handlerThread.start();
@@ -305,6 +316,7 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     public void cleanUp() {
         super.cleanUp();
         mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
+        mDefaultChannel.shutdown();
         synchronized (this) {
             if (mNonVpnChannel != null) {
                 mNonVpnChannel.shutdown();
@@ -324,10 +336,8 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             mNonVpnChannel.shutdown();
         }
         if (network != null) {
-            mNonVpnChannel = OkHttpChannelBuilder
-                    .forAddress(sHostName, sPortNumber)
-                    .socketFactory(network.getSocketFactory())
-                    .build();
+            mNonVpnChannel = mChannelFactory.buildChannel(
+                    sHostName, sPortNumber, network.getSocketFactory());
             mNonVpnBlockingStub =
                     DeviceLockCheckinServiceGrpc.newBlockingStub(mNonVpnChannel)
                             .withInterceptors(mClientInterceptor);
