@@ -38,28 +38,34 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.database.sqlite.SQLiteException;
 import android.os.Build;
 import android.os.UserManager;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.work.BackoffPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.Operation;
 import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.SystemDeviceLockManager;
 import com.android.devicelockcontroller.activities.LandingActivity;
 import com.android.devicelockcontroller.activities.ProvisioningActivity;
+import com.android.devicelockcontroller.common.DeviceLockConstants;
 import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisioningType;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState;
+import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -118,6 +124,8 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                 new PackagePolicyHandler(context, devicePolicyManager, bgExecutor),
                 new RolePolicyHandler(systemDeviceLockManager, bgExecutor),
                 new KioskKeepAlivePolicyHandler(systemDeviceLockManager, bgExecutor),
+                new ControllerKeepAlivePolicyHandler(systemDeviceLockManager, bgExecutor),
+                new NotificationsPolicyHandler(systemDeviceLockManager, bgExecutor),
                 provisionStateController,
                 bgExecutor);
     }
@@ -132,6 +140,8 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             PackagePolicyHandler packagePolicyHandler,
             RolePolicyHandler rolePolicyHandler,
             KioskKeepAlivePolicyHandler kioskKeepAlivePolicyHandler,
+            ControllerKeepAlivePolicyHandler controllerKeepAlivePolicyHandler,
+            NotificationsPolicyHandler notificationsPolicyHandler,
             ProvisionStateController provisionStateController,
             Executor bgExecutor) {
         mContext = context;
@@ -145,6 +155,8 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
         mPolicyList.add(packagePolicyHandler);
         mPolicyList.add(rolePolicyHandler);
         mPolicyList.add(kioskKeepAlivePolicyHandler);
+        mPolicyList.add(controllerKeepAlivePolicyHandler);
+        mPolicyList.add(notificationsPolicyHandler);
     }
 
     @Override
@@ -162,28 +174,47 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
 
     @Override
     public ListenableFuture<Void> enforceCurrentPolicies() {
-        return Futures.transformAsync(enforceCurrentPoliciesWithoutStartingLockTaskMode(
+        return Futures.transform(enforceCurrentPoliciesAndResolveLockTaskType(
                         /* failure= */ false),
-                this::startLockTaskModeIfNeeded,
+                mode -> {
+                    startLockTaskModeIfNeeded(mode);
+                    return null;
+                },
                 mBgExecutor);
     }
 
     @Override
     public ListenableFuture<Void> enforceCurrentPoliciesForCriticalFailure() {
-        return Futures.transformAsync(enforceCurrentPoliciesWithoutStartingLockTaskMode(
+        return Futures.transform(enforceCurrentPoliciesAndResolveLockTaskType(
                         /* failure= */ true),
-                this::startLockTaskModeIfNeeded,
+                mode -> {
+                    startLockTaskModeIfNeeded(mode);
+                    handlePolicyEnforcementFailure();
+                    return null;
+                },
                 mBgExecutor);
     }
 
+    private void handlePolicyEnforcementFailure() {
+        final DeviceLockControllerSchedulerProvider schedulerProvider =
+                (DeviceLockControllerSchedulerProvider) mContext.getApplicationContext();
+        final DeviceLockControllerScheduler scheduler =
+                schedulerProvider.getDeviceLockControllerScheduler();
+        // Hard failure due to policy enforcement, treat it as mandatory reset device alarm.
+        scheduler.scheduleMandatoryResetDeviceAlarm();
+
+        ReportDeviceProvisionStateWorker.reportSetupFailed(WorkManager.getInstance(mContext),
+                DeviceLockConstants.ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED);
+    }
+
     /**
-     * Enforce current policies, but do no start lock task mode.
+     * Enforce current policies and then return the resulting lock task type
      *
      * @param failure true if this enforcement is due to resetting policies in case of failure.
      * @return A future for the lock task type corresponding to the current policies.
      */
-    private ListenableFuture<@LockTaskType Integer>
-            enforceCurrentPoliciesWithoutStartingLockTaskMode(boolean failure) {
+    private ListenableFuture<@LockTaskType Integer> enforceCurrentPoliciesAndResolveLockTaskType(
+            boolean failure) {
         synchronized (this) {
             // current lock task type must be assigned to a local variable; otherwise, if
             // retrieved down the execution flow, it will be returning the new type after execution.
@@ -192,9 +223,19 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             ListenableFuture<@LockTaskType Integer> policiesEnforcementFuture =
                     Futures.transformAsync(
                             currentLockTaskType,
-                            unused -> Futures.transformAsync(
-                                    mProvisionStateController.getState(),
-                                    this::enforcePoliciesForProvisionState, mBgExecutor),
+                            unused -> {
+                                final ListenableFuture<@ProvisionState Integer> provisionState =
+                                        mProvisionStateController.getState();
+                                final ListenableFuture<@DeviceState Integer> deviceState =
+                                        GlobalParametersClient.getInstance().getDeviceState();
+                                return Futures.whenAllSucceed(provisionState, deviceState)
+                                        .callAsync(
+                                                () -> enforcePoliciesForCurrentStates(
+                                                        Futures.getDone(provisionState),
+                                                        Futures.getDone(deviceState)),
+                                                mBgExecutor
+                                );
+                            },
                             mBgExecutor);
             if (failure) {
                 mCurrentEnforcedLockTaskTypeFuture = Futures.immediateFuture(
@@ -213,91 +254,92 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
         }
     }
 
-    private ListenableFuture<@LockTaskType Integer> enforcePoliciesForProvisionState(
-            @ProvisionState int stateToEnforce) {
-        LogUtil.i(TAG, "Enforcing policies for provision state: " + stateToEnforce);
-        if (stateToEnforce == UNPROVISIONED) {
-            return Futures.immediateFuture(LockTaskType.NOT_IN_LOCK_TASK);
-        } else if (stateToEnforce == PROVISION_SUCCEEDED) {
-            return Futures.transformAsync(
-                    GlobalParametersClient.getInstance().getDeviceState(),
-                    this::enforcePoliciesForDeviceState,
-                    mBgExecutor);
+    private ListenableFuture<@LockTaskType Integer> enforcePoliciesForCurrentStates(
+            @ProvisionState int provisionState, @DeviceState int deviceState) {
+        LogUtil.i(TAG, "Enforcing policies for provision state " + provisionState
+                + " and device state " + deviceState);
+        if (provisionState == UNPROVISIONED) {
+            return Futures.immediateFuture(resolveLockTaskType(provisionState, deviceState));
         }
         List<ListenableFuture<Boolean>> futures = new ArrayList<>();
-        for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
-            PolicyHandler policy = mPolicyList.get(i);
-            switch (stateToEnforce) {
-                case PROVISION_IN_PROGRESS:
-                    futures.add(policy.onProvisionInProgress());
-                    break;
-                case KIOSK_PROVISIONED:
-                    futures.add(policy.onProvisioned());
-                    break;
-                case PROVISION_PAUSED:
-                    futures.add(policy.onProvisionPaused());
-                    break;
-                case PROVISION_FAILED:
-                    futures.add(policy.onProvisionFailed());
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Invalid provision state to enforce: " + stateToEnforce);
+        if (deviceState == CLEARED) {
+            // If device is cleared, then ignore provision state and add cleared policies
+            for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
+                PolicyHandler policy = mPolicyList.get(i);
+                futures.add(policy.onCleared());
+            }
+        } else if (provisionState == PROVISION_SUCCEEDED) {
+            // If provisioning has succeeded, then ignore provision state and add device state
+            // policies
+            for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
+                PolicyHandler policy = mPolicyList.get(i);
+                switch (deviceState) {
+                    case UNLOCKED:
+                        futures.add(policy.onUnlocked());
+                        break;
+                    case LOCKED:
+                        futures.add(policy.onLocked());
+                        break;
+                    case UNDEFINED:
+                        // No policies to enforce in this state.
+                        break;
+                    default:
+                        throw new IllegalArgumentException(
+                                "Invalid device state to enforce: " + deviceState);
+                }
+            }
+        } else {
+            for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
+                PolicyHandler policy = mPolicyList.get(i);
+                switch (provisionState) {
+                    case PROVISION_IN_PROGRESS:
+                        futures.add(policy.onProvisionInProgress());
+                        break;
+                    case KIOSK_PROVISIONED:
+                        futures.add(policy.onProvisioned());
+                        break;
+                    case PROVISION_PAUSED:
+                        futures.add(policy.onProvisionPaused());
+                        break;
+                    case PROVISION_FAILED:
+                        futures.add(policy.onProvisionFailed());
+                        break;
+                    default:
+                        throw new IllegalArgumentException(
+                                "Invalid provision state to enforce: " + provisionState);
+                }
             }
         }
         return Futures.transform(Futures.allAsList(futures),
                 results -> {
                     if (results.stream().reduce(true, (a, r) -> a && r)) {
-                        if (stateToEnforce == PROVISION_IN_PROGRESS) {
-                            return LockTaskType.LANDING_ACTIVITY;
-                        } else if (stateToEnforce == KIOSK_PROVISIONED) {
-                            return LockTaskType.KIOSK_SETUP_ACTIVITY;
-                        } else {
-                            return LockTaskType.NOT_IN_LOCK_TASK;
-                        }
+                        return resolveLockTaskType(provisionState, deviceState);
                     } else {
                         throw new IllegalStateException(
-                                "Failed to enforce polices for provision state: " + stateToEnforce);
+                                "Failed to enforce policies for provision state " + provisionState
+                                        + " and device state " + deviceState);
                     }
                 },
                 MoreExecutors.directExecutor());
     }
 
-    private ListenableFuture<@LockTaskType Integer> enforcePoliciesForDeviceState(
-            @DeviceState int stateToEnforce) {
-        LogUtil.i(TAG, "Enforcing policies for device state: " + stateToEnforce);
-        List<ListenableFuture<Boolean>> futures = new ArrayList<>();
-        for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
-            PolicyHandler policy = mPolicyList.get(i);
-            switch (stateToEnforce) {
-                case UNLOCKED:
-                    futures.add(policy.onUnlocked());
-                    break;
-                case LOCKED:
-                    futures.add(policy.onLocked());
-                    break;
-                case CLEARED:
-                    futures.add(policy.onCleared());
-                    break;
-                case UNDEFINED:
-                    // No policies to enforce in this state.
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Invalid device state to enforce: " + stateToEnforce);
-            }
+    /**
+     * Determines the lock task type based on the current provision and device state
+     */
+    private @LockTaskType int resolveLockTaskType(int provisionState, int deviceState) {
+        if (provisionState == UNPROVISIONED || deviceState == CLEARED) {
+            return LockTaskType.NOT_IN_LOCK_TASK;
         }
-        return Futures.transform(Futures.allAsList(futures),
-                results -> {
-                    if (results.stream().reduce(true, (a, r) -> a && r)) {
-                        return stateToEnforce == LOCKED ? LockTaskType.KIOSK_LOCK_ACTIVITY :
-                                LockTaskType.NOT_IN_LOCK_TASK;
-                    } else {
-                        throw new IllegalStateException(
-                                "Failed to enforce policies for device state: " + stateToEnforce);
-                    }
-                },
-                MoreExecutors.directExecutor());
+        if (provisionState == PROVISION_IN_PROGRESS) {
+            return LockTaskType.LANDING_ACTIVITY;
+        }
+        if (provisionState == KIOSK_PROVISIONED) {
+            return LockTaskType.KIOSK_SETUP_ACTIVITY;
+        }
+        if (provisionState == PROVISION_SUCCEEDED && deviceState == LOCKED) {
+            return LockTaskType.KIOSK_LOCK_ACTIVITY;
+        }
+        return LockTaskType.NOT_IN_LOCK_TASK;
     }
 
     private ListenableFuture<Intent> getLockScreenActivityIntent() {
@@ -402,33 +444,29 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                 }, mBgExecutor);
     }
 
+    /**
+     * Gets the currently enforced lock task type, enforcing current policies if they haven't been
+     * enforced yet.
+     */
     private ListenableFuture<@LockTaskType Integer> getCurrentEnforcedLockTaskType() {
         synchronized (this) {
-            ListenableFuture<@LockTaskType Integer> currentLockTaskType =
-                    mCurrentEnforcedLockTaskTypeFuture;
-            ListenableFuture<@LockTaskType Integer> resultFuture = Futures.transformAsync(
-                    currentLockTaskType,
-                    type -> type == LockTaskType.UNDEFINED ? initializeLockTaskType()
+            return Futures.transformAsync(
+                    mCurrentEnforcedLockTaskTypeFuture,
+                    type -> type == LockTaskType.UNDEFINED
+                            ? enforceCurrentPoliciesAndResolveLockTaskType(/* failure= */ false)
                             : Futures.immediateFuture(type),
                     mBgExecutor);
-            mCurrentEnforcedLockTaskTypeFuture = Futures.catching(resultFuture, Exception.class,
-                    unused -> LockTaskType.UNDEFINED, mBgExecutor);
-            return resultFuture;
         }
-    }
-
-    @NonNull
-    private ListenableFuture<@LockTaskType Integer> initializeLockTaskType() {
-        return Futures.transformAsync(
-                mProvisionStateController.getState(),
-                this::enforcePoliciesForProvisionState, mBgExecutor);
     }
 
     @Override
     public ListenableFuture<Void> onUserUnlocked() {
         return Futures.transformAsync(mProvisionStateController.onUserUnlocked(),
-                unused -> Futures.transformAsync(getCurrentEnforcedLockTaskType(),
-                        this::startLockTaskModeIfNeeded,
+                unused -> Futures.transform(getCurrentEnforcedLockTaskType(),
+                        mode -> {
+                            startLockTaskModeIfNeeded(mode);
+                            return null;
+                        },
                         mBgExecutor),
                 mBgExecutor);
     }
@@ -439,15 +477,21 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
     }
 
     @Override
-    public ListenableFuture<Void> onKioskAppCrashed() {
-        return Futures.transformAsync(getCurrentEnforcedLockTaskType(),
-                this::startLockTaskModeIfNeeded,
+    public ListenableFuture<Void> onAppCrashed(boolean isKiosk) {
+        final String crashedApp = isKiosk ? "kiosk" : "dlc";
+        LogUtil.i(TAG, "Controller notified about " + crashedApp
+                + " having crashed while in lock task mode");
+        return Futures.transform(getCurrentEnforcedLockTaskType(),
+                mode -> {
+                    startLockTaskModeIfNeeded(mode);
+                    return null;
+                },
                 mBgExecutor);
     }
 
-    private ListenableFuture<Void> startLockTaskModeIfNeeded(@LockTaskType Integer type) {
+    private void startLockTaskModeIfNeeded(@LockTaskType Integer type) {
         if (type == LockTaskType.NOT_IN_LOCK_TASK || !mUserManager.isUserUnlocked()) {
-            return Futures.immediateVoidFuture();
+            return;
         }
         WorkManager workManager = WorkManager.getInstance(mContext);
         OneTimeWorkRequest startLockTask = new OneTimeWorkRequest.Builder(
@@ -456,8 +500,24 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                 .setBackoffCriteria(BackoffPolicy.LINEAR,
                         START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS)
                 .build();
-        return Futures.transform(workManager.enqueueUniqueWork(
-                START_LOCK_TASK_MODE_WORK_NAME, ExistingWorkPolicy.REPLACE,
-                startLockTask).getResult(), unused -> null, MoreExecutors.directExecutor());
+        final ListenableFuture<Operation.State.SUCCESS> enqueueResult =
+                workManager.enqueueUniqueWork(START_LOCK_TASK_MODE_WORK_NAME,
+                        ExistingWorkPolicy.REPLACE, startLockTask).getResult();
+        Futures.addCallback(enqueueResult, new FutureCallback<>() {
+            @Override
+            public void onSuccess(Operation.State.SUCCESS result) {
+                // Enqueued
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LogUtil.e(TAG, "Failed to enqueue 'start lock task mode' work", t);
+                if (t instanceof SQLiteException) {
+                    wipeDevice();
+                } else {
+                    LogUtil.e(TAG, "Not wiping device (non SQL exception)");
+                }
+            }
+        }, mBgExecutor);
     }
 }

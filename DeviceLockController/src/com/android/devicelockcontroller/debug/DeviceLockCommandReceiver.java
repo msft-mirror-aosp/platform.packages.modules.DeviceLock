@@ -42,12 +42,15 @@ import androidx.annotation.StringDef;
 import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.FcmRegistrationTokenProvider;
+import com.android.devicelockcontroller.WorkManagerExceptionHandler.WorkFailureAlarmReceiver;
 import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.policy.ProvisionHelperImpl;
 import com.android.devicelockcontroller.policy.ProvisionStateController;
+import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
+import com.android.devicelockcontroller.provision.grpc.DeviceFinalizeClient;
 import com.android.devicelockcontroller.provision.worker.DeviceCheckInWorker;
 import com.android.devicelockcontroller.provision.worker.PauseProvisioningWorker;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceLockProgramCompleteWorker;
@@ -93,6 +96,7 @@ public final class DeviceLockCommandReceiver extends BroadcastReceiver {
     private static final String EXTRA_RESET_DEVICE_MINUTES = "reset-device-minutes";
     private static final String EXTRA_MANDATORY_RESET_DEVICE_MINUTES =
             "mandatory-reset-device-minutes";
+    private static final String EXTRA_HOST_NAME = "host-name";
     public static final String EXTRA_RESET_INCLUDE_SETUP_PARAMETERS_AND_DEBUG_SETUPS =
             "include-setup-params-and-debug-setups";
 
@@ -122,6 +126,8 @@ public final class DeviceLockCommandReceiver extends BroadcastReceiver {
         String FCM = "fcm";
         String ENABLE_DEBUG_CLIENT = "enable-debug-client";
         String DISABLE_DEBUG_CLIENT = "disable-debug-client";
+        String SET_CHECK_IN_HOST_NAME = "set-check-in-host-name";
+        String SET_FINALIZE_HOST_NAME = "set-finalize-host-name";
         String SET_DEBUG_CLIENT_RESPONSE = "set-debug-client-response";
         String DUMP_DEBUG_CLIENT_RESPONSE = "dump-debug-client-response";
         String SET_UP_DEBUG_SCHEDULER = "set-up-debug-scheduler";
@@ -188,6 +194,12 @@ public final class DeviceLockCommandReceiver extends BroadcastReceiver {
             case Commands.DISABLE_DEBUG_CLIENT:
                 DeviceCheckInClientDebug.setDebugClientEnabled(context, false);
                 break;
+            case Commands.SET_CHECK_IN_HOST_NAME:
+                setCheckInHostName(context, intent);
+                break;
+            case Commands.SET_FINALIZE_HOST_NAME:
+                setFinalizeHostName(context, intent);
+                break;
             case Commands.SET_DEBUG_CLIENT_RESPONSE:
                 setDebugCheckInClientResponse(context, intent);
                 break;
@@ -209,6 +221,20 @@ public final class DeviceLockCommandReceiver extends BroadcastReceiver {
             default:
                 throw new IllegalArgumentException("Unsupported command: " + command);
         }
+    }
+
+    private static void setCheckInHostName(Context context, Intent intent) {
+        if (!intent.hasExtra(EXTRA_HOST_NAME)) {
+            throw new IllegalArgumentException("Missing host name override!");
+        }
+        DeviceCheckInClient.setHostNameOverride(context, intent.getStringExtra(EXTRA_HOST_NAME));
+    }
+
+    private static void setFinalizeHostName(Context context, Intent intent) {
+        if (!intent.hasExtra(EXTRA_HOST_NAME)) {
+            throw new IllegalArgumentException("Missing host name override!");
+        }
+        DeviceFinalizeClient.setHostNameOverride(context, intent.getStringExtra(EXTRA_HOST_NAME));
     }
 
     private static void setDebugCheckInClientResponse(Context context, Intent intent) {
@@ -339,6 +365,14 @@ public final class DeviceLockCommandReceiver extends BroadcastReceiver {
         alarmManager.cancel(PendingIntent.getBroadcast(
                 context, /* ignored */ 0,
                 new Intent(context, ResumeProvisionReceiver.class),
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
+        alarmManager.cancel(PendingIntent.getBroadcast(
+                context, /* ignored */ 0,
+                new Intent(context, NextProvisionFailedStepReceiver.class),
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
+        alarmManager.cancel(PendingIntent.getBroadcast(
+                context, /* ignored */ 0,
+                new Intent(context, WorkFailureAlarmReceiver.class),
                 PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
 
         PolicyObjectsProvider policyObjectsProvider =

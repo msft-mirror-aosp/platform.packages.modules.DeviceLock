@@ -91,7 +91,8 @@ public final class DeviceLockControllerServiceTest {
     }
 
     @Test
-    public void lockDevice_shouldLogKioskRequest() throws RemoteException, TimeoutException {
+    public void lockDevice_shouldLogKioskRequest_andLogLockSuccess() throws RemoteException,
+            TimeoutException {
         Intent serviceIntent = new Intent(mTestApp, DeviceLockControllerService.class);
         IBinder binder = mServiceRule.bindService(serviceIntent);
         when(mTestApp.getDeviceStateController().lockDevice()).thenReturn(
@@ -103,10 +104,31 @@ public final class DeviceLockControllerServiceTest {
         serviceStub.lockDevice(new RemoteCallback((result -> {})));
 
         verify(mStatsLogger).logKioskAppRequest(eq(KIOSK_APP_UID));
+        verify(mStatsLogger).logSuccessfulLockingDevice();
     }
 
     @Test
-    public void unlockDevice_shouldLogKioskRequest() throws RemoteException, TimeoutException {
+    public void lockDevice_failure_shouldLogToStatsLogger() throws TimeoutException,
+            RemoteException {
+        DeviceStateController deviceStateController = mTestApp.getDeviceStateController();
+        Intent serviceIntent = new Intent(mTestApp, DeviceLockControllerService.class);
+        IBinder binder = mServiceRule.bindService(serviceIntent);
+        when(deviceStateController.lockDevice()).thenReturn(
+                Futures.immediateFailedFuture(new RuntimeException("Test Exception")));
+        when(deviceStateController.getDeviceState()).thenReturn(Futures.immediateFuture(
+                DeviceStateController.DeviceState.UNLOCKED));
+
+        assertThat(binder).isNotNull();
+
+        IDeviceLockControllerService.Stub serviceStub = (IDeviceLockControllerService.Stub) binder;
+        serviceStub.lockDevice(new RemoteCallback((result -> {})));
+
+        verify(mStatsLogger).logLockDeviceFailure(DeviceStateController.DeviceState.UNLOCKED);
+    }
+
+    @Test
+    public void unlockDevice_shouldLogKioskRequest_AndLogUnlockSuccess() throws RemoteException,
+            TimeoutException {
         Intent serviceIntent = new Intent(mTestApp, DeviceLockControllerService.class);
         IBinder binder = mServiceRule.bindService(serviceIntent);
         when(mTestApp.getDeviceStateController().unlockDevice()).thenReturn(
@@ -118,6 +140,26 @@ public final class DeviceLockControllerServiceTest {
         serviceStub.unlockDevice(new RemoteCallback((result -> {})));
 
         verify(mStatsLogger).logKioskAppRequest(eq(KIOSK_APP_UID));
+        verify(mStatsLogger).logSuccessfulUnlockingDevice();
+    }
+
+    @Test
+    public void unlockDevice_failure_shouldLogToStatsLogger() throws TimeoutException,
+            RemoteException {
+        DeviceStateController deviceStateController = mTestApp.getDeviceStateController();
+        Intent serviceIntent = new Intent(mTestApp, DeviceLockControllerService.class);
+        IBinder binder = mServiceRule.bindService(serviceIntent);
+        when(deviceStateController.unlockDevice()).thenReturn(
+                Futures.immediateFailedFuture(new RuntimeException("Test Exception")));
+        when(deviceStateController.getDeviceState()).thenReturn(Futures.immediateFuture(
+                DeviceStateController.DeviceState.LOCKED));
+
+        assertThat(binder).isNotNull();
+
+        IDeviceLockControllerService.Stub serviceStub = (IDeviceLockControllerService.Stub) binder;
+        serviceStub.unlockDevice(new RemoteCallback((result -> {})));
+
+        verify(mStatsLogger).logUnlockDeviceFailure(DeviceStateController.DeviceState.LOCKED);
     }
 
     @Test

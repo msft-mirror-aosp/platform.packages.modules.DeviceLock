@@ -152,14 +152,20 @@ public final class FinalizationControllerImplTest {
         }
 
         @Override
-        public void setExemptFromActivityBackgroundStartRestriction(boolean exempt,
+        public void setDlcExemptFromActivityBgStartRestrictionState(boolean exempt,
                 Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
 
         }
 
         @Override
-        public void setExemptFromHibernation(String packageName, boolean exempt, Executor executor,
-                @NonNull OutcomeReceiver<Void, Exception> callback) {
+        public void setDlcAllowedToSendUndismissibleNotifications(boolean allowed,
+                Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
+
+        @Override
+        public void setKioskAppExemptFromRestrictionsState(String packageName, boolean exempt,
+                Executor executor, @NonNull OutcomeReceiver<Void, Exception> callback) {
 
         }
 
@@ -176,9 +182,27 @@ public final class FinalizationControllerImplTest {
         }
 
         @Override
+        public void enableControllerKeepalive(Executor executor,
+                @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
+
+        @Override
+        public void disableControllerKeepalive(Executor executor,
+                @NonNull OutcomeReceiver<Void, Exception> callback) {
+
+        }
+
+        @Override
         public void setDeviceFinalized(boolean finalized, Executor executor,
                 @NonNull OutcomeReceiver<Void, Exception> callback) {
             executor.execute(() -> callback.onResult(null));
+        }
+
+        @Override
+        public void setPostNotificationsSystemFixed(boolean systemFixed, Executor executor,
+                @NonNull OutcomeReceiver<Void, Exception> callback) {
+
         }
     }
 

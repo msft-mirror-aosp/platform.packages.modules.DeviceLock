@@ -16,19 +16,25 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static com.android.devicelockcontroller.activities.DeviceLockNotificationManager.DEVICE_RESET_NOTIFICATION_ID;
+import static com.android.devicelockcontroller.activities.DeviceLockNotificationManager.DEVICE_RESET_NOTIFICATION_TAG;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_DISMISSIBLE_UI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_FACTORY_RESET;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_SUCCESS;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_PERSISTENT_UI;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_RETRY;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.NotificationManager;
 import android.content.Context;
+import android.os.Looper;
+import android.service.notification.StatusBarNotification;
 
 import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
@@ -47,12 +53,15 @@ import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStat
 import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,7 +69,10 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.Shadows;
+import org.robolectric.shadows.ShadowNotificationManager;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
 @RunWith(RobolectricTestRunner.class)
@@ -75,6 +87,8 @@ public final class ReportDeviceProvisionStateWorkerTest {
     private StatsLogger mStatsLogger;
     private ReportDeviceProvisionStateWorker mWorker;
     private TestDeviceLockControllerApplication mTestApp;
+    private ListeningExecutorService mExecutorService =
+            MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
 
     @Before
     public void setUp() throws Exception {
@@ -107,6 +121,7 @@ public final class ReportDeviceProvisionStateWorkerTest {
         StatsLoggerProvider loggerProvider =
                 (StatsLoggerProvider) mTestApp.getApplicationContext();
         mStatsLogger = loggerProvider.getStatsLogger();
+        SetupParametersClient.getInstance(mTestApp, mExecutorService);
     }
 
     @Test
@@ -123,14 +138,100 @@ public final class ReportDeviceProvisionStateWorkerTest {
         when(mResponse.hasFatalError()).thenReturn(true);
 
         assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.failure());
-        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm(
-                /* shouldGoOffImmediately= */ eq(false));
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm();
         // THEN report provisioning state or complete was NOT logged
         verify(mStatsLogger, never()).logReportDeviceProvisionState();
     }
 
     @Test
-    public void doWork_responseIsSuccessful_globalParametersShouldBeSet_returnSuccessAndLogReportState()
+    public void doWork_responseIsSuccessful_globalParametersSetAndEventLogged() throws Exception {
+        when(mResponse.isSuccessful()).thenReturn(true);
+        when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_RETRY);
+        when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
+
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
+
+        // THEN parameters are saved and report state was logged
+        GlobalParametersClient globalParameters = GlobalParametersClient.getInstance();
+        assertThat(globalParameters.getLastReceivedProvisionState().get()).isEqualTo(
+                PROVISION_STATE_RETRY);
+        Executors.newSingleThreadExecutor().submit(
+                () -> assertThat(UserParameters.getDaysLeftUntilReset(mTestApp)).isEqualTo(
+                        TEST_DAYS_LEFT_UNTIL_RESET)).get();
+        verify(mStatsLogger).logReportDeviceProvisionState();
+    }
+
+    @Test
+    public void doWork_retryState_schedulesAlarm() {
+        when(mResponse.isSuccessful()).thenReturn(true);
+        when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_RETRY);
+        when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
+
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
+
+        // THEN we schedule to try again later
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm();
+    }
+
+    @Test
+    @Ignore
+    //TODO(b/327652632): Re-enable after fixing
+    public void doWork_dismissibleUiState_schedulesAlarmAndSendsNotification() throws Exception {
+        when(mResponse.isSuccessful()).thenReturn(true);
+        when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_DISMISSIBLE_UI);
+        when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
+
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Futures.getUnchecked(mExecutorService.submit(latch::countDown));
+        latch.await();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+
+        // THEN we schedule to try again later and send a notification to the user
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm();
+
+        ShadowNotificationManager shadowNotificationManager = Shadows.shadowOf(
+                mTestApp.getSystemService(NotificationManager.class));
+        StatusBarNotification[] activeNotifs = shadowNotificationManager.getActiveNotifications();
+        assertThat(activeNotifs.length).isGreaterThan(0);
+        StatusBarNotification notif = activeNotifs[0];
+        assertThat(notif.getTag()).isEqualTo(DEVICE_RESET_NOTIFICATION_TAG);
+        assertThat(notif.getId()).isEqualTo(DEVICE_RESET_NOTIFICATION_ID);
+        assertThat(notif.isOngoing()).isFalse();
+    }
+
+    @Test
+    @Ignore
+    //TODO(b/327652632): Re-enable after fixing
+    public void doWork_persistentUiState_schedulesAlarmAndSendsOngoingNotification()
+            throws Exception {
+        when(mResponse.isSuccessful()).thenReturn(true);
+        when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_PERSISTENT_UI);
+        when(mResponse.getDaysLeftUntilReset()).thenReturn(TEST_DAYS_LEFT_UNTIL_RESET);
+
+        assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Futures.getUnchecked(mExecutorService.submit(latch::countDown));
+        latch.await();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+
+        // THEN we schedule to try again later and send an undismissable notification to the user
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm();
+
+        ShadowNotificationManager shadowNotificationManager = Shadows.shadowOf(
+                mTestApp.getSystemService(NotificationManager.class));
+        StatusBarNotification[] activeNotifs = shadowNotificationManager.getActiveNotifications();
+        assertThat(activeNotifs.length).isGreaterThan(0);
+        StatusBarNotification notif = activeNotifs[0];
+        assertThat(notif.getTag()).isEqualTo(DEVICE_RESET_NOTIFICATION_TAG);
+        assertThat(notif.getId()).isEqualTo(DEVICE_RESET_NOTIFICATION_ID);
+        assertThat(notif.isOngoing()).isTrue();
+    }
+
+    @Test
+    public void doWork_factoryResetState_schedulesResetDeviceAlarm()
             throws Exception {
         when(mResponse.isSuccessful()).thenReturn(true);
         when(mResponse.getNextClientProvisionState()).thenReturn(PROVISION_STATE_FACTORY_RESET);
@@ -138,16 +239,13 @@ public final class ReportDeviceProvisionStateWorkerTest {
 
         assertThat(Futures.getUnchecked(mWorker.startWork())).isEqualTo(Result.success());
 
-        GlobalParametersClient globalParameters = GlobalParametersClient.getInstance();
-        assertThat(globalParameters.getLastReceivedProvisionState().get()).isEqualTo(
-                PROVISION_STATE_FACTORY_RESET);
-        Executors.newSingleThreadExecutor().submit(
-                () -> assertThat(UserParameters.getDaysLeftUntilReset(mTestApp)).isEqualTo(
-                        TEST_DAYS_LEFT_UNTIL_RESET)).get();
+        CountDownLatch latch = new CountDownLatch(1);
+        Futures.getUnchecked(mExecutorService.submit(latch::countDown));
+        latch.await();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
 
-        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleNextProvisionFailedStepAlarm(
-                /* shouldGoOffImmediately= */ eq(true));
-        // THEN report provisioning state was logged
-        verify(mStatsLogger).logReportDeviceProvisionState();
+        // THEN we schedule reset.
+        // Note that the scheduler class sends the notification
+        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleResetDeviceAlarm();
     }
 }

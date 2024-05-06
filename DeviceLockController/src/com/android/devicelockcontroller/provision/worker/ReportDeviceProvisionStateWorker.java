@@ -16,6 +16,14 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_DISMISSIBLE_UI;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_FACTORY_RESET;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_PERSISTENT_UI;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_RETRY;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_SUCCESS;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_UNSPECIFIED;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.DEADLINE_PASSED;
+
 import android.content.Context;
 
 import androidx.annotation.NonNull;
@@ -26,9 +34,11 @@ import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.Operation;
 import androidx.work.WorkManager;
 import androidx.work.WorkerParameters;
 
+import com.android.devicelockcontroller.activities.DeviceLockNotificationManager;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
@@ -41,9 +51,11 @@ import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * A worker class dedicated to report state of provision for the device lock program.
@@ -52,6 +64,8 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
     public static final String KEY_IS_PROVISION_SUCCESSFUL = "is-provision-successful";
     public static final String KEY_PROVISION_FAILURE_REASON = "provision-failure-reason";
     public static final String REPORT_PROVISION_STATE_WORK_NAME = "report-provision-state";
+    @VisibleForTesting
+    static final String UNEXPECTED_PROVISION_STATE_ERROR_MESSAGE = "Unexpected provision state!";
 
     private final StatsLogger mStatsLogger;
 
@@ -81,7 +95,11 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
      * Schedule a work to report the current provision failed step to server.
      */
     public static void reportCurrentFailedStep(WorkManager workManager) {
-        enqueueReportWork(new Data.Builder().build(), workManager);
+        Data inputData = new Data.Builder()
+                .putBoolean(KEY_IS_PROVISION_SUCCESSFUL, false)
+                .putInt(KEY_PROVISION_FAILURE_REASON, DEADLINE_PASSED)
+                .build();
+        enqueueReportWork(inputData, workManager);
     }
 
     private static void enqueueReportWork(Data inputData, WorkManager workManager) {
@@ -94,9 +112,24 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                         .setInputData(inputData)
                         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY)
                         .build();
-        workManager.enqueueUniqueWork(
-                REPORT_PROVISION_STATE_WORK_NAME,
-                ExistingWorkPolicy.APPEND_OR_REPLACE, work);
+        ListenableFuture<Operation.State.SUCCESS> result =
+                workManager.enqueueUniqueWork(REPORT_PROVISION_STATE_WORK_NAME,
+                ExistingWorkPolicy.APPEND_OR_REPLACE, work).getResult();
+        Futures.addCallback(result,
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(Operation.State.SUCCESS result) {
+                        // no-op
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        // Log an error but don't reset the device (non critical failure).
+                        LogUtil.e(TAG, "Failed to enqueue 'report provision state' work", t);
+                    }
+                },
+                MoreExecutors.directExecutor()
+        );
     }
 
     public ReportDeviceProvisionStateWorker(@NonNull Context context,
@@ -130,6 +163,9 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                     KEY_IS_PROVISION_SUCCESSFUL, /* defaultValue= */ false);
             int failureReason = getInputData().getInt(KEY_PROVISION_FAILURE_REASON,
                     ProvisionFailureReason.UNKNOWN_REASON);
+            if (!isSuccessful && failureReason == ProvisionFailureReason.UNKNOWN_REASON) {
+                LogUtil.e(TAG, "Reporting failure with an unknown reason is not allowed");
+            }
             ReportDeviceProvisionStateGrpcResponse response =
                     Futures.getDone(mClient).reportDeviceProvisionState(
                             Futures.getDone(lastState),
@@ -143,7 +179,7 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
             if (response.hasFatalError()) {
                 LogUtil.e(TAG,
                         "Report provision state failed: " + response + "\nRetry current step");
-                scheduler.scheduleNextProvisionFailedStepAlarm(/* shouldGoOffImmediately= */ false);
+                scheduler.scheduleNextProvisionFailedStepAlarm();
                 return Result.failure();
             }
             int daysLeftUntilReset = response.getDaysLeftUntilReset();
@@ -152,21 +188,36 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
             }
             int nextState = response.getNextClientProvisionState();
             Futures.getUnchecked(globalParametersClient.setLastReceivedProvisionState(nextState));
-            scheduler.scheduleNextProvisionFailedStepAlarm(
-                    shouldRunNextStepImmediately(Futures.getDone(lastState), nextState));
+            onNextProvisionStateReceived(nextState, daysLeftUntilReset);
+            if (nextState == PROVISION_STATE_FACTORY_RESET) {
+                scheduler.scheduleResetDeviceAlarm();
+            } else if (nextState != PROVISION_STATE_SUCCESS) {
+                scheduler.scheduleNextProvisionFailedStepAlarm();
+            }
             mStatsLogger.logReportDeviceProvisionState();
             return Result.success();
         }, mExecutorService);
     }
 
-    @VisibleForTesting
-    static boolean shouldRunNextStepImmediately(@DeviceProvisionState int lastState,
-            @DeviceProvisionState int nextState) {
-        // Always wait before performing a retry;
-        if (nextState == DeviceProvisionState.PROVISION_STATE_RETRY) return false;
-        // Otherwise, when the user just goes through the provision UI, we should
-        // perform next step immediately.
-        return lastState == DeviceProvisionState.PROVISION_STATE_UNSPECIFIED
-                || lastState == DeviceProvisionState.PROVISION_STATE_RETRY;
+    private void onNextProvisionStateReceived(@DeviceProvisionState int provisionState,
+            int daysLeftUntilReset) {
+        switch (provisionState) {
+            case PROVISION_STATE_RETRY:
+            case PROVISION_STATE_SUCCESS:
+            case PROVISION_STATE_UNSPECIFIED:
+            case PROVISION_STATE_FACTORY_RESET:
+                // no-op
+                break;
+            case PROVISION_STATE_DISMISSIBLE_UI:
+                DeviceLockNotificationManager.sendDeviceResetNotification(mContext,
+                        daysLeftUntilReset);
+                break;
+            case PROVISION_STATE_PERSISTENT_UI:
+                DeviceLockNotificationManager
+                        .sendDeviceResetInOneDayOngoingNotification(mContext);
+                break;
+            default:
+                throw new IllegalStateException(UNEXPECTED_PROVISION_STATE_ERROR_MESSAGE);
+        }
     }
 }

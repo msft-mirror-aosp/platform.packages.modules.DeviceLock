@@ -198,6 +198,9 @@ enum ClientProvisionFailureReason {
   PROVISION_FAILURE_REASON_NOT_IN_ELIGIBLE_COUNTRY = 4;
   // Provision failed due to inability to enforce policies.
   PROVISION_FAILURE_REASON_POLICY_ENFORCEMENT_FAILED = 5;
+  // Provision failed previously and the device has stayed failing beyond
+  // the deadline.
+  PROVISION_FAILURE_REASON_DEADLINE_PASSED = 6;
 }
 
 // The different provision states of a device.

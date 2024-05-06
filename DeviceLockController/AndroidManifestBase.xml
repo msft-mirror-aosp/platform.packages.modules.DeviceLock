@@ -225,6 +225,15 @@
             android:exported="false"
             android:singleUser="true" />
 
+        <service
+            android:name="com.android.devicelockcontroller.services.DeviceLockKeepAliveService"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.devicelock.action.KEEPALIVE" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>
