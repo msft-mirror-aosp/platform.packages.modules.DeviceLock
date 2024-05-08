@@ -35,7 +35,7 @@
     <string name="control_download_text" msgid="8514650561843088172">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> का एप डाउनलोड, इन्स्टल र अपडेट गर्न"</string>
     <string name="control_disable_debug_text" msgid="8112443250013094442">"डिबग गर्ने सुविधाहरू अफ गर्न"</string>
     <string name="locked_section_title" msgid="2748725389334076510">"यो डिभाइस लक हुँदा कुन कुन सुविधाहरूले काम गर्छन्?"</string>
-    <string name="locked_emergency_text" msgid="3509216445555779286">"आपत्कालीन अवस्थामा कल गर्ने सेवाहरू"</string>
+    <string name="locked_emergency_text" msgid="3509216445555779286">"आपत्‌कालीन अवस्थामा कल गर्ने सेवाहरू"</string>
     <string name="locked_phone_usage_text" msgid="1913605870324552847">"आगमन कल र केही बहिर्गमन कलहरू"</string>
     <string name="locked_settings_usage_text" msgid="8336476063187737700">"सेटिङ"</string>
     <string name="locked_backup_and_restore_text" msgid="104616318625243429">"आफ्नो डेटा &lt;a href=https://support.google.com/android/answer/2819582&gt;ब्याकअप र रिस्टोर गर्ने सुविधा&lt;/a&gt;"</string>
