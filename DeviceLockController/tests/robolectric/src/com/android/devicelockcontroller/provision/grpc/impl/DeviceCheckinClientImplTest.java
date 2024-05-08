@@ -88,6 +88,7 @@ public final  class DeviceCheckinClientImplTest {
     private static final String TEST_HOST_NAME = "test.host.name";
     private static final int TEST_PORT_NUMBER = 7777;
     private static final String TEST_REGISTERED_ID = "1234567890";
+    private static final String TEST_FCM_TOKEN = "token";
     private static final int NON_VPN_NET_ID = 10;
 
     @Rule
@@ -105,6 +106,8 @@ public final  class DeviceCheckinClientImplTest {
     private String mDefaultNetworkServerName;
     private String mNonVpnServerName;
     private DeviceCheckInClientImpl mDeviceCheckInClientImpl;
+
+    private String mReceivedFcmToken;
 
     @Before
     public void setUp() throws Exception {
@@ -158,11 +161,79 @@ public final  class DeviceCheckinClientImplTest {
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
                 mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, /* fcmRegistrationToken= */ null)))
+                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is successful
         assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedFcmToken).isEqualTo(TEST_FCM_TOKEN);
+    }
+
+    @Test
+    public void getCheckInStatus_noFcmToken_succeeds() throws Exception {
+        // GIVEN the service succeeds through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeSucceedingService())
+                .build()
+                .start());
+
+        // WHEN we ask for the check in status without an FCM token
+        AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor.submit(() -> response.set(
+                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                new ArraySet<>(), TEST_CARRIER_INFO,
+                                /* fcmRegistrationToken= */ null)))
+                .get();
+
+        // THEN the response is successful
+        assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedFcmToken).isEmpty();
+    }
+
+    @Test
+    public void getCheckInStatus_emptyFcmToken_succeeds() throws Exception {
+        // GIVEN the service succeeds through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeSucceedingService())
+                .build()
+                .start());
+
+        // WHEN we ask for the check in status with an empty FCM token
+        AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor.submit(() -> response.set(
+                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                new ArraySet<>(), TEST_CARRIER_INFO, "")))
+                .get();
+
+        // THEN the response is successful
+        assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedFcmToken).isEmpty();
+    }
+
+    @Test
+    public void getCheckInStatus_blankFcmToken_succeeds() throws Exception {
+        // GIVEN the service succeeds through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeSucceedingService())
+                .build()
+                .start());
+
+        // WHEN we ask for the check in status with a blank FCM token
+        AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor.submit(() -> response.set(
+                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                new ArraySet<>(), TEST_CARRIER_INFO, "   ")))
+                .get();
+
+        // THEN the response is successful
+        assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedFcmToken).isEmpty();
     }
 
     @Test
@@ -196,7 +267,7 @@ public final  class DeviceCheckinClientImplTest {
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
                 mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, /* fcmRegistrationToken= */ null)))
+                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is successful
@@ -224,7 +295,7 @@ public final  class DeviceCheckinClientImplTest {
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
                 mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, /* fcmRegistrationToken= */ null)))
+                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is unsuccessful
@@ -258,7 +329,7 @@ public final  class DeviceCheckinClientImplTest {
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
                 mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, /* fcmRegistrationToken= */ null)))
+                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is unsuccessful
@@ -676,6 +747,7 @@ public final  class DeviceCheckinClientImplTest {
             @Override
             public void getDeviceCheckinStatus(GetDeviceCheckinStatusRequest req,
                     StreamObserver<GetDeviceCheckinStatusResponse> responseObserver) {
+                mReceivedFcmToken = req.getFcmRegistrationToken();
                 GetDeviceCheckinStatusResponse response = GetDeviceCheckinStatusResponse
                         .newBuilder()
                         .build();

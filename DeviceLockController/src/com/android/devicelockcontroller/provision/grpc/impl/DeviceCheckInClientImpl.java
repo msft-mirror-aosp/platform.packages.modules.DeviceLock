@@ -62,6 +62,8 @@ import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStat
 import com.android.devicelockcontroller.util.LogUtil;
 import com.android.devicelockcontroller.util.ThreadAsserts;
 
+import com.google.common.base.Strings;
+
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
@@ -199,10 +201,11 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             @Nullable String fcmRegistrationToken,
             @NonNull DeviceLockCheckinServiceBlockingStub stub) {
         try {
+            // TODO(339313833): Make a separate grpc call for passing in the token
             return new GetDeviceCheckInStatusGrpcResponseWrapper(
                     stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
-                            .getDeviceCheckinStatus(
-                                    createGetDeviceCheckinStatusRequest(deviceIds, carrierInfo)));
+                            .getDeviceCheckinStatus(createGetDeviceCheckinStatusRequest(
+                                    deviceIds, carrierInfo, fcmRegistrationToken)));
         } catch (StatusRuntimeException e) {
             return new GetDeviceCheckInStatusGrpcResponseWrapper(e.getStatus());
         }
@@ -349,7 +352,8 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     }
 
     private static GetDeviceCheckinStatusRequest createGetDeviceCheckinStatusRequest(
-            ArraySet<DeviceId> deviceIds, String carrierInfo) {
+            ArraySet<DeviceId> deviceIds, String carrierInfo,
+            @Nullable String fcmRegistrationToken) {
         GetDeviceCheckinStatusRequest.Builder builder = GetDeviceCheckinStatusRequest.newBuilder();
         for (DeviceId deviceId : deviceIds) {
             DeviceIdentifierType type;
@@ -376,6 +380,9 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
         builder.setDeviceManufacturer(android.os.Build.MANUFACTURER);
         builder.setDeviceModel(android.os.Build.MODEL);
         builder.setDeviceInternalName(android.os.Build.DEVICE);
+        if (!Strings.isNullOrEmpty(fcmRegistrationToken) && !fcmRegistrationToken.isBlank()) {
+            builder.setFcmRegistrationToken(fcmRegistrationToken);
+        }
         return builder.build();
     }
 
