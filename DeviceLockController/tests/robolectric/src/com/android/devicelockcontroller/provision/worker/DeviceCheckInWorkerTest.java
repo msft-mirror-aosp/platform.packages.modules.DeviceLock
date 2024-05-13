@@ -264,8 +264,8 @@ public class DeviceCheckInWorkerTest {
     private void setUpSuccessfulCheckInResponse(boolean isHandleable) {
         when(mResponse.hasRecoverableError()).thenReturn(false);
         when(mResponse.isSuccessful()).thenReturn(true);
-        when(mHelper.handleGetDeviceCheckInStatusResponse(eq(mResponse), any())).thenReturn(
-                isHandleable);
+        when(mHelper.handleGetDeviceCheckInStatusResponse(eq(mResponse), any(), any()))
+                .thenReturn(isHandleable);
     }
 
     private void setUpFailedCheckInResponse(boolean isRecoverable) {
