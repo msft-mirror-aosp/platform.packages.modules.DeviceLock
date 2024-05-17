@@ -137,13 +137,17 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                             }, mExecutorService);
                 }, mExecutorService);
         return Futures.catchingAsync(lockTaskFuture, Exception.class,
-                ex -> Futures.transform(devicePolicyController
-                        .enforceCurrentPoliciesForCriticalFailure(),
-                        unused -> {
-                            LogUtil.e(TAG, "Failed to lock task: ", ex);
-                            return Result.failure();
-                        }, mExecutorService),
-                mExecutorService);
+                ex -> {
+                    LogUtil.e(TAG, "Failed to lock task: ", ex);
+                    return Futures.transform(devicePolicyController
+                                    .enforceCurrentPoliciesForCriticalFailure(),
+                            // TODO(b/341160126): Add tests that cover this scenario
+                            // Technically attempting to enforce for a critical failure will queue
+                            // another lock task and cancel this work so it does not matter what we
+                            // return here as the work gets cancelled immediately.
+                            unused -> Result.failure(),
+                            mExecutorService);
+                }, mExecutorService);
     }
 
     private void enableLockedHomeTrampolineActivity() {
