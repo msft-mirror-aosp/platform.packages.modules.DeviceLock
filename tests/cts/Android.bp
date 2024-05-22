@@ -18,6 +18,7 @@ package {
 
 android_test {
     name: "CtsDeviceLockTestCases",
+    team: "trendy_team_android_go",
     manifest: "AndroidManifest.xml",
     defaults: ["cts_defaults"],
     srcs: [

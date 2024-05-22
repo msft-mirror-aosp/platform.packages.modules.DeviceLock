@@ -454,7 +454,12 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             return Futures.transformAsync(
                     mCurrentEnforcedLockTaskTypeFuture,
                     type -> type == LockTaskType.UNDEFINED
-                            ? enforceCurrentPoliciesAndResolveLockTaskType(/* failure= */ false)
+                            ? Futures.transform(enforceCurrentPoliciesAndResolveLockTaskType(
+                                    /* failure= */ false),
+                                    mode -> {
+                                        startLockTaskModeIfNeeded(mode);
+                                        return mode;
+                                    }, mBgExecutor)
                             : Futures.immediateFuture(type),
                     mBgExecutor);
         }
