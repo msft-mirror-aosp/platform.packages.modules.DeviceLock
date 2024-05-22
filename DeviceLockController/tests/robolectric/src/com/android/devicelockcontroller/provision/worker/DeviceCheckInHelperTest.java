@@ -16,6 +16,10 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
 import static android.os.Looper.getMainLooper;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
@@ -23,6 +27,8 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.Device
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.RETRY_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORKER_INITIAL_DELAY;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORK_NAME;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -35,6 +41,7 @@ import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.NetworkRequest;
 import android.os.SystemClock;
 import android.telephony.TelephonyManager;
 import android.util.ArraySet;
@@ -42,6 +49,8 @@ import android.util.ArraySet;
 import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.work.Configuration;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
 import androidx.work.testing.SynchronousExecutor;
 import androidx.work.testing.WorkManagerTestInitHelper;
 
@@ -115,6 +124,7 @@ public final class DeviceCheckInHelperTest {
     private GlobalParametersClient mGlobalParametersClient;
     private DeviceLockControllerScheduler mScheduler;
     private StatsLogger mStatsLogger;
+    private WorkManager mWorkManager;
     private ShadowPackageManager mPackageManager;
 
     @Before
@@ -135,6 +145,7 @@ public final class DeviceCheckInHelperTest {
                         .setMinimumLoggingLevel(android.util.Log.DEBUG)
                         .setExecutor(new SynchronousExecutor())
                         .build());
+        mWorkManager = WorkManager.getInstance(mTestApplication);
         mGlobalParametersClient = GlobalParametersClient.getInstance();
         mStatsLogger = ((StatsLoggerProvider) mTestApplication).getStatsLogger();
         mPackageManager = Shadows.shadowOf(mTestApplication.getPackageManager());
@@ -158,11 +169,13 @@ public final class DeviceCheckInHelperTest {
     }
 
     @Test
-    public void testHandleGetDeviceCheckInStatusResponse_stopCheckIn_finalizesNonEnrolledDevice() {
+    public void handleGetDeviceCheckInStatusResponse_stopCheckIn_finalizesNonEnrolledDevice()
+            throws Exception {
         final GetDeviceCheckInStatusGrpcResponse response = createStopResponse();
 
         assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response,
-                mock(DeviceLockControllerScheduler.class))).isTrue();
+                mock(DeviceLockControllerScheduler.class),
+                mTestApplication.getFcmRegistrationToken().get())).isTrue();
         Shadows.shadowOf(getMainLooper()).idle();
         verify(mFinalizationController).finalizeNotEnrolledDevice();
     }
@@ -181,7 +194,7 @@ public final class DeviceCheckInHelperTest {
     }
 
     @Test
-    public void testHandleProvisionReadyResponse_invalidConfiguration_shouldNotSendBroadcast() {
+    public void handleProvisionReadyResponse_invalidConfiguration_shouldNotSendBroadcast() {
         GetDeviceCheckInStatusGrpcResponse response = createReadyResponse(
                 /* configuration= */ null);
 
@@ -203,25 +216,96 @@ public final class DeviceCheckInHelperTest {
     }
 
     @Test
-    public void testHandleGetDeviceCheckInStatusResponse_retryCheckIn_shouldScheduleRetryWork() {
+    public void handleGetDeviceCheckInStatusResponse_ready_nonEmptyFcmDoesNotStartFcmWork()
+            throws Exception {
+        final GetDeviceCheckInStatusGrpcResponse response = createReadyResponse(TEST_CONFIGURATION);
+
+        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler,
+                mTestApplication.getFcmRegistrationToken().get())).isTrue();
+
+        assertThat(mWorkManager.getWorkInfosForUniqueWork(FCM_TOKEN_WORK_NAME).get()).isEmpty();
+    }
+
+    @Test
+    public void handleGetDeviceCheckInStatusResponse_readyForProvisioning_emptyFcmStartsWork()
+            throws Exception {
+        final GetDeviceCheckInStatusGrpcResponse response = createReadyResponse(TEST_CONFIGURATION);
+
+        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler,
+                /* fcmRegistrationToken= */ null)).isTrue();
+
+        List<WorkInfo> actualWorks = Futures.getUnchecked(mWorkManager.getWorkInfosForUniqueWork(
+                FCM_TOKEN_WORK_NAME));
+        assertThat(actualWorks.size()).isEqualTo(1);
+        WorkInfo actualWorkInfo = actualWorks.get(0);
+
+        NetworkRequest networkRequest = actualWorkInfo.getConstraints().getRequiredNetworkRequest();
+        assertNetworkRequestCapabilities(networkRequest);
+        assertThat(actualWorkInfo.getInitialDelayMillis()).isEqualTo(
+                FCM_TOKEN_WORKER_INITIAL_DELAY.toMillis());
+    }
+
+    @Test
+    public void handleGetDeviceCheckInStatusResponse_retryCheckIn_shouldScheduleRetryWork()
+            throws Exception {
         final GetDeviceCheckInStatusGrpcResponse response = createRetryResponse(
                 SystemClock.currentNetworkTimeClock().instant().plus(TEST_CHECK_RETRY_DURATION));
 
-        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler)).isTrue();
+        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler,
+                mTestApplication.getFcmRegistrationToken().get())).isTrue();
 
         verify(mScheduler).scheduleRetryCheckInWork(eq(TEST_CHECK_RETRY_DURATION));
     }
 
     @Test
-    public void handleGetDeviceCheckInStatusResponse_retryCheckIn_durationIsNegative_shouldRetry() {
+    public void handleGetDeviceCheckInStatusResponse_retryCheckIn_nonEmptyFcmDoesNotStartFcmWork()
+            throws Exception {
+        final GetDeviceCheckInStatusGrpcResponse response = createRetryResponse(
+                SystemClock.currentNetworkTimeClock().instant().plus(TEST_CHECK_RETRY_DURATION));
+
+        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler,
+                mTestApplication.getFcmRegistrationToken().get())).isTrue();
+
+        assertThat(mWorkManager.getWorkInfosForUniqueWork(FCM_TOKEN_WORK_NAME).get()).isEmpty();
+    }
+
+    @Test
+    public void handleGetDeviceCheckInStatusResponse_retryCheckIn_emptyFcmStartsWork()
+            throws Exception {
+        final GetDeviceCheckInStatusGrpcResponse response = createRetryResponse(
+                SystemClock.currentNetworkTimeClock().instant().plus(TEST_CHECK_RETRY_DURATION));
+
+        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler,
+                /* fcmRegistrationToken= */ null)).isTrue();
+
+        List<WorkInfo> actualWorks = Futures.getUnchecked(mWorkManager.getWorkInfosForUniqueWork(
+                FCM_TOKEN_WORK_NAME));
+        assertThat(actualWorks.size()).isEqualTo(1);
+        WorkInfo actualWorkInfo = actualWorks.get(0);
+        NetworkRequest networkRequest = actualWorkInfo.getConstraints().getRequiredNetworkRequest();
+        assertNetworkRequestCapabilities(networkRequest);
+        assertThat(actualWorkInfo.getInitialDelayMillis()).isEqualTo(
+                FCM_TOKEN_WORKER_INITIAL_DELAY.toMillis());
+    }
+
+    @Test
+    public void handleGetDeviceCheckInStatusResponse_retryCheckIn_durationIsNegative_shouldRetry()
+            throws Exception {
         final GetDeviceCheckInStatusGrpcResponse response = createRetryResponse(
                 SystemClock.currentNetworkTimeClock().instant().plus(
                         TEST_NEGATIVE_CHECK_RETRY_DURATION));
 
-        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler)).isTrue();
+        assertThat(mHelper.handleGetDeviceCheckInStatusResponse(response, mScheduler,
+                mTestApplication.getFcmRegistrationToken().get())).isTrue();
 
         verify(mScheduler).scheduleRetryCheckInWork(eq(Duration.ZERO));
+    }
 
+    private void assertNetworkRequestCapabilities(NetworkRequest networkRequest) {
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)).isTrue();
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_TRUSTED)).isTrue();
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_INTERNET)).isTrue();
+        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_VPN)).isTrue();
     }
 
     private static GetDeviceCheckInStatusGrpcResponse createStopResponse() {

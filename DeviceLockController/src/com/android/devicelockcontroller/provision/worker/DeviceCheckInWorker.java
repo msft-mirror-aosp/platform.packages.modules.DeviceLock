@@ -44,6 +44,7 @@ import java.time.Duration;
 public final class DeviceCheckInWorker extends AbstractCheckInWorker {
 
     private final AbstractDeviceCheckInHelper mCheckInHelper;
+    private final FcmRegistrationTokenProvider mFcmRegistrationTokenProvider;
 
     private final StatsLogger mStatsLogger;
 
@@ -52,14 +53,18 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
 
     public DeviceCheckInWorker(@NonNull Context context,
             @NonNull WorkerParameters workerParams, ListeningExecutorService executorService) {
-        this(context, workerParams, new DeviceCheckInHelper(context), null, executorService);
+        this(context, workerParams, new DeviceCheckInHelper(context),
+                (FcmRegistrationTokenProvider) context.getApplicationContext(),
+                /* client= */ null,
+                executorService);
     }
 
     @VisibleForTesting
     DeviceCheckInWorker(@NonNull Context context, @NonNull WorkerParameters workerParameters,
-            AbstractDeviceCheckInHelper helper, DeviceCheckInClient client,
-            ListeningExecutorService executorService) {
+            AbstractDeviceCheckInHelper helper, FcmRegistrationTokenProvider tokenProvider,
+            DeviceCheckInClient client, ListeningExecutorService executorService) {
         super(context, workerParameters, client, executorService);
+        mFcmRegistrationTokenProvider = tokenProvider;
         mCheckInHelper = helper;
         StatsLoggerProvider loggerProvider =
                 (StatsLoggerProvider) context.getApplicationContext();
@@ -88,14 +93,11 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                                 mExecutorService);
                     }
                     String carrierInfo = mCheckInHelper.getCarrierInfo();
-                    Context applicationContext = mContext.getApplicationContext();
                     ListenableFuture<String> fcmRegistrationToken =
-                            ((FcmRegistrationTokenProvider) applicationContext)
-                                    .getFcmRegistrationToken();
+                            mFcmRegistrationTokenProvider.getFcmRegistrationToken();
                     return Futures.whenAllSucceed(mClient, fcmRegistrationToken).call(() -> {
                         DeviceCheckInClient client = Futures.getDone(mClient);
                         String fcmToken = Futures.getDone(fcmRegistrationToken);
-
                         GetDeviceCheckInStatusGrpcResponse response =
                                 client.getDeviceCheckInStatus(
                                         deviceIds, carrierInfo, fcmToken);
@@ -109,7 +111,8 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         }
                         if (response.isSuccessful()) {
                             boolean isResponseHandlingSuccessful = mCheckInHelper
-                                    .handleGetDeviceCheckInStatusResponse(response, scheduler);
+                                    .handleGetDeviceCheckInStatusResponse(response, scheduler,
+                                            fcmToken);
                             if (isResponseHandlingSuccessful) {
                                 mStatsLogger.logSuccessfulCheckIn();
                             }
