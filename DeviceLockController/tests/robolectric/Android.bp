@@ -37,6 +37,8 @@ android_robolectric_test {
         "androidx.work_work-testing",
     ],
     test_suites: ["general-tests"],
+
+    strict_mode: false,
 }
 
 filegroup {
