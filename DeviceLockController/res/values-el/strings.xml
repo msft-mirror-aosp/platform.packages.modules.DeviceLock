@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Θα γίνει επαναφορά της συσκευής σε <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Θα διαγραφούν όλα τα δεδομένα της συσκευής. Για βοήθεια με την εγγραφή της συσκευής, επικοινωνήστε με τον πάροχο <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Η χρηματοοικονομική παροχή απέτυχε"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Κάντε κλικ εδώ για τρόπους επικοινωνίας με τον χρηματοοικονομικό σας σύμβουλο. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Μάθετε περισσότερα<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Για βοήθεια με την εγγραφή της συσκευής, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>επικοινωνήστε με τον πάροχο <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Έξοδος"</string>
     <string name="retry" msgid="7497287909193345356">"Επανάληψη"</string>
 </resources>

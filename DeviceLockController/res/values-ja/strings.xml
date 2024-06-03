@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"デバイスは <xliff:g id="TIMER">%s</xliff:g> にリセットされます"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"デバイスのデータはすべて削除されます。デバイスの登録についてサポートが必要な場合は、<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> にお問い合わせください"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"融資のプロビジョニングに失敗しました"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"融資業者への連絡方法については、こちらをクリックしてください。<xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>詳細<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"デバイスの登録についてサポートが必要な場合は、<xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g> にお問い合わせ<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>ください。"</string>
     <string name="exit" msgid="645084771882733921">"終了"</string>
     <string name="retry" msgid="7497287909193345356">"再試行"</string>
 </resources>

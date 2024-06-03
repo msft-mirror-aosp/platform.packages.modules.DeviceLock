@@ -25,6 +25,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
@@ -32,6 +33,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.work.ListenableWorker;
 import androidx.work.WorkerParameters;
 
+import com.android.devicelockcontroller.activities.LockedHomeActivity;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
@@ -92,64 +94,69 @@ public final class StartLockTaskModeWorker extends ListenableWorker {
                         mExecutorService);
         final ListenableFuture<Result> lockTaskFuture =
                 Futures.transformAsync(isInLockTaskModeFuture, isInLockTaskMode -> {
-            if (isInLockTaskMode) {
-                LogUtil.i(TAG, "Lock task mode is active now");
-                return Futures.immediateFuture(Result.success());
-            }
-
-            return Futures.transform(
-                    devicePolicyController.getLaunchIntentForCurrentState(),
-                    launchIntent -> {
-                        if (launchIntent == null) {
-                            LogUtil.e(TAG, "Failed to enter lock task mode: no intent to launch");
-                            return Result.failure();
-                        }
-                        ComponentName launchIntentComponent = launchIntent.getComponent();
-                        String packageName = launchIntentComponent.getPackageName();
-                        if (!Objects.requireNonNull(mDpm).isLockTaskPermitted(packageName)) {
-                            LogUtil.e(TAG, packageName + " is not permitted in lock task mode");
-                            return Result.failure();
-                        }
-                        setPreferredActivityForHome(launchIntentComponent);
-                        launchIntent.addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        LogUtil.i(TAG, "Launching activity for intent: " + launchIntent);
-                        mContext.startActivity(launchIntent,
-                                ActivityOptions.makeBasic().setLockTaskEnabled(true).toBundle());
-                        // If the intent of the activity to be launched is the Kiosk app, we treat
-                        // this as the end of the provisioning time.
-                        if (launchIntent.getAction() == ACTION_DEVICE_LOCK_KIOSK_SETUP) {
-                            long provisioningStartTime = UserParameters
-                                    .getProvisioningStartTimeMillis(mContext);
-                            if (provisioningStartTime > 0) {
-                                ((StatsLoggerProvider) mContext.getApplicationContext())
-                                        .getStatsLogger()
-                                        .logProvisioningComplete(SystemClock.elapsedRealtime()
-                                                - provisioningStartTime);
-                            }
-                        }
-                        return Result.success();
-                    }, mExecutorService);
-        }, mExecutorService);
+                    if (isInLockTaskMode) {
+                        LogUtil.i(TAG, "Lock task mode is active now");
+                        return Futures.immediateFuture(Result.success());
+                    }
+                    return Futures.transform(
+                            devicePolicyController.getLaunchIntentForCurrentState(),
+                            launchIntent -> {
+                                if (launchIntent == null) {
+                                    LogUtil.e(TAG, "Failed to enter lock task mode: "
+                                            + "no intent to launch");
+                                    return Result.failure();
+                                }
+                                ComponentName launchIntentComponent = launchIntent.getComponent();
+                                String packageName = launchIntentComponent.getPackageName();
+                                if (!Objects.requireNonNull(mDpm)
+                                        .isLockTaskPermitted(packageName)) {
+                                    LogUtil.e(TAG, packageName
+                                            + " is not permitted in lock task mode");
+                                    return Result.failure();
+                                }
+                                enableLockedHomeTrampolineActivity();
+                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                        | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                LogUtil.i(TAG, "Launching activity for intent: " + launchIntent);
+                                mContext.startActivity(launchIntent, ActivityOptions.makeBasic()
+                                        .setLockTaskEnabled(true).toBundle());
+                                // If the intent of the activity to be launched is the Kiosk app,
+                                // we treat this as the end of the provisioning time.
+                                if (launchIntent.getAction() == ACTION_DEVICE_LOCK_KIOSK_SETUP) {
+                                    long provisioningStartTime = UserParameters
+                                            .getProvisioningStartTimeMillis(mContext);
+                                    if (provisioningStartTime > 0) {
+                                        ((StatsLoggerProvider) mContext.getApplicationContext())
+                                                .getStatsLogger()
+                                                .logProvisioningComplete(
+                                                        SystemClock.elapsedRealtime()
+                                                                - provisioningStartTime);
+                                    }
+                                }
+                                return Result.success();
+                            }, mExecutorService);
+                }, mExecutorService);
         return Futures.catchingAsync(lockTaskFuture, Exception.class,
-                ex -> Futures.transform(devicePolicyController
-                        .enforceCurrentPoliciesForCriticalFailure(),
-                        unused -> {
-                            LogUtil.e(TAG, "Failed to lock task: ", ex);
-                            return Result.failure();
-                        }, mExecutorService),
-                mExecutorService);
+                ex -> {
+                    LogUtil.e(TAG, "Failed to lock task: ", ex);
+                    return Futures.transform(devicePolicyController
+                                    .enforceCurrentPoliciesForCriticalFailure(),
+                            // TODO(b/341160126): Add tests that cover this scenario
+                            // Technically attempting to enforce for a critical failure will queue
+                            // another lock task and cancel this work so it does not matter what we
+                            // return here as the work gets cancelled immediately.
+                            unused -> Result.failure(),
+                            mExecutorService);
+                }, mExecutorService);
     }
 
-    private void setPreferredActivityForHome(ComponentName activity) {
-
-        final String currentPackage = UserParameters.getPackageOverridingHome(mContext);
-        if (currentPackage != null && !currentPackage.equals(activity.getPackageName())) {
-            mDpm.clearPackagePersistentPreferredActivities(null /* admin */, currentPackage);
-        } else {
-            mDpm.addPersistentPreferredActivity(null /* admin */, getHomeIntentFilter(), activity);
-            UserParameters.setPackageOverridingHome(mContext, activity.getPackageName());
-        }
+    private void enableLockedHomeTrampolineActivity() {
+        ComponentName lockedHomeActivity = new ComponentName(mContext, LockedHomeActivity.class);
+        mContext.getPackageManager().setComponentEnabledSetting(
+                lockedHomeActivity, PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP);
+        mDpm.addPersistentPreferredActivity(/* admin= */ null, getHomeIntentFilter(),
+                lockedHomeActivity);
     }
 
     private static IntentFilter getHomeIntentFilter() {

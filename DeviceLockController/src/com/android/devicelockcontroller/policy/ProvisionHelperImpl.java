@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static androidx.work.WorkInfo.State.FAILED;
 import static androidx.work.WorkInfo.State.SUCCEEDED;
 
@@ -32,6 +37,7 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.sqlite.SQLiteException;
+import android.net.NetworkRequest;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
@@ -47,6 +53,7 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.Operation;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
+import androidx.work.WorkRequest;
 
 import com.android.devicelockcontroller.PlayInstallPackageTaskClassProvider;
 import com.android.devicelockcontroller.activities.DeviceLockNotificationManager;
@@ -69,6 +76,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -82,6 +90,10 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
     private static final String USE_PREINSTALLED_KIOSK_PREF =
             "debug.devicelock.usepreinstalledkiosk";
     private static volatile SharedPreferences sSharedPreferences;
+    // For Play Install exponential backoff due to Play being updated, use a short delay of
+    // 10 seconds since the situation should resolve relatively quickly.
+    private static final Duration PLAY_INSTALL_BACKOFF_DELAY =
+            Duration.ofMillis(WorkRequest.MIN_BACKOFF_MILLIS);
 
     @VisibleForTesting
     static synchronized SharedPreferences getSharedPreferences(Context context) {
@@ -319,9 +331,15 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
 
     @NonNull
     private static OneTimeWorkRequest getIsDeviceInApprovedCountryWork() {
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
         return new OneTimeWorkRequest.Builder(IsDeviceInApprovedCountryWorker.class)
-                .setConstraints(new Constraints.Builder().setRequiredNetworkType(
-                        NetworkType.CONNECTED).build())
+                .setConstraints(new Constraints.Builder().setRequiredNetworkRequest(
+                        request, NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY)
                 .build();
     }
@@ -334,6 +352,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
                         EXTRA_KIOSK_PACKAGE, kioskPackageName).build())
                 .setConstraints(new Constraints.Builder().setRequiredNetworkType(
                         NetworkType.CONNECTED).build())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, PLAY_INSTALL_BACKOFF_DELAY)
                 .build();
     }
 
@@ -345,8 +364,8 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
                 /* requestCode= */ 0, new Intent(context, ResumeProvisionReceiver.class),
                 PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
         LocalDateTime resumeDateTime = LocalDateTime.now().plusHours(1);
-        DeviceLockNotificationManager.sendDeferredProvisioningNotification(context, resumeDateTime,
-                pendingIntent);
+        DeviceLockNotificationManager.getInstance()
+                .sendDeferredProvisioningNotification(context, resumeDateTime, pendingIntent);
     }
 
     /**

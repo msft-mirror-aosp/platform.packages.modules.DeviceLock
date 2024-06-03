@@ -357,6 +357,23 @@ public final class DevicePolicyControllerImplTest {
     }
 
     @Test
+    public void getLaunchIntent_withUndefinedLockState_shouldEnforcePoliciesAndLockTask()
+            throws Exception {
+        setupSetupParameters();
+        setupAppOpsPolicyHandlerExpectations();
+        when(mMockProvisionStateController.getState()).thenReturn(Futures.immediateFuture(
+                ProvisionState.PROVISION_SUCCEEDED));
+        when(mMockUserManager.isUserUnlocked()).thenReturn(true);
+        GlobalParametersClient.getInstance().setDeviceState(LOCKED).get();
+        installKioskAppWithLockScreenIntentFilter();
+
+        mDevicePolicyController.getLaunchIntentForCurrentState().get();
+
+        shadowOf(Looper.getMainLooper()).idle();
+        assertLockTaskModeStarted();
+    }
+
+    @Test
     public void getLaunchIntent_withUnProvisionState_forCriticalFailure_shouldHaveExpectedIntent()
             throws Exception {
         when(mMockUserManager.isUserUnlocked()).thenReturn(true);

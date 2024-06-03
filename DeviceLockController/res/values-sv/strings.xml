@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Enheten återställs om <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"All enhetsdata raderas. Kontakta <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> om du behöver hjälp att registrera enheten"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Tillhandahållande av finansiering misslyckades"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Klicka här för att visa hur du kontaktar finansiären. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Läs mer<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"<xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>Kontakta <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g> om du behöver hjälp att registrera enheten."</string>
     <string name="exit" msgid="645084771882733921">"Stäng"</string>
     <string name="retry" msgid="7497287909193345356">"Försök igen"</string>
 </resources>

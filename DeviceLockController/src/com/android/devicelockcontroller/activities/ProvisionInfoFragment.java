@@ -131,8 +131,8 @@ public final class ProvisionInfoFragment extends Fragment {
                 isMandatory -> {
                     if (!isMandatory) {
                         next.setText(R.string.start);
-                        DeviceLockNotificationManager.cancelDeferredProvisioningNotification(
-                                context);
+                        DeviceLockNotificationManager.getInstance()
+                                .cancelDeferredProvisioningNotification(context);
                     }
                     next.setVisibility(View.VISIBLE);
                 });

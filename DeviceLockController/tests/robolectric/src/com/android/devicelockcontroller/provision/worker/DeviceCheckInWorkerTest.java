@@ -16,6 +16,7 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static com.android.devicelockcontroller.TestDeviceLockControllerApplication.TEST_FCM_TOKEN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
 import static com.android.devicelockcontroller.provision.worker.DeviceCheckInWorker.RETRY_ON_FAILURE_DELAY;
 
@@ -24,14 +25,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
@@ -42,11 +40,12 @@ import androidx.work.WorkerFactory;
 import androidx.work.WorkerParameters;
 import androidx.work.testing.TestListenableWorkerBuilder;
 
+import com.android.devicelockcontroller.FcmRegistrationTokenProvider;
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.common.DeviceId;
+import com.android.devicelockcontroller.policy.FinalizationController;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
-import com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
@@ -75,17 +74,24 @@ public class DeviceCheckInWorkerTest {
     @Mock
     private AbstractDeviceCheckInHelper mHelper;
     @Mock
+    private FcmRegistrationTokenProvider mFcmRegistrationTokenProvider;
+    @Mock
     private DeviceCheckInClient mClient;
     @Mock
     private GetDeviceCheckInStatusGrpcResponse mResponse;
     private StatsLogger mStatsLogger;
     private DeviceCheckInWorker mWorker;
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private TestDeviceLockControllerApplication mContext =
+            ApplicationProvider.getApplicationContext();
+    private FinalizationController mFinalizationController;
 
     @Before
     public void setUp() throws Exception {
+        mFinalizationController = mContext.getFinalizationController();
+        when(mFcmRegistrationTokenProvider.getFcmRegistrationToken()).thenReturn(
+                mContext.getFcmRegistrationToken());
         when(mClient.getDeviceCheckInStatus(
-                eq(TEST_DEVICE_IDS), anyString(), isNull())).thenReturn(mResponse);
+                eq(TEST_DEVICE_IDS), anyString(), any())).thenReturn(mResponse);
         mWorker = TestListenableWorkerBuilder.from(
                         mContext, DeviceCheckInWorker.class)
                 .setWorkerFactory(
@@ -96,7 +102,8 @@ public class DeviceCheckInWorkerTest {
                                     @NonNull WorkerParameters workerParameters) {
                                 return workerClassName.equals(DeviceCheckInWorker.class.getName())
                                         ? new DeviceCheckInWorker(
-                                        context, workerParameters, mHelper, mClient,
+                                        context, workerParameters, mHelper,
+                                        mFcmRegistrationTokenProvider, mClient,
                                         TestingExecutors.sameThreadScheduledExecutor())
                                         : null;
                             }
@@ -200,11 +207,14 @@ public class DeviceCheckInWorkerTest {
 
         // THEN check-in is requested
         verify(mClient).getDeviceCheckInStatus(eq(TEST_DEVICE_IDS), eq(EMPTY_CARRIER_INFO),
-                isNull());
+                eq(TEST_FCM_TOKEN));
     }
 
     @Test
     public void checkIn_deviceIdsUnavailable_shouldNotSendCheckInRequest() {
+        when(mFinalizationController.finalizeNotEnrolledDevice()).thenReturn(
+                Futures.immediateVoidFuture());
+
         // GIVEN only device ids available
         setDeviceIdAvailability(/* isAvailable= */ false);
         setCarrierInfoAvailability(/* isAvailable= */ false);
@@ -214,14 +224,31 @@ public class DeviceCheckInWorkerTest {
 
         // THEN check-in is not requested
         verify(mClient, never()).getDeviceCheckInStatus(eq(TEST_DEVICE_IDS), eq(EMPTY_CARRIER_INFO),
-                isNull());
+                eq(TEST_FCM_TOKEN));
 
-        // THEN CheckInBootCompletedReceiver should be disabled
-        assertThat(mContext.getPackageManager()
-                .getComponentEnabledSetting(new ComponentName(mContext,
-                        CheckInBootCompletedReceiver.class)))
-                .isEqualTo(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
+        // THEN non enrolled device should be finalized
+        verify(mFinalizationController).finalizeNotEnrolledDevice();
+    }
 
+    @Test
+    public void checkIn_fcmTokenUnavailable_responseSuccessfulAndLogged() {
+        // GIVEN FCM registration token unavailable
+        setDeviceIdAvailability(/* isAvailable= */ true);
+        setCarrierInfoAvailability(/* isAvailable= */ true);
+        when(mFcmRegistrationTokenProvider.getFcmRegistrationToken()).thenReturn(
+                Futures.immediateFuture(/* value= */ null));
+
+        // GIVEN check-in response is successful
+        setUpSuccessfulCheckInResponse(/* isHandleable= */ true);
+
+        // WHEN work runs
+        final Result result = Futures.getUnchecked(mWorker.startWork());
+
+        // THEN work succeeded
+        assertThat(result).isEqualTo(Result.success());
+        // THEN check in request was logged
+        verify(mStatsLogger).logGetDeviceCheckInStatus();
+        verify(mStatsLogger).logSuccessfulCheckIn();
     }
 
     private void setDeviceIdAvailability(boolean isAvailable) {
@@ -237,8 +264,8 @@ public class DeviceCheckInWorkerTest {
     private void setUpSuccessfulCheckInResponse(boolean isHandleable) {
         when(mResponse.hasRecoverableError()).thenReturn(false);
         when(mResponse.isSuccessful()).thenReturn(true);
-        when(mHelper.handleGetDeviceCheckInStatusResponse(eq(mResponse), any())).thenReturn(
-                isHandleable);
+        when(mHelper.handleGetDeviceCheckInStatusResponse(eq(mResponse), any(), any()))
+                .thenReturn(isHandleable);
     }
 
     private void setUpFailedCheckInResponse(boolean isRecoverable) {
