@@ -217,7 +217,7 @@ public final class ProvisionStateControllerImplTest {
                 Futures.immediateVoidFuture());
 
         // Device setup is not complete
-        mProvisionStateController.notifyProvisioningReady();
+        mProvisionStateController.notifyProvisioningReady().get();
 
         shadowOf(Looper.getMainLooper()).idle();
         assertThat(mProvisionStateController.getState().get()).isEqualTo(
@@ -233,7 +233,7 @@ public final class ProvisionStateControllerImplTest {
         ContentResolver contentResolver = mTestApp.getContentResolver();
         Settings.Secure.putInt(contentResolver, Settings.Secure.USER_SETUP_COMPLETE, 1);
 
-        mProvisionStateController.notifyProvisioningReady();
+        mProvisionStateController.notifyProvisioningReady().get();
 
         shadowOf(Looper.getMainLooper()).idle();
         assertThat(mProvisionStateController.getState().get()).isEqualTo(
