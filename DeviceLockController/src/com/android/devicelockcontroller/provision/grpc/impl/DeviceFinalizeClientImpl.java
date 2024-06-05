@@ -21,7 +21,9 @@ import androidx.annotation.Keep;
 import com.android.devicelockcontroller.proto.DeviceLockFinalizeServiceGrpc;
 import com.android.devicelockcontroller.proto.ReportDeviceProgramCompleteRequest;
 import com.android.devicelockcontroller.provision.grpc.DeviceFinalizeClient;
+import com.android.devicelockcontroller.util.ThreadAsserts;
 
+import io.grpc.ClientInterceptor;
 import io.grpc.StatusRuntimeException;
 import io.grpc.okhttp.OkHttpChannelBuilder;
 
@@ -32,12 +34,12 @@ import io.grpc.okhttp.OkHttpChannelBuilder;
 public final class DeviceFinalizeClientImpl extends DeviceFinalizeClient {
     private final DeviceLockFinalizeServiceGrpc.DeviceLockFinalizeServiceBlockingStub mBlockingStub;
 
-    public DeviceFinalizeClientImpl() {
+    public DeviceFinalizeClientImpl(ClientInterceptor clientInterceptor) {
         mBlockingStub = DeviceLockFinalizeServiceGrpc.newBlockingStub(
                         OkHttpChannelBuilder
                                 .forAddress(sHostName, sPortNumber)
                                 .build())
-                .withInterceptors(new ApiKeyClientInterceptor(sApiKey));
+                .withInterceptors(clientInterceptor);
     }
 
     /**
@@ -45,10 +47,11 @@ public final class DeviceFinalizeClientImpl extends DeviceFinalizeClient {
      */
     @Override
     public ReportDeviceProgramCompleteResponse reportDeviceProgramComplete() {
+        ThreadAsserts.assertWorkerThread("reportDeviceProgramComplete");
         try {
             mBlockingStub.reportDeviceProgramComplete(
                     ReportDeviceProgramCompleteRequest.newBuilder().setRegisteredDeviceIdentifier(
-                            sRegisteredId).setEnrollmentToken(sEnrollmentToken).build());
+                            sRegisteredId).build());
             return new ReportDeviceProgramCompleteResponse();
         } catch (StatusRuntimeException e) {
             return new ReportDeviceProgramCompleteResponse(e.getStatus());

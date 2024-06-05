@@ -16,23 +16,33 @@
 
 package com.android.devicelockcontroller.provision.grpc.impl;
 
-import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.CLIENT_PROVISION_FAILURE_REASON_DELETE_PACKAGE_FAILED;
-import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.CLIENT_PROVISION_FAILURE_REASON_DOWNLOAD_FAILED;
-import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.CLIENT_PROVISION_FAILURE_REASON_INSTALL_EXISTING_FAILED;
-import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.CLIENT_PROVISION_FAILURE_REASON_INSTALL_FAILED;
-import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.CLIENT_PROVISION_FAILURE_REASON_PACKAGE_DOES_NOT_EXIST;
-import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.CLIENT_PROVISION_FAILURE_REASON_SETUP_FAILED;
-import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.CLIENT_PROVISION_FAILURE_REASON_VERIFICATION_FAILED;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_COUNTRY_INFO_UNAVAILABLE;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_DEADLINE_PASSED;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_NOT_IN_ELIGIBLE_COUNTRY;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_PLAY_INSTALLATION_FAILED;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_PLAY_TASK_UNAVAILABLE;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_POLICY_ENFORCEMENT_FAILED;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_UNSPECIFIED;
 
+import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.ArraySet;
 
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.common.DeviceLockConstants;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
-import com.android.devicelockcontroller.common.DeviceLockConstants.SetupFailureReason;
+import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
 import com.android.devicelockcontroller.proto.ClientDeviceIdentifier;
 import com.android.devicelockcontroller.proto.ClientProvisionFailureReason;
 import com.android.devicelockcontroller.proto.ClientProvisionState;
@@ -49,58 +59,186 @@ import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrp
 import com.android.devicelockcontroller.provision.grpc.IsDeviceInApprovedCountryGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.PauseDeviceProvisioningGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStateGrpcResponse;
+import com.android.devicelockcontroller.util.LogUtil;
+import com.android.devicelockcontroller.util.ThreadAsserts;
 
-import javax.annotation.Nullable;
+import com.google.common.base.Strings;
 
+import io.grpc.ClientInterceptor;
+import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
 import io.grpc.okhttp.OkHttpChannelBuilder;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * A client for the {@link  com.android.devicelockcontroller.proto.DeviceLockCheckinServiceGrpc}
  * service.
+ * <p>
+ * gRPC calls will attempt to use a non-VPN network if the default network fails.
+ *
+ * TODO(b/336639719): Add unit test coverage for the VPN fallback logic
  */
 @Keep
 public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
-    private final DeviceLockCheckinServiceBlockingStub mBlockingStub;
 
-    public DeviceCheckInClientImpl() {
-        mBlockingStub = DeviceLockCheckinServiceGrpc.newBlockingStub(
-                        OkHttpChannelBuilder
-                                .forAddress(sHostName, sPortNumber)
-                                .build())
-                .withInterceptors(new ApiKeyClientInterceptor(sApiKey));
+    private static final String TAG = DeviceCheckInClientImpl.class.getSimpleName();
+    private static final long GRPC_DEADLINE_MS = 10_000L;
+
+    private final DeviceLockCheckinServiceBlockingStub mDefaultBlockingStub;
+    private final ClientInterceptor mClientInterceptor;
+    private final ConnectivityManager mConnectivityManager;
+    private final ChannelFactory mChannelFactory;
+    private final ManagedChannel mDefaultChannel;
+    private final NetworkCallback mNetworkCallback = new NetworkCallback() {
+        @Override
+        public void onCapabilitiesChanged(@NonNull Network network,
+                @NonNull NetworkCapabilities networkCapabilities) {
+            super.onCapabilitiesChanged(network, networkCapabilities);
+            synchronized (DeviceCheckInClientImpl.this) {
+                if (networkCapabilities.hasCapability(
+                        NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                    if (!network.equals(mNonVpnNetwork)) {
+                        onNonVpnNetworkChanged(network);
+                    }
+                } else {
+                    if (network.equals(mNonVpnNetwork)) {
+                        onNonVpnNetworkChanged(null);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void onLost(@NonNull Network network) {
+            super.onLost(network);
+            synchronized (DeviceCheckInClientImpl.this) {
+                if (network.equals(mNonVpnNetwork)) {
+                    onNonVpnNetworkChanged(null);
+                }
+            }
+        }
+
+        @Override
+        public void onUnavailable() {
+            super.onUnavailable();
+            synchronized (DeviceCheckInClientImpl.this) {
+                onNonVpnNetworkChanged(null);
+            }
+        }
+    };
+
+    @Nullable
+    @GuardedBy("this")
+    private Network mNonVpnNetwork;
+    @Nullable
+    @GuardedBy("this")
+    private ManagedChannel mNonVpnChannel;
+    @Nullable
+    @GuardedBy("this")
+    private DeviceLockCheckinServiceBlockingStub mNonVpnBlockingStub;
+
+    public DeviceCheckInClientImpl(ClientInterceptor clientInterceptor,
+            ConnectivityManager connectivityManager) {
+        this(clientInterceptor, connectivityManager,
+                (host, port, socketFactory) -> OkHttpChannelBuilder
+                        .forAddress(host, port)
+                        .socketFactory(socketFactory)
+                        .build());
+    }
+
+    DeviceCheckInClientImpl(ClientInterceptor clientInterceptor,
+            ConnectivityManager connectivityManager,
+            ChannelFactory channelFactory) {
+        mClientInterceptor = clientInterceptor;
+        mConnectivityManager = connectivityManager;
+        mChannelFactory = channelFactory;
+        mDefaultChannel = mChannelFactory.buildChannel(sHostName, sPortNumber);
+        mDefaultBlockingStub = DeviceLockCheckinServiceGrpc.newBlockingStub(mDefaultChannel)
+                .withInterceptors(clientInterceptor);
+        HandlerThread handlerThread = new HandlerThread("NetworkCallbackThread");
+        handlerThread.start();
+        Handler handler = new Handler(handlerThread.getLooper());
+
+        connectivityManager.registerBestMatchingNetworkCallback(
+                new NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                        .addCapability(
+                                NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+                        .addCapability(
+                                NetworkCapabilities.NET_CAPABILITY_TRUSTED)
+                        .addCapability(
+                                NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build(),
+                mNetworkCallback,
+                handler);
     }
 
     @Override
     public GetDeviceCheckInStatusGrpcResponse getDeviceCheckInStatus(
             ArraySet<DeviceId> deviceIds, String carrierInfo,
             @Nullable String fcmRegistrationToken) {
+        ThreadAsserts.assertWorkerThread("getDeviceCheckInStatus");
+        GetDeviceCheckInStatusGrpcResponse response =
+                getDeviceCheckInStatus(deviceIds, carrierInfo, fcmRegistrationToken,
+                        mDefaultBlockingStub);
+        if (response.hasRecoverableError()) {
+            DeviceLockCheckinServiceBlockingStub stub;
+            synchronized (this) {
+                if (mNonVpnBlockingStub == null) {
+                    return response;
+                }
+                stub = mNonVpnBlockingStub;
+            }
+            LogUtil.d(TAG, "Non-VPN network fallback detected. Re-attempt check-in.");
+            return getDeviceCheckInStatus(deviceIds, carrierInfo, fcmRegistrationToken, stub);
+        }
+        return response;
+    }
+
+    private GetDeviceCheckInStatusGrpcResponse getDeviceCheckInStatus(
+            ArraySet<DeviceId> deviceIds, String carrierInfo,
+            @Nullable String fcmRegistrationToken,
+            @NonNull DeviceLockCheckinServiceBlockingStub stub) {
         try {
-            final GetDeviceCheckInStatusGrpcResponse response =
-                    new GetDeviceCheckInStatusGrpcResponseWrapper(
-                            mBlockingStub.getDeviceCheckinStatus(
-                                    createGetDeviceCheckinStatusRequest(deviceIds, carrierInfo)));
-            return response;
+            // TODO(339313833): Make a separate grpc call for passing in the token
+            return new GetDeviceCheckInStatusGrpcResponseWrapper(
+                    stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
+                            .getDeviceCheckinStatus(createGetDeviceCheckinStatusRequest(
+                                    deviceIds, carrierInfo, fcmRegistrationToken)));
         } catch (StatusRuntimeException e) {
             return new GetDeviceCheckInStatusGrpcResponseWrapper(e.getStatus());
         }
     }
 
-    /**
-     * Check if the device is in an approved country for the device lock program.
-     *
-     * @param carrierInfo The information of the device's sim operator which is used to determine
-     *                    the device's geological location and eventually eligibility of the
-     *                    DeviceLock program. Could be null if unavailable.
-     * @return A class that encapsulate the response from the backend server.
-     */
     @Override
     public IsDeviceInApprovedCountryGrpcResponse isDeviceInApprovedCountry(
             @Nullable String carrierInfo) {
+        ThreadAsserts.assertWorkerThread("isDeviceInApprovedCountry");
+        final IsDeviceInApprovedCountryGrpcResponse response =
+                isDeviceInApprovedCountry(carrierInfo, mDefaultBlockingStub);
+        if (response.hasRecoverableError()) {
+            DeviceLockCheckinServiceBlockingStub stub;
+            synchronized (this) {
+                if (mNonVpnBlockingStub == null) {
+                    return response;
+                }
+                stub = mNonVpnBlockingStub;
+            }
+            LogUtil.d(TAG, "Non-VPN network fallback detected. "
+                    + "Re-attempt device in approved country.");
+            return isDeviceInApprovedCountry(carrierInfo, stub);
+        }
+        return response;
+    }
+
+    private IsDeviceInApprovedCountryGrpcResponse isDeviceInApprovedCountry(
+            @Nullable String carrierInfo, @NonNull DeviceLockCheckinServiceBlockingStub stub) {
         try {
             return new IsDeviceInApprovedCountryGrpcResponseWrapper(
-                    mBlockingStub.isDeviceInApprovedCountry(
-                            createIsDeviceInApprovedCountryRequest(carrierInfo, sRegisteredId)));
+                    stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
+                            .isDeviceInApprovedCountry(createIsDeviceInApprovedCountryRequest(
+                                    carrierInfo, sRegisteredId)));
         } catch (StatusRuntimeException e) {
             return new IsDeviceInApprovedCountryGrpcResponseWrapper(e.getStatus());
         }
@@ -108,46 +246,114 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
 
     @Override
     public PauseDeviceProvisioningGrpcResponse pauseDeviceProvisioning(int reason) {
-        try {
-            return new PauseDeviceProvisioningGrpcResponseWrapper(
-                    mBlockingStub.pauseDeviceProvisioning(
-                            createPauseDeviceProvisioningRequest(sRegisteredId, reason)));
+        ThreadAsserts.assertWorkerThread("pauseDeviceProvisioning");
+        final PauseDeviceProvisioningGrpcResponse response =
+                pauseDeviceProvisioning(reason, mDefaultBlockingStub);
+        if (response.hasRecoverableError()) {
+            DeviceLockCheckinServiceBlockingStub stub;
+            synchronized (this) {
+                if (mNonVpnBlockingStub == null) {
+                    return response;
+                }
+                stub = mNonVpnBlockingStub;
+            }
+            LogUtil.d(TAG, "Non-VPN network fallback detected. Re-attempt pause provisioning.");
+            return pauseDeviceProvisioning(reason, stub);
+        }
+        return response;
+    }
 
+    private PauseDeviceProvisioningGrpcResponse pauseDeviceProvisioning(int reason,
+            @NonNull DeviceLockCheckinServiceBlockingStub stub) {
+        try {
+            stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
+                    .pauseDeviceProvisioning(
+                            createPauseDeviceProvisioningRequest(sRegisteredId, reason));
+            return new PauseDeviceProvisioningGrpcResponse();
         } catch (StatusRuntimeException e) {
-            return new PauseDeviceProvisioningGrpcResponseWrapper(e.getStatus());
+            return new PauseDeviceProvisioningGrpcResponse(e.getStatus());
         }
     }
 
-    /**
-     * Reports the current provision state of the device.
-     *
-     * @param reasonOfFailure            one of {@link SetupFailureReason}
-     * @param lastReceivedProvisionState one of {@link DeviceProvisionState}.
-     *                                   It must be the value from the response when this API
-     *                                   was called last time. If this API is called for the first
-     *                                   time, then
-     *                                   {@link
-     *                                   DeviceProvisionState#PROVISION_STATE_UNSPECIFIED }
-     *                                   must be used.
-     * @param isSuccessful               true if the device has been setup for DeviceLock program
-     *                                   successful; false otherwise.
-     * @return A class that encapsulate the response from the backend server.
-     */
     @Override
-    public ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(int reasonOfFailure,
-            int lastReceivedProvisionState, boolean isSuccessful) {
+    public ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
+            int lastReceivedProvisionState, boolean isSuccessful,
+            @ProvisionFailureReason int reason) {
+        ThreadAsserts.assertWorkerThread("reportDeviceProvisionState");
+        final ReportDeviceProvisionStateGrpcResponse response = reportDeviceProvisionState(
+                lastReceivedProvisionState, isSuccessful, reason, mDefaultBlockingStub);
+        if (response.hasRecoverableError()) {
+            DeviceLockCheckinServiceBlockingStub stub;
+            synchronized (this) {
+                if (mNonVpnBlockingStub == null) {
+                    return response;
+                }
+                stub = mNonVpnBlockingStub;
+            }
+            LogUtil.d(TAG, "Non-VPN network fallback detected. Re-attempt report provision state.");
+            return reportDeviceProvisionState(
+                    lastReceivedProvisionState, isSuccessful, reason, stub);
+        }
+        return response;
+    }
+
+    private ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
+            int lastReceivedProvisionState, boolean isSuccessful,
+            @ProvisionFailureReason int reason,
+            @NonNull DeviceLockCheckinServiceBlockingStub stub) {
         try {
             return new ReportDeviceProvisionStateGrpcResponseWrapper(
-                    mBlockingStub.reportDeviceProvisionState(
-                            createReportDeviceProvisionStateRequest(reasonOfFailure,
-                                    lastReceivedProvisionState, isSuccessful, sRegisteredId)));
+                    stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
+                            .reportDeviceProvisionState(
+                                    createReportDeviceProvisionStateRequest(
+                                            lastReceivedProvisionState,
+                                            isSuccessful,
+                                            sRegisteredId,
+                                            reason)));
         } catch (StatusRuntimeException e) {
             return new ReportDeviceProvisionStateGrpcResponseWrapper(e.getStatus());
         }
     }
 
+    @Override
+    public void cleanUp() {
+        super.cleanUp();
+        mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
+        mDefaultChannel.shutdown();
+        synchronized (this) {
+            if (mNonVpnChannel != null) {
+                mNonVpnChannel.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Called when the best non-VPN network on the device has changed in order to update the
+     * non-VPN gRPC stub.
+     *
+     * @param network the non-VPN network. Can be null to indicate that none are available
+     */
+    @GuardedBy("this")
+    private void onNonVpnNetworkChanged(@Nullable Network network) {
+        if (mNonVpnChannel != null) {
+            mNonVpnChannel.shutdown();
+        }
+        if (network != null) {
+            mNonVpnChannel = mChannelFactory.buildChannel(
+                    sHostName, sPortNumber, network.getSocketFactory());
+            mNonVpnBlockingStub =
+                    DeviceLockCheckinServiceGrpc.newBlockingStub(mNonVpnChannel)
+                            .withInterceptors(mClientInterceptor);
+        } else {
+            mNonVpnChannel = null;
+            mNonVpnBlockingStub = null;
+        }
+        mNonVpnNetwork = network;
+    }
+
     private static GetDeviceCheckinStatusRequest createGetDeviceCheckinStatusRequest(
-            ArraySet<DeviceId> deviceIds, String carrierInfo) {
+            ArraySet<DeviceId> deviceIds, String carrierInfo,
+            @Nullable String fcmRegistrationToken) {
         GetDeviceCheckinStatusRequest.Builder builder = GetDeviceCheckinStatusRequest.newBuilder();
         for (DeviceId deviceId : deviceIds) {
             DeviceIdentifierType type;
@@ -171,6 +377,12 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
                             .setDeviceIdentifier(deviceId.getId()));
         }
         builder.setCarrierMccmnc(carrierInfo);
+        builder.setDeviceManufacturer(android.os.Build.MANUFACTURER);
+        builder.setDeviceModel(android.os.Build.MODEL);
+        builder.setDeviceInternalName(android.os.Build.DEVICE);
+        if (!Strings.isNullOrEmpty(fcmRegistrationToken) && !fcmRegistrationToken.isBlank()) {
+            builder.setFcmRegistrationToken(fcmRegistrationToken);
+        }
         return builder.build();
     }
 
@@ -193,37 +405,10 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     }
 
     private static ReportDeviceProvisionStateRequest createReportDeviceProvisionStateRequest(
-            @SetupFailureReason int reasonOfFailure,
             @DeviceProvisionState int lastReceivedProvisionState,
             boolean isSuccessful,
-            String registeredId) {
-        ClientProvisionFailureReason reason;
-        switch (reasonOfFailure) {
-            case SetupFailureReason.SETUP_FAILED:
-                reason = CLIENT_PROVISION_FAILURE_REASON_SETUP_FAILED;
-                break;
-            case SetupFailureReason.DOWNLOAD_FAILED:
-                reason = CLIENT_PROVISION_FAILURE_REASON_DOWNLOAD_FAILED;
-                break;
-            case SetupFailureReason.VERIFICATION_FAILED:
-                reason = CLIENT_PROVISION_FAILURE_REASON_VERIFICATION_FAILED;
-                break;
-            case SetupFailureReason.INSTALL_FAILED:
-                reason = CLIENT_PROVISION_FAILURE_REASON_INSTALL_FAILED;
-                break;
-            case SetupFailureReason.PACKAGE_DOES_NOT_EXIST:
-                reason = CLIENT_PROVISION_FAILURE_REASON_PACKAGE_DOES_NOT_EXIST;
-                break;
-            case SetupFailureReason.DELETE_PACKAGE_FAILED:
-                reason = CLIENT_PROVISION_FAILURE_REASON_DELETE_PACKAGE_FAILED;
-                break;
-            case SetupFailureReason.INSTALL_EXISTING_FAILED:
-                reason = CLIENT_PROVISION_FAILURE_REASON_INSTALL_EXISTING_FAILED;
-                break;
-            default:
-                throw new IllegalStateException(
-                        "Unexpected provision failure reason value: " + reasonOfFailure);
-        }
+            String registeredId,
+            @ProvisionFailureReason int reason) {
         ClientProvisionState state;
         switch (lastReceivedProvisionState) {
             case DeviceProvisionState.PROVISION_STATE_UNSPECIFIED:
@@ -248,12 +433,40 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
                 throw new IllegalStateException(
                         "Unexpected value: " + lastReceivedProvisionState);
         }
-        return ReportDeviceProvisionStateRequest.newBuilder()
-                .setClientProvisionFailureReason(reason)
-                .setPreviousClientProvisionState(state)
-                .setProvisionSuccess(isSuccessful)
-                .setRegisteredDeviceIdentifier(registeredId)
-                .build();
+        ClientProvisionFailureReason reasonProto;
+        switch (reason) {
+            case ProvisionFailureReason.UNKNOWN_REASON:
+                reasonProto = PROVISION_FAILURE_REASON_UNSPECIFIED;
+                break;
+            case ProvisionFailureReason.PLAY_TASK_UNAVAILABLE:
+                reasonProto = PROVISION_FAILURE_REASON_PLAY_TASK_UNAVAILABLE;
+                break;
+            case ProvisionFailureReason.PLAY_INSTALLATION_FAILED:
+                reasonProto = PROVISION_FAILURE_REASON_PLAY_INSTALLATION_FAILED;
+                break;
+            case ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE:
+                reasonProto = PROVISION_FAILURE_REASON_COUNTRY_INFO_UNAVAILABLE;
+                break;
+            case ProvisionFailureReason.NOT_IN_ELIGIBLE_COUNTRY:
+                reasonProto = PROVISION_FAILURE_REASON_NOT_IN_ELIGIBLE_COUNTRY;
+                break;
+            case ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED:
+                reasonProto = PROVISION_FAILURE_REASON_POLICY_ENFORCEMENT_FAILED;
+                break;
+            case ProvisionFailureReason.DEADLINE_PASSED:
+                reasonProto = PROVISION_FAILURE_REASON_DEADLINE_PASSED;
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected value: " + reason);
+        }
+        ReportDeviceProvisionStateRequest.Builder builder =
+                ReportDeviceProvisionStateRequest.newBuilder()
+                        .setPreviousClientProvisionState(state)
+                        .setProvisionSuccess(isSuccessful)
+                        .setRegisteredDeviceIdentifier(registeredId);
+        if (!isSuccessful) {
+            builder.setClientProvisionFailureReason(reasonProto);
+        }
+        return builder.build();
     }
-
 }

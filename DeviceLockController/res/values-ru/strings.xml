@@ -44,14 +44,13 @@
     <string name="exposure_lock_unlock_text" msgid="6827412845847260579">"Запросы на блокировку и разблокировку от приложения \"<xliff:g id="CREDITOR_APP">%1$s</xliff:g>\"."</string>
     <string name="exposure_disable_dlc_text" msgid="2898692398106736423">"Данные о том, что приложение \"<xliff:g id="CREDITOR_APP">%1$s</xliff:g>\" недоступно на устройстве."</string>
     <string name="open_source_licenses" msgid="6464389386262455443">"Лицензии открытого ПО"</string>
-    <string name="footer_notice" msgid="7606898520964750584">"Другие функции управления, перечисленные в разделе "<b>"Настройки &gt; Безопасность &gt; Информация об управляемом устройстве"</b>", к этому устройству не применяются."</string>
     <string name="footer_notice_content_description" msgid="2160540400079419440">"К этому устройству не применяются функции управления, перечисленные в разделе настроек безопасности для купленного в кредит устройства."</string>
     <string name="device_provided_by_provider" msgid="290593329676291991">"Устройство предоставлено кредитором \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"."</string>
     <string name="download_kiosk_app" msgid="1845089944897502656">"Киоск-приложение будет скачано и установлено автоматически."</string>
     <string name="install_kiosk_app_secondary_user" msgid="49911908012320834">"Для пользователя будет установлено киоск-приложение."</string>
-    <string name="restrict_device_if_missing_payment" msgid="5721216628714899148">"Кредитор \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\" может ограничить работу устройства, если вы пропустите платеж."</string>
+    <string name="restrict_device_if_missing_payment" msgid="8883980285859496904">"Кредитор \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\" может ограничить работу устройства, если вы пропустите платеж. Подробные сведения об этом есть в <xliff:g id="TERMS_AND_CONDITIONS_LINK_START">&lt;a href=%2$s&gt;</xliff:g>Условиях использования<xliff:g id="TERMS_AND_CONDITIONS_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="restrict_device_if_dont_make_payment" msgid="1619095674945507015">"Если вы не будете совершать необходимые выплаты, кредитор \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\" может ограничить работу устройства. Подробные сведения представлены в <xliff:g id="TERMS_AND_CONDITIONS_LINK_START">&lt;a href=%2$s&gt;</xliff:g>Условиях использования<xliff:g id="TERMS_AND_CONDITIONS_LINK_END">&lt;/a&gt;</xliff:g>."</string>
-    <string name="restrict_device_if_owner_doesnt_make_payment" msgid="3841412765931627895">"Кредитор \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\" может ограничить работу устройства, если его владелец не вносит платежи."</string>
+    <string name="contact_provider_for_help" msgid="3872028089834808884">"За помощью обращайтесь к <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>поставщику \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="previous" msgid="5241891780917802570">"Назад"</string>
     <string name="next" msgid="8248291863254324326">"Далее"</string>
     <string name="start" msgid="2842214844667658537">"Начать"</string>
@@ -61,7 +60,7 @@
     <string name="header_icon_content_description" msgid="6069602031334473195">"Информация"</string>
     <string name="provision_info_item_icon_content_description" msgid="2306298178610632507">"Данные о настройке"</string>
     <string name="enroll_your_device_header" msgid="2226305405591945098">"Зарегистрируйте устройство"</string>
-    <string name="enroll_your_device_financing_subheader" msgid="7378414469334757425">"Вы можете зарегистрировать устройство в программе финансирования кредитора \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"."</string>
+    <string name="enroll_your_device_financing_subheader" msgid="8810608106273097451">"Вы можете зарегистрировать устройство в программе финансирования поставщика \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"."</string>
     <string name="enroll_your_device_subsidy_subheader" msgid="8598730780370624995">"Вы можете зарегистрировать устройство в программе субсидирования кредитора \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"."</string>
     <string name="subsidy_program_header" msgid="2321508488856303554">"Вы получаете субсидирование компании \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\""</string>
     <string name="device_enrollment_header_text" msgid="5283341102404741658">"Регистрация устройства"</string>
@@ -82,7 +81,8 @@
     <string name="settings_banner_body" msgid="5814902066260202824">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> может изменять настройки устройства."</string>
     <string name="settings_banner_button" msgid="1831020849782670907">"Подробнее"</string>
     <string name="settings_screen_title" msgid="721470080648091035">"Об устройстве в программе финансирования"</string>
-    <string name="settings_intro" msgid="5809531331925309396">"Кредитор может изменить настройки устройства и установить на него киоск-приложение.\n\nЕсли вы не совершаете необходимые выплаты или не используете SIM-карту компании \"<xliff:g id="PROVIDER_NAME_1">%1$s</xliff:g>\", кредитор \"<xliff:g id="PROVIDER_NAME_0">%1$s</xliff:g>\" может ограничить работу устройства.\n\nЗа дополнительной информацией обращайтесь в компанию \"<xliff:g id="PROVIDER_NAME_2">%1$s</xliff:g>\"."</string>
+    <string name="settings_intro_device_financing" msgid="2548476558131048133">"Кредитор \"<xliff:g id="PROVIDER_NAME_0">%1$s</xliff:g>\" может изменить настройки устройства и установить на него киоск-приложение.\n\nЕсли вы пропустите платеж, кредитор \"<xliff:g id="PROVIDER_NAME_1">%1$s</xliff:g>\" может ограничить работу устройства.\n\nЗа дополнительной информацией обращайтесь в компанию \"<xliff:g id="PROVIDER_NAME_2">%1$s</xliff:g>\"."</string>
+    <string name="settings_intro_device_subsidy" msgid="4274945644204818702">"Кредитор \"<xliff:g id="PROVIDER_NAME_0">%1$s</xliff:g>\" может изменить настройки устройства и установить на него киоск-приложение.\n\nЕсли вы пропустите платеж или перестанете пользоваться SIM-картой компании \"<xliff:g id="PROVIDER_NAME_2">%1$s</xliff:g>\", кредитор \"<xliff:g id="PROVIDER_NAME_1">%1$s</xliff:g>\" может ограничить работу устройства.\n\nЗа дополнительной информацией обращайтесь в компанию \"<xliff:g id="PROVIDER_NAME_3">%1$s</xliff:g>\"."</string>
     <string name="settings_intro_preference_key" msgid="6610461073400554162">"settings_intro_preference_key"</string>
     <string name="settings_restrictions_category" msgid="5746868117342406677">"Что вы не можете делать до погашения кредита:"</string>
     <string name="settings_restrictions_category_preference_key" msgid="88318147152676512">"settings_restrictions_category_preference_key"</string>
@@ -90,8 +90,6 @@
     <string name="settings_install_apps_preference_key" msgid="27542314345238427">"settings_install_apps_preference_key"</string>
     <string name="settings_safe_mode" msgid="3035228015586375153">"Переводить устройство в безопасный режим"</string>
     <string name="settings_safe_mode_preference_key" msgid="2106617747358027424">"settings_safe_mode_preference_key"</string>
-    <string name="settings_config_date_time" msgid="3406612829802458778">"Изменять дату, время и часовой пояс на устройстве"</string>
-    <string name="settings_config_date_time_preference_key" msgid="1838160765185598823">"settings_config_date_time_preference_key"</string>
     <string name="settings_developer_options" msgid="880701002025216672">"Изменять параметры для разработчиков"</string>
     <string name="settings_developer_options_preference_key" msgid="6807036808722582954">"settings_developer_options_preference_key"</string>
     <string name="settings_credit_provider_capabilities_category" msgid="1274440595211820868">"При наличии проблем кредитор \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\" может:"</string>
@@ -118,8 +116,16 @@
     <string name="settings_restrictions_removed_preference_key" msgid="7741933477145197391">"settings_restrictions_removed_preference_key"</string>
     <string name="settings_uninstall_kiosk_app" msgid="2611134364295637875">"Вы можете удалить приложение \"<xliff:g id="KIOSK_APP">%1$s</xliff:g>\""</string>
     <string name="settings_uninstall_kiosk_app_preference_key" msgid="5578103644009268125">"settings_uninstall_kiosk_app_preference_key"</string>
+    <string name="settings_support_category" msgid="7210906871924935770">"Нужна помощь?"</string>
+    <string name="settings_support_category_preference_key" msgid="1818953199283261021">"settings_support_category_preference_key"</string>
+    <string name="settings_contact_provider" msgid="2481819956474692039">"<xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>Обратитесь к поставщику (<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>)<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="settings_contact_provider_preference_key" msgid="2703619536229342624">"settings_contact_provider_preference_key"</string>
     <string name="provision_notification_channel_name" msgid="6123500714047647805">"Инициализация"</string>
     <string name="device_reset_in_days_notification_title" msgid="920859483535317727">"{count,plural, =1{До сброса настроек остался 1 день}one{До сброса настроек остался # день}few{До сброса настроек осталось # дня}many{До сброса настроек осталось # дней}other{До сброса настроек осталось # дня}}"</string>
+    <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Время до сброса настроек: <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"С устройства будут удалены все данные. Если вам нужна помощь с регистрацией устройства, свяжитесь с кредитором \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\"."</string>
-    <string name="toast_message_grant_notification_permission" msgid="1902770796685661160">"Чтобы отложить регистрацию устройства, разрешите DeviceLock присылать вам уведомления."</string>
+    <string name="provisioning_failed" msgid="5350252817004028300">"Не удалось настроить финансирование"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Если вам нужна помощь с регистрацией устройства, свяжитесь с <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>кредитором <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
+    <string name="exit" msgid="645084771882733921">"Выйти"</string>
+    <string name="retry" msgid="7497287909193345356">"Повторить попытку"</string>
 </resources>

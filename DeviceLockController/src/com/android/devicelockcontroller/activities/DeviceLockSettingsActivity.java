@@ -18,8 +18,8 @@ package com.android.devicelockcontroller.activities;
 
 import android.os.Bundle;
 
-import com.android.devicelockcontroller.R;
 import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity;
+import com.android.settingslib.collapsingtoolbar.R;
 
 /**
  * Activity used in Settings.

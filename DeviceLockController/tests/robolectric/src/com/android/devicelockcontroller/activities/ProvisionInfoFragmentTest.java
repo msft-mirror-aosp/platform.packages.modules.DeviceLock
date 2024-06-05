@@ -16,29 +16,80 @@
 
 package com.android.devicelockcontroller.activities;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ACTION_START_DEVICE_FINANCING_PROVISIONING;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.robolectric.Shadows.shadowOf;
 
+import android.content.ComponentName;
+import android.content.Intent;
+import android.os.Looper;
+import android.widget.Button;
 import android.widget.ImageView;
 
 import com.android.devicelockcontroller.R;
 
-import org.junit.Ignore;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.Shadows;
+import org.robolectric.android.controller.ActivityController;
+import org.robolectric.shadows.ShadowDrawable;
 
 @RunWith(RobolectricTestRunner.class)
 public final class ProvisionInfoFragmentTest {
 
-    @Ignore("http://b/269463682")
+    private ActivityController<EmptyTestFragmentActivity> mActivityController;
+    private EmptyTestFragmentActivity mActivity;
+
+    @Before
+    public void setUp() {
+        Intent intent = new Intent();
+        intent.setAction(ACTION_START_DEVICE_FINANCING_PROVISIONING);
+        mActivityController = Robolectric.buildActivity(EmptyTestFragmentActivity.class, intent);
+        mActivity = mActivityController.get();
+        mActivity.setFragment(new ProvisionInfoFragment());
+        mActivityController.setup();
+    }
+
     @Test
-    public void onCreateView_viewIsInflated() {
-        LandingActivity activity = Robolectric.buildActivity(LandingActivity.class).setup().get();
-        ImageView imageView = activity.findViewById(R.id.header_icon);
-        assertThat(shadowOf(imageView.getDrawable()).getCreatedFromResId()).isEqualTo(
-                R.drawable.ic_info_24px);
+    public void onViewCreated_headerIconDrawableIsCorrect() {
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Check header icon
+        ShadowDrawable drawable = Shadows.shadowOf(((ImageView) mActivity.findViewById(
+                R.id.header_icon)).getDrawable());
+        assertThat(drawable.getCreatedFromResId()).isEqualTo(
+                ProvisionInfoViewModel.HEADER_DRAWABLE_ID);
+    }
+
+    @Test
+    public void onViewCreated_headerIconNotImportantForAccessibility() {
+        shadowOf(Looper.getMainLooper()).idle();
+
+        ImageView imageView = mActivity.findViewById(R.id.header_icon);
+        assertThat(imageView.isImportantForAccessibility()).isFalse();
+    }
+
+    @Test
+    public void clickNextButton_startTheProvisioningActivity() {
+        Intent intent = new Intent();
+        intent.setAction(ACTION_START_DEVICE_FINANCING_PROVISIONING);
+        ActivityController<EmptyTestFragmentActivity> activityController =
+                Robolectric.buildActivity(
+                        EmptyTestFragmentActivity.class, intent);
+        EmptyTestFragmentActivity activity = activityController.get();
+        activity.setFragment(new ProvisionInfoFragment());
+        activityController.setup();
+
+        // Check next button clickable
+        Button next = activity.findViewById(R.id.button_next);
+        assertThat(next.callOnClick()).isTrue();
+        Intent nextIntent = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertThat(nextIntent.getComponent()).isEqualTo(
+                new ComponentName(activity, ProvisioningActivity.class));
     }
 }

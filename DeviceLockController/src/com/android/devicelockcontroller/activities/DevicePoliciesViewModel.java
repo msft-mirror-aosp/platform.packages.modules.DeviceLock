@@ -16,6 +16,7 @@
 
 package com.android.devicelockcontroller.activities;
 
+import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -37,11 +38,9 @@ import java.util.List;
  */
 public final class DevicePoliciesViewModel extends ViewModel {
 
-    private static final int HEADER_DRAWABLE_ID = R.drawable.ic_info_24px;
+    static final int HEADER_DRAWABLE_ID = R.drawable.ic_info_24px;
 
-    private static final int HEADER_TEXT_ID = R.string.setup_info_title_text;
-
-    private static final int FOOTER_TEXT_ID = R.string.footer_notice;
+    static final int HEADER_TEXT_ID = R.string.setup_info_title_text;
 
     private static final DevicePolicyGroup CONTROL_POLICY_GROUP =
             new DevicePolicyGroup.Builder()
@@ -83,10 +82,13 @@ public final class DevicePoliciesViewModel extends ViewModel {
     public static final String TAG = "DevicePoliciesViewModel";
 
     final MutableLiveData<String> mProviderNameLiveData;
-    final MutableLiveData<Integer> mHeaderDrawableIdLiveData;
-    final MutableLiveData<Integer> mHeaderTextIdLiveData;
     final MediatorLiveData<List<DevicePolicyGroup>> mDevicePolicyGroupListLiveData;
-    final MutableLiveData<Integer> mFooterTextIdLiveData;
+
+    public LiveData<Boolean> getIsMandatoryLiveData() {
+        return mIsMandatoryLiveData;
+    }
+
+    private final MutableLiveData<Boolean> mIsMandatoryLiveData = new MutableLiveData<>();
 
     public DevicePoliciesViewModel() {
         mProviderNameLiveData = new MutableLiveData<>();
@@ -102,11 +104,21 @@ public final class DevicePoliciesViewModel extends ViewModel {
                         LogUtil.e(TAG, "Failed to get Device Provider name!", t);
                     }
                 }, MoreExecutors.directExecutor());
-        mHeaderDrawableIdLiveData = new MutableLiveData<>(HEADER_DRAWABLE_ID);
-        mHeaderTextIdLiveData = new MutableLiveData<>(HEADER_TEXT_ID);
+
+        Futures.addCallback(SetupParametersClient.getInstance().isProvisionMandatory(),
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(Boolean result) {
+                        mIsMandatoryLiveData.postValue(result);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        LogUtil.e(TAG, "Failed to know if provision is mandatory!", t);
+                    }
+                }, MoreExecutors.directExecutor());
         mDevicePolicyGroupListLiveData = new MediatorLiveData<>();
         mDevicePolicyGroupListLiveData.addSource(mProviderNameLiveData,
                 unused -> mDevicePolicyGroupListLiveData.setValue(DEVICE_POLICY_GROUPS));
-        mFooterTextIdLiveData = new MutableLiveData<>(FOOTER_TEXT_ID);
     }
 }

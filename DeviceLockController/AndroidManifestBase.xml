@@ -24,10 +24,20 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.android.devicelockcontroller">
 
+    <!-- Permission for calls from controller to device lock service -->
+    <permission android:name="com.android.devicelockcontroller.permission.MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER"
+        android:protectionLevel="signature" />
+    <!-- Permission used by a Kiosk app to send the clear device broadcast. Given that no app holds
+      this permission, only our system service component is able to receive the broadcast -->
+    <permission android:name="com.android.devicelock.permission.RECEIVE_CLEAR_BROADCAST"
+        android:protectionLevel="signature" />
+    <!-- Permission checked by kiosk setup activity -->
+    <permission android:name="com.android.devicelock.permission.START_KIOSK_SETUP_ACTIVITY"
+        android:protectionLevel="signature" />
+
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
-    <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.MASTER_CLEAR" />
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_APPS_CONTROL" />
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_CALLS" />
@@ -38,10 +48,14 @@
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_TIME" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <uses-permission android:name="com.android.permission.INSTALL_EXISTING_PACKAGES" />
+    <uses-permission android:name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS" />
+    <!-- Controller grants itself this permission to call internal APIs on device lock system service -->
     <uses-permission android:name="com.android.devicelockcontroller.permission.MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER" />
+    <!-- Kiosk app setup activity should have a corresponding "android:permission" attribute -->
+    <uses-permission android:name="com.android.devicelock.permission.START_KIOSK_SETUP_ACTIVITY" />
 
     <application
         android:name=".DeviceLockControllerApplication"
@@ -62,6 +76,20 @@
             <intent-filter>
                 <action android:name="com.android.devicelockcontroller.action.START_DEVICE_FINANCING_PROVISIONING" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.android.devicelockcontroller.activities.LockedHomeActivity"
+            android:enabled="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
 
@@ -110,45 +138,6 @@
             </intent-filter>
         </activity-alias>
 
-        <activity-alias
-            android:name="com.android.devicelockcontroller.activities.DeviceFinancingProvisionNotRequiredLandingActivity"
-            android:exported="false"
-            android:targetActivity=".activities.LandingActivity">
-            <intent-filter>
-                <action android:name="com.android.devicelockcontroller.action.DEVICE_FINANCING_PROVISION_NOT_REQUIRED" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name="com.android.devicelockcontroller.activities.DeviceSubsidyProvisionNotRequiredLandingActivity"
-            android:exported="false"
-            android:targetActivity=".activities.LandingActivity">
-            <intent-filter>
-                <action android:name="com.android.devicelockcontroller.action.DEVICE_SUBSIDY_PROVISION_NOT_REQUIRED" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity
-            android:name="com.android.devicelockcontroller.activities.DeviceEnrollmentActivity"
-            android:theme="@style/Theme.DeviceLock.NoActionBar"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.android.devicelockcontroller.action.START_DEVICE_FINANCING_ENROLLMENT"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-            </intent-filter>
-        </activity>
-        <activity-alias
-            android:name="com.android.devicelockcontroller.activities.DeviceSubsidyEnrollmentActivity"
-            android:targetActivity=".activities.DeviceEnrollmentActivity"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.android.devicelockcontroller.action.START_DEVICE_SUBSIDY_ENROLLMENT"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-            </intent-filter>
-        </activity-alias>
-
         <activity
             android:name="com.android.devicelockcontroller.activities.DeviceLockSettingsActivity"
             android:theme="@style/Theme.DeviceLock.NoActionBar"
@@ -164,7 +153,7 @@
             android:authorities="${applicationId}.androidx-startup"
             tools:node="remove" />
 
-        <!-- System user only boot completed broadcast receiver -->
+        <!-- System user only boot completed broadcast receiver. This should disabled after provision ready -->
         <receiver
             android:name="com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver"
             android:exported="false"
@@ -174,19 +163,33 @@
             </intent-filter>
         </receiver>
 
-        <!-- Multi users boot completed broadcast receiver -->
+        <!-- Multi users boot completed broadcast receiver. -->
         <receiver
-            android:name="com.android.devicelockcontroller.receivers.LockTaskBootCompletedReceiver"
+            android:name="com.android.devicelockcontroller.receivers.FinalizationBootCompletedReceiver"
             android:exported="false"
-            android:singleUser="false">
+            android:singleUser="false"
+            android:enabled="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
-        <!-- Multi users locked boot completed broadcast receiver -->
+        <!-- Multi users locked boot completed broadcast receiver. This receiver should only be enabled after provision ready -->
         <receiver
             android:name="com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver"
+            android:directBootAware="true"
+            android:enabled="false"
+            android:exported="false"
+            android:singleUser="false">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Multi users locked boot completed broadcast receiver. This receiver records the boot
+         timestamp -->
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.RecordBootTimestampReceiver"
             android:directBootAware="true"
             android:exported="false"
             android:singleUser="false">
@@ -195,11 +198,45 @@
             </intent-filter>
         </receiver>
 
+        <!-- Multi users time changed broadcast receiver -->
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.TimeChangedBroadcastReceiver"
+            android:exported="false"
+            android:singleUser="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.ProvisionReadyReceiver"
+            android:exported="false"
+            android:singleUser="false" />
+
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.ResumeProvisionReceiver"
+            android:exported="false"
+            android:singleUser="false" />
+
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.NextProvisionFailedStepReceiver"
+            android:exported="false"
+            android:singleUser="false" />
+
+        <receiver
+            android:name="com.android.devicelockcontroller.receivers.ResetDeviceReceiver"
+            android:exported="false"
+            android:singleUser="false" />
+
+        <receiver
+            android:name="com.android.devicelockcontroller.WorkManagerExceptionHandler$WorkFailureAlarmReceiver"
+            android:exported="false"
+            androidprv:systemUserOnly="true" />
+
         <service
             android:name="com.android.devicelockcontroller.DeviceLockControllerService"
             android:directBootAware="true"
-            android:exported="false"
-            androidprv:systemUserOnly="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_LOCK_CONTROLLER_SERVICE" />
             </intent-filter>
@@ -216,6 +253,15 @@
             android:directBootAware="true"
             android:exported="false"
             android:singleUser="true" />
+
+        <service
+            android:name="com.android.devicelockcontroller.services.DeviceLockKeepAliveService"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.devicelock.action.KEEPALIVE" />
+            </intent-filter>
+        </service>
 
     </application>
 

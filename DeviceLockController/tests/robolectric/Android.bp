@@ -26,10 +26,27 @@ android_robolectric_test {
     srcs: ["src/**/*.java"],
     static_libs: [
         "androidx.test.core",
-        "androidx.work_work-testing",
+        "androidx.test.rules",
         "mockito-robolectric-prebuilt",
-        "truth-prebuilt",
+        "truth",
         "guava-android-testlib",
+        "grpc-java-lite",
+        "grpc-java-testing",
+    ],
+    libs: [
+        "androidx.work_work-testing",
     ],
     test_suites: ["general-tests"],
+
+    strict_mode: false,
+}
+
+filegroup {
+    name: "devicelockcontroller-test-application-sources",
+    srcs: [
+        "src/com/android/devicelockcontroller/TestDeviceLockControllerApplication.java",
+    ],
+    visibility: [
+        "//vendor:__subpackages__",
+    ],
 }

@@ -36,9 +36,9 @@ import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration
 
 import com.google.protobuf.Timestamp;
 
-import java.time.Instant;
-
 import io.grpc.Status;
+
+import java.time.Instant;
 
 /**
  * Wrapper for response and status objects for a GetDeviceCheckinStatusResponse.
@@ -108,7 +108,6 @@ final class GetDeviceCheckInStatusGrpcResponseWrapper extends GetDeviceCheckInSt
         return new ProvisioningConfiguration(
                 info.getKioskAppProviderName(),
                 info.getKioskAppPackage(),
-                info.getKioskAppMainActivity(),
                 info.getKioskAppAllowlistPackagesList(),
                 info.getKioskAppEnableOutgoingCalls(),
                 info.getKioskAppEnableNotifications(),
@@ -124,15 +123,15 @@ final class GetDeviceCheckInStatusGrpcResponseWrapper extends GetDeviceCheckInSt
             return ProvisioningType.TYPE_UNDEFINED;
         }
 
-        switch (mNextStep.getDeviceProvisioningInformation().getConfigurationType()) {
-            case CONFIGURATION_TYPE_FINANCED:
+        switch (mNextStep.getDeviceProvisioningInformation().getEnrollmentType()) {
+            case ENROLLMENT_TYPE_FINANCE:
                 return ProvisioningType.TYPE_FINANCED;
-            case CONFIGURATION_TYPE_SUBSIDY:
+            case ENROLLMENT_TYPE_SUBSIDY:
                 return ProvisioningType.TYPE_SUBSIDY;
-            case CONFIGURATION_TYPE_UNSPECIFIED:
+            case ENROLLMENT_TYPE_UNSPECIFIED:
                 return ProvisioningType.TYPE_UNDEFINED;
             default:
-                throw new IllegalArgumentException("Unknown configuration type");
+                throw new IllegalArgumentException("Unknown enrollment type");
         }
     }
 
@@ -163,6 +162,15 @@ final class GetDeviceCheckInStatusGrpcResponseWrapper extends GetDeviceCheckInSt
 
         return getNextStepInformation().getDeviceProvisioningInformation()
                 .getIsDeviceInApprovedCountry();
+    }
+
+    @Override
+    public boolean isDebuggingAllowed() {
+        if (mResponse == null || !mNextStep.isDeviceProvisioningInformationAvailable()) {
+            return false;
+        }
+
+        return mNextStep.getDeviceProvisioningInformation().getAllowDebugging();
     }
 
     @NonNull

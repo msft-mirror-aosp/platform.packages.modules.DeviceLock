@@ -17,18 +17,26 @@
 package com.android.devicelockcontroller.provision.worker;
 
 import android.content.Context;
-import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.work.WorkerParameters;
 
-import com.android.devicelockcontroller.common.DeviceId;
+import com.android.devicelockcontroller.FcmRegistrationTokenProvider;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+
+import java.time.Duration;
 
 /**
  * A worker class dedicated to execute the check-in operation for device lock program.
@@ -36,39 +44,93 @@ import com.google.common.util.concurrent.Futures;
 public final class DeviceCheckInWorker extends AbstractCheckInWorker {
 
     private final AbstractDeviceCheckInHelper mCheckInHelper;
+    private final FcmRegistrationTokenProvider mFcmRegistrationTokenProvider;
+
+    private final StatsLogger mStatsLogger;
+
+    @VisibleForTesting
+    static final Duration RETRY_ON_FAILURE_DELAY = Duration.ofDays(1);
 
     public DeviceCheckInWorker(@NonNull Context context,
-            @NonNull WorkerParameters workerParams) {
-        super(context, workerParams);
-        mCheckInHelper = new DeviceCheckInHelper(context);
+            @NonNull WorkerParameters workerParams, ListeningExecutorService executorService) {
+        this(context, workerParams, new DeviceCheckInHelper(context),
+                (FcmRegistrationTokenProvider) context.getApplicationContext(),
+                /* client= */ null,
+                executorService);
     }
 
     @VisibleForTesting
     DeviceCheckInWorker(@NonNull Context context, @NonNull WorkerParameters workerParameters,
-            AbstractDeviceCheckInHelper helper, DeviceCheckInClient client) {
-        super(context, workerParameters, client);
+            AbstractDeviceCheckInHelper helper, FcmRegistrationTokenProvider tokenProvider,
+            DeviceCheckInClient client, ListeningExecutorService executorService) {
+        super(context, workerParameters, client, executorService);
+        mFcmRegistrationTokenProvider = tokenProvider;
         mCheckInHelper = helper;
+        StatsLoggerProvider loggerProvider =
+                (StatsLoggerProvider) context.getApplicationContext();
+        mStatsLogger = loggerProvider.getStatsLogger();
     }
 
     @NonNull
     @Override
-    public Result doWork() {
-        LogUtil.i(TAG, "perform check-in request");
-        final ArraySet<DeviceId> deviceIds = mCheckInHelper.getDeviceUniqueIds();
-        final String carrierInfo = mCheckInHelper.getCarrierInfo();
-        if (deviceIds.isEmpty()) {
-            LogUtil.w(TAG, "CheckIn failed. No device identifier available!");
-            return Result.failure();
-        }
-        final GetDeviceCheckInStatusGrpcResponse response =
-                Futures.getUnchecked(mClient).getDeviceCheckInStatus(
-                        deviceIds, carrierInfo, /* fcmRegistrationToken= */ null);
-        if (response.isSuccessful()) {
-            return mCheckInHelper.handleGetDeviceCheckInStatusResponse(response)
-                    ? Result.success()
-                    : Result.retry();
-        }
-        LogUtil.w(TAG, "CheckIn failed: " + response);
-        return Result.failure();
+    public ListenableFuture<Result> startWork() {
+        DeviceLockControllerSchedulerProvider schedulerProvider =
+                (DeviceLockControllerSchedulerProvider) mContext;
+        DeviceLockControllerScheduler scheduler =
+                schedulerProvider.getDeviceLockControllerScheduler();
+        return Futures.transformAsync(
+                mExecutorService.submit(mCheckInHelper::getDeviceUniqueIds),
+                deviceIds -> {
+                    if (deviceIds.isEmpty()) {
+                        LogUtil.w(TAG, "CheckIn failed. No device identifier available!");
+                        // Similarly to STOP_CHECK_IN, finalize the device (without reporting it
+                        // to the backend, since it's not part of the financing program).
+                        final ListenableFuture<Void> finalizeDeviceFuture =
+                                ((PolicyObjectsProvider) mContext).getFinalizationController()
+                                        .finalizeNotEnrolledDevice();
+                        return Futures.transformAsync(finalizeDeviceFuture,
+                                unused -> Futures.immediateFuture(Result.failure()),
+                                mExecutorService);
+                    }
+                    String carrierInfo = mCheckInHelper.getCarrierInfo();
+                    ListenableFuture<String> fcmRegistrationToken =
+                            mFcmRegistrationTokenProvider.getFcmRegistrationToken();
+                    return Futures.whenAllSucceed(mClient, fcmRegistrationToken).call(() -> {
+                        DeviceCheckInClient client = Futures.getDone(mClient);
+                        String fcmToken = Futures.getDone(fcmRegistrationToken);
+                        GetDeviceCheckInStatusGrpcResponse response =
+                                client.getDeviceCheckInStatus(
+                                        deviceIds, carrierInfo, fcmToken);
+                        mStatsLogger.logGetDeviceCheckInStatus();
+                        if (response.hasRecoverableError()) {
+                            LogUtil.w(TAG, "Check-in failed w/ recoverable error " + response
+                                    + "\nRetrying...");
+                            mStatsLogger.logCheckInRetry(
+                                    StatsLogger.CheckInRetryReason.RPC_FAILURE);
+                            return Result.retry();
+                        }
+                        if (response.isSuccessful()) {
+                            boolean isResponseHandlingSuccessful = mCheckInHelper
+                                    .handleGetDeviceCheckInStatusResponse(response, scheduler,
+                                            fcmToken);
+                            if (isResponseHandlingSuccessful) {
+                                mStatsLogger.logSuccessfulCheckIn();
+                            }
+                            return isResponseHandlingSuccessful ? Result.success() : Result.retry();
+                        }
+
+                        if (response.isInterrupted()) {
+                            LogUtil.d(TAG, "Check-in interrupted");
+                            return Result.failure();
+                        }
+
+                        LogUtil.e(TAG, "CheckIn failed: " + response + "\nRetry check-in in: "
+                                + RETRY_ON_FAILURE_DELAY);
+                        scheduler.scheduleRetryCheckInWork(RETRY_ON_FAILURE_DELAY);
+                        mStatsLogger.logCheckInRetry(
+                                StatsLogger.CheckInRetryReason.RPC_FAILURE);
+                        return Result.failure();
+                    }, mExecutorService);
+                }, mExecutorService);
     }
 }

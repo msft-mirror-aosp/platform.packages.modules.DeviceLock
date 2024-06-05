@@ -16,13 +16,13 @@
 
 package com.android.devicelockcontroller.storage;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ALLOWLIST;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_APP_PROVIDER_NAME;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_DISABLE_OUTGOING_CALLS;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SETUP_ACTIVITY;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_SUPPORT_URL;
@@ -38,7 +38,6 @@ import java.util.ArrayList;
 abstract class AbstractSetupParametersTestBase {
     protected static final String KIOSK_PACKAGE = "package";
     protected static final String KIOSK_OVERRIDE_PACKAGE = "override.package";
-    protected static final String SETUP_ACTIVITY = "setup-activity";
     protected static final boolean DISABLE_OUTGOING_CALLS = true;
     protected static final boolean ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE = true;
     protected static final String KIOSK_ALLOWLIST_PACKAGE_0 = "package.name.0";
@@ -46,6 +45,7 @@ abstract class AbstractSetupParametersTestBase {
     @ProvisioningType
     protected static final int PROVISIONING_TYPE = TYPE_FINANCED;
     protected static final boolean MANDATORY_PROVISION = true;
+    protected static final boolean ALLOW_DEBUGGING = true;
     protected static final boolean DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES = true;
     protected static final String TERMS_AND_CONDITIONS_URL = "https://www.example.com/terms";
     protected static final String SUPPORT_URL = "https://www.example.com/support";
@@ -54,7 +54,6 @@ abstract class AbstractSetupParametersTestBase {
     protected static Bundle createParamsBundle() {
         final Bundle bundle = new Bundle();
         bundle.putString(EXTRA_KIOSK_PACKAGE, KIOSK_PACKAGE);
-        bundle.putString(EXTRA_KIOSK_SETUP_ACTIVITY, SETUP_ACTIVITY);
         bundle.putBoolean(EXTRA_KIOSK_DISABLE_OUTGOING_CALLS, DISABLE_OUTGOING_CALLS);
         bundle.putBoolean(
                 EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE,
@@ -65,6 +64,7 @@ abstract class AbstractSetupParametersTestBase {
         bundle.putStringArrayList(EXTRA_KIOSK_ALLOWLIST, actualKioskAllowlist);
         bundle.putInt(EXTRA_PROVISIONING_TYPE, PROVISIONING_TYPE);
         bundle.putBoolean(EXTRA_MANDATORY_PROVISION, MANDATORY_PROVISION);
+        bundle.putBoolean(EXTRA_ALLOW_DEBUGGING, ALLOW_DEBUGGING);
         bundle.putString(EXTRA_KIOSK_APP_PROVIDER_NAME, KIOSK_APP_PROVIDER_NAME);
         bundle.putBoolean(EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES,
                 DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES);

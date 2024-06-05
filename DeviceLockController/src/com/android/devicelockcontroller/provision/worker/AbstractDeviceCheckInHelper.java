@@ -18,31 +18,25 @@ package com.android.devicelockcontroller.provision.worker;
 
 import android.util.ArraySet;
 
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
 import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 
 /**
  * Base class that provides abstraction of utility APIs for device check-in.
  */
 public abstract class AbstractDeviceCheckInHelper {
 
-    /**
-     * Enqueue the DeviceCheckIn work request to WorkManager
-     *
-     * @param isExpedited If true, the work request should be expedited;
-     */
-    public abstract void enqueueDeviceCheckInWork(boolean isExpedited);
-
-    @NonNull
     abstract ArraySet<DeviceId> getDeviceUniqueIds();
 
-    @NonNull
     abstract String getCarrierInfo();
 
     @WorkerThread
     abstract boolean handleGetDeviceCheckInStatusResponse(
-            @NonNull GetDeviceCheckInStatusGrpcResponse response);
+            GetDeviceCheckInStatusGrpcResponse response,
+            DeviceLockControllerScheduler scheduler,
+            @Nullable String fcmRegistrationToken);
 }

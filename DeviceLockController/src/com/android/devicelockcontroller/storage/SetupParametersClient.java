@@ -107,6 +107,18 @@ public final class SetupParametersClient extends DlcClient
     }
 
     /**
+     * Dump current values of SetupParameters to logcat.
+     * Note that this API can only be called in debuggable build for debugging purpose.
+     */
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<Void> dump() {
+        return call(() -> {
+            asInterface(getService()).dump();
+            return null;
+        });
+    }
+
+    /**
      * Clear any existing setup parameters.
      * Note that this API can only be called in debuggable build for debugging purpose.
      */
@@ -143,16 +155,6 @@ public final class SetupParametersClient extends DlcClient
     }
 
     /**
-     * Get the setup activity for the kiosk app.
-     *
-     * @return Setup activity.
-     */
-    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
-    public ListenableFuture<String> getKioskSetupActivity() {
-        return call(() -> asInterface(getService()).getKioskSetupActivity());
-    }
-
-    /**
      * Check if the configuration disables outgoing calls.
      *
      * @return True if outgoign calls are disabled.
@@ -180,6 +182,16 @@ public final class SetupParametersClient extends DlcClient
     @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
     public ListenableFuture<Boolean> isNotificationsInLockTaskModeEnabled() {
         return call(() -> asInterface(getService()).isNotificationsInLockTaskModeEnabled());
+    }
+
+    /**
+     * Check if adb debugging is allowed even on prod devices.
+     *
+     * @return True if adb debugging is allowed
+     */
+    @SuppressWarnings("GuardedBy") // mLock already held in "call" (error prone).
+    public ListenableFuture<Boolean> isDebuggingAllowed() {
+        return call(() -> asInterface(getService()).isDebuggingAllowed());
     }
 
     /**

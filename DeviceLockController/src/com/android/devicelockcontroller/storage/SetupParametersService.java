@@ -47,6 +47,11 @@ public final class SetupParametersService extends Service {
                 }
 
                 @Override
+                public void dump() {
+                    SetupParameters.dumpParameters(mContext);
+                }
+
+                @Override
                 public void clear() {
                     SetupParameters.clear(mContext);
                 }
@@ -54,11 +59,6 @@ public final class SetupParametersService extends Service {
                 @Override
                 public String getKioskPackage() {
                     return SetupParameters.getKioskPackage(mContext);
-                }
-
-                @Override
-                public String getKioskSetupActivity() {
-                    return SetupParameters.getKioskSetupActivity(mContext);
                 }
 
                 @Override
@@ -74,6 +74,11 @@ public final class SetupParametersService extends Service {
                 @Override
                 public boolean isNotificationsInLockTaskModeEnabled() {
                     return SetupParameters.isNotificationsInLockTaskModeEnabled(mContext);
+                }
+
+                @Override
+                public boolean isDebuggingAllowed() {
+                    return SetupParameters.isDebuggingAllowed(mContext);
                 }
 
                 @Override

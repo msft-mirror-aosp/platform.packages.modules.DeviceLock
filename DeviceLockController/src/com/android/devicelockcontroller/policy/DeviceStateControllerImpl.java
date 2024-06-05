@@ -16,171 +16,131 @@
 
 package com.android.devicelockcontroller.policy;
 
-import android.content.Context;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.CLEARED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.LOCKED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.UNDEFINED;
+import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.UNLOCKED;
+import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_SUCCESS;
+import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.KIOSK_PROVISIONED;
+import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_SUCCEEDED;
+import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
 
-import androidx.annotation.VisibleForTesting;
-
-import com.android.devicelockcontroller.storage.UserParameters;
-import com.android.devicelockcontroller.util.LogUtil;
+import com.android.devicelockcontroller.storage.GlobalParametersClient;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.concurrent.Executor;
 
-/**
- * State machine for device lock controller.
- */
+/** An implementation of the {@link DeviceStateController} */
 public final class DeviceStateControllerImpl implements DeviceStateController {
-    private static final String TAG = "DeviceStateControllerImpl";
-    private final Context mContext;
-    private final ArrayList<StateListener> mListeners = new ArrayList<>();
-    private int mState;
+    private final ProvisionStateController mProvisionStateController;
+    private final DevicePolicyController mPolicyController;
+    private final GlobalParametersClient mGlobalParametersClient;
+    private final Executor mExecutor;
+    // Used to exercising APIs under CTS without actually applying any policies.
+    // This is not persistent across controller restarts, but should be good enough for the
+    // intended purpose.
+    private volatile @DeviceState int mPseudoDeviceState;
+
+    public DeviceStateControllerImpl(DevicePolicyController policyController,
+            ProvisionStateController provisionStateController, Executor executor) {
+        mPolicyController = policyController;
+        mProvisionStateController = provisionStateController;
+        mGlobalParametersClient = GlobalParametersClient.getInstance();
+        mExecutor = executor;
+        mPseudoDeviceState = UNDEFINED;
+    }
+
+    @Override
+    public ListenableFuture<Void> lockDevice() {
+        return setDeviceState(LOCKED);
+    }
+
+    @Override
+    public ListenableFuture<Void> unlockDevice() {
+        return setDeviceState(UNLOCKED);
+    }
+
+    @Override
+    public ListenableFuture<Void> clearDevice() {
+        return setDeviceState(CLEARED);
+    }
 
     /**
-     * Create a new state machine.
-     *
-     * @param context The context used for the state machine.
+     * Set the global device state to be the input {@link DeviceState}. The returned
+     * {@link ListenableFuture} will complete when both the state change and policies enforcement
+     * for new state are done.
      */
-    public DeviceStateControllerImpl(Context context) {
-        mState = UserParameters.getDeviceState(context);
-        LogUtil.i(TAG, String.format(Locale.US, "Starting state is %d", mState));
-        mContext = context;
-    }
-
-    /**
-     * Enforce all policies for the current state.
-     * This method is used to initially enforce policies.
-     * Note that policies are also automatically enforced on state transitions.
-     */
-    @Override
-    public ListenableFuture<Void> enforcePoliciesForCurrentState() {
-        final List<ListenableFuture<Void>> onStateChangedTasks = new ArrayList<>();
-        synchronized (mListeners) {
-            for (StateListener listener : mListeners) {
-                onStateChangedTasks.add(listener.onStateChanged(mState));
-            }
+    private ListenableFuture<Void> setDeviceState(@DeviceState int deviceState) {
+        if (deviceState == UNDEFINED) {
+            throw new IllegalArgumentException("Cannot set device state to UNDEFINED");
         }
-        return Futures.whenAllSucceed(onStateChangedTasks).call((() -> null),
-                MoreExecutors.directExecutor());
+        return Futures.transformAsync(mProvisionStateController.getState(),
+                provisionState -> {
+                    final ListenableFuture<Void> maybeSetProvisioningSuccess;
+                    if (provisionState == KIOSK_PROVISIONED) {
+                        maybeSetProvisioningSuccess =
+                                mProvisionStateController.setNextStateForEvent(PROVISION_SUCCESS);
+                    } else if (provisionState == PROVISION_SUCCEEDED) {
+                        maybeSetProvisioningSuccess = Futures.immediateVoidFuture();
+                    } else if (provisionState == UNPROVISIONED && (deviceState == LOCKED
+                            || deviceState == UNLOCKED)) {
+                        // During normal operation, we should not get lock/unlock requests in
+                        // the UNPROVISIONED state. Used for CTS compliance.
+                        mPseudoDeviceState = deviceState;
+                        // Do not apply any policies
+                        return Futures.immediateVoidFuture();
+                    } else {
+                        throw new RuntimeException(
+                                "User has not been provisioned! Current state " + provisionState);
+                    }
+                    return Futures.transformAsync(maybeSetProvisioningSuccess,
+                            unused -> Futures.transformAsync(isCleared(),
+                                    isCleared -> {
+                                        if (isCleared) {
+                                            throw new IllegalStateException("Device has been "
+                                                    + "cleared!");
+                                        }
+                                        return Futures.transformAsync(
+                                                mGlobalParametersClient.setDeviceState(deviceState),
+                                                state -> mPolicyController.enforceCurrentPolicies(),
+                                                mExecutor);
+                                    }, mExecutor),
+                            mExecutor);
+                }, mExecutor);
     }
 
     @Override
-    public ListenableFuture<Void> setNextStateForEvent(@DeviceEvent int event) {
-        try {
-            updateState(getNextState(event));
-        } catch (StateTransitionException e) {
-            return Futures.immediateFailedFuture(e);
-        }
-        LogUtil.i(TAG, String.format(Locale.US, "handleEvent %d, newState %d", event, mState));
-
-        return enforcePoliciesForCurrentState();
+    public ListenableFuture<Boolean> isLocked() {
+        return Futures.transformAsync(mProvisionStateController.getState(),
+                provisionState -> {
+                    if (provisionState == UNPROVISIONED) {
+                        // Used for CTS compliance.
+                        return Futures.immediateFuture(mPseudoDeviceState == LOCKED);
+                    } else {
+                        return Futures.transform(mGlobalParametersClient.getDeviceState(),
+                                s -> {
+                                    if (s == UNDEFINED) {
+                                        throw new IllegalStateException("isLocked called before "
+                                                + "setting the locked state "
+                                                + "(lockDevice/unlockDevice)");
+                                    }
+                                    return s == LOCKED;
+                                }, mExecutor);
+                    }
+                }, mExecutor);
     }
 
     @Override
-    public int getState() {
-        return mState;
+    public ListenableFuture<Integer> getDeviceState() {
+        return mGlobalParametersClient.getDeviceState();
     }
 
     @Override
-    public boolean isLocked() {
-        return mState == DeviceState.SETUP_IN_PROGRESS
-                || mState == DeviceState.SETUP_SUCCEEDED
-                || mState == DeviceState.KIOSK_SETUP
-                || mState == DeviceState.LOCKED
-                || mState == DeviceState.PSEUDO_LOCKED;
-    }
-
-    @Override
-    public boolean isCheckInNeeded() {
-        return mState == DeviceState.UNPROVISIONED || mState == DeviceState.PSEUDO_LOCKED
-                || mState == DeviceState.PSEUDO_UNLOCKED;
-    }
-
-    @Override
-    public boolean isInSetupState() {
-        return mState == DeviceState.SETUP_IN_PROGRESS
-                || mState == DeviceState.SETUP_SUCCEEDED
-                || mState == DeviceState.SETUP_FAILED;
-    }
-
-    @Override
-    public void addCallback(StateListener listener) {
-        synchronized (mListeners) {
-            mListeners.add(listener);
-        }
-    }
-
-    @Override
-    public void removeCallback(StateListener listener) {
-        synchronized (mListeners) {
-            mListeners.remove(listener);
-        }
-    }
-
-    @VisibleForTesting
-    @DeviceState
-    int getNextState(@DeviceEvent int event) throws StateTransitionException {
-        switch (event) {
-            case DeviceEvent.PROVISIONING_SUCCESS:
-                if (mState == DeviceState.UNPROVISIONED || mState == DeviceState.SETUP_FAILED
-                        || mState == DeviceState.PSEUDO_LOCKED
-                        || mState == DeviceState.PSEUDO_UNLOCKED) {
-                    return DeviceState.SETUP_IN_PROGRESS;
-                }
-                break;
-            case DeviceEvent.SETUP_SUCCESS:
-                if (mState == DeviceState.SETUP_IN_PROGRESS) {
-                    return DeviceState.SETUP_SUCCEEDED;
-                }
-                break;
-            case DeviceEvent.SETUP_FAILURE:
-                if (mState == DeviceState.SETUP_IN_PROGRESS) {
-                    return DeviceState.SETUP_FAILED;
-                }
-                break;
-            case DeviceEvent.SETUP_COMPLETE:
-                if (mState == DeviceState.SETUP_SUCCEEDED) {
-                    return DeviceState.KIOSK_SETUP;
-                }
-                break;
-            case DeviceEvent.LOCK_DEVICE:
-                if (mState == DeviceState.UNPROVISIONED || mState == DeviceState.PSEUDO_UNLOCKED
-                        || mState == DeviceState.PSEUDO_LOCKED) {
-                    return DeviceState.PSEUDO_LOCKED;
-                }
-                if (mState == DeviceState.UNLOCKED || mState == DeviceState.LOCKED) {
-                    return DeviceState.LOCKED;
-                }
-                break;
-            case DeviceEvent.UNLOCK_DEVICE:
-                if (mState == DeviceState.PSEUDO_LOCKED || mState == DeviceState.PSEUDO_UNLOCKED) {
-                    return DeviceState.PSEUDO_UNLOCKED;
-                }
-                if (mState == DeviceState.LOCKED || mState == DeviceState.UNLOCKED
-                        || mState == DeviceState.KIOSK_SETUP) {
-                    return DeviceState.UNLOCKED;
-                }
-                break;
-            case DeviceEvent.CLEAR:
-                if (mState == DeviceState.LOCKED
-                        || mState == DeviceState.UNLOCKED
-                        || mState == DeviceState.KIOSK_SETUP) {
-                    return DeviceState.CLEARED;
-                }
-                break;
-            default:
-                break;
-        }
-
-        throw new StateTransitionException(mState, event);
-    }
-
-    private void updateState(@DeviceState int newState) {
-        UserParameters.setDeviceState(mContext, newState);
-        mState = newState;
+    public ListenableFuture<Boolean> isCleared() {
+        return Futures.transform(mGlobalParametersClient.getDeviceState(),
+                s -> s == CLEARED, MoreExecutors.directExecutor());
     }
 }

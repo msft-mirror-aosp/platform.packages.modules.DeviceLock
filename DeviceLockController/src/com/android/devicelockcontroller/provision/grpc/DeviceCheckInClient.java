@@ -16,10 +16,12 @@
 
 package com.android.devicelockcontroller.provision.grpc;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
 import android.os.Build;
-import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.util.ArraySet;
-import android.util.Pair;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
@@ -27,8 +29,11 @@ import androidx.annotation.WorkerThread;
 import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 import com.android.devicelockcontroller.common.DeviceLockConstants.PauseDeviceProvisioningReason;
-import com.android.devicelockcontroller.common.DeviceLockConstants.SetupFailureReason;
+import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
+import com.android.devicelockcontroller.provision.grpc.impl.DeviceCheckInClientImpl;
 import com.android.devicelockcontroller.util.LogUtil;
+
+import io.grpc.ClientInterceptor;
 
 /**
  * An abstract class that's intended for implementation of class that manages communication with
@@ -36,47 +41,90 @@ import com.android.devicelockcontroller.util.LogUtil;
  */
 public abstract class DeviceCheckInClient {
     private static final String TAG = "DeviceCheckInClient";
+    private static final String FILENAME = "debug-check-in-preferences";
+
     public static final String DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME =
             "com.android.devicelockcontroller.debug.DeviceCheckInClientDebug";
+    protected static final String DEBUG_DEVICELOCK_CHECKIN = "debug.devicelock.checkin";
+    private static final String HOST_NAME_OVERRIDE = "host.name.override";
     private static volatile DeviceCheckInClient sClient;
 
     @Nullable
     protected static String sRegisteredId;
     protected static String sHostName = "";
     protected static int sPortNumber = 0;
-    protected static Pair<String, String> sApiKey = new Pair<>("", "");
+    private static volatile boolean sUseDebugClient;
+
+    @Nullable
+    private static volatile SharedPreferences sSharedPreferences;
+
+    @Nullable
+    protected static synchronized SharedPreferences getSharedPreferences(
+            @Nullable Context context) {
+        if (sSharedPreferences == null && context != null) {
+            sSharedPreferences =
+                    context.createContextAsUser(UserHandle.SYSTEM, /* flags= */
+                            0).createDeviceProtectedStorageContext().getSharedPreferences(FILENAME,
+                            Context.MODE_PRIVATE);
+        }
+        return sSharedPreferences;
+    }
 
     /**
-     * Get a instance of DeviceCheckInClient object.
+     * Override the host name so that the client always connects to it instead
+     */
+    public static void setHostNameOverride(Context context, String override) {
+        getSharedPreferences(context).edit().putString(HOST_NAME_OVERRIDE, override).apply();
+    }
+
+    /**
+     * Get an instance of DeviceCheckInClient object.
      */
     public static DeviceCheckInClient getInstance(
-            String className,
+            Context context,
             String hostName,
             int portNumber,
-            Pair<String, String> apiKey,
+            ClientInterceptor clientInterceptor,
             @Nullable String registeredId) {
-        if (sClient == null) {
-            synchronized (DeviceCheckInClient.class) {
-                try {
-                    // In case the initialization is already done by other thread use existing
-                    // instance.
+        boolean useDebugClient = false;
+        String hostNameOverride = "";
+        if (Build.isDebuggable()) {
+            useDebugClient = getSharedPreferences(context).getBoolean(
+                    DEBUG_DEVICELOCK_CHECKIN, /* def= */ false);
+            hostNameOverride = getSharedPreferences(context).getString(
+                    HOST_NAME_OVERRIDE, /* def= */ "");
+            if (!hostNameOverride.isEmpty()) {
+                hostName = hostNameOverride;
+            }
+        }
+        synchronized (DeviceCheckInClient.class) {
+            try {
+                boolean createRequired =
+                        (sClient == null || sUseDebugClient != useDebugClient)
+                                || (registeredId != null && !registeredId.equals(sRegisteredId))
+                                || (hostName != null && !hostName.equals(sHostName));
+
+                if (createRequired) {
                     if (sClient != null) {
-                        return sClient;
+                        sClient.cleanUp();
                     }
                     sHostName = hostName;
                     sPortNumber = portNumber;
                     sRegisteredId = registeredId;
-                    sApiKey = apiKey;
-                    if (Build.isDebuggable() && SystemProperties.getBoolean(
-                            "debug.devicelock.checkin", true)) {
-                        className = DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME;
+                    sUseDebugClient = useDebugClient;
+                    if (Build.isDebuggable() && sUseDebugClient) {
+                        final String className = DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME;
+                        LogUtil.d(TAG, "Creating instance for " + className);
+                        Class<?> clazz = Class.forName(className);
+                        sClient =
+                                (DeviceCheckInClient) clazz.getDeclaredConstructor().newInstance();
+                    } else {
+                        sClient = new DeviceCheckInClientImpl(clientInterceptor,
+                                context.getSystemService(ConnectivityManager.class));
                     }
-                    LogUtil.d(TAG, "Creating instance for " + className);
-                    Class<?> clazz = Class.forName(className);
-                    sClient = (DeviceCheckInClient) clazz.getDeclaredConstructor().newInstance();
-                } catch (Exception e) {
-                    throw new RuntimeException("Failed to get DeviceCheckInClient instance", e);
                 }
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to get DeviceCheckInClient instance", e);
             }
         }
         return sClient;
@@ -106,6 +154,7 @@ public abstract class DeviceCheckInClient {
      *                    DeviceLock program. Could be null if unavailable.
      * @return A class that encapsulate the response from the backend server.
      */
+    @WorkerThread
     public abstract IsDeviceInApprovedCountryGrpcResponse isDeviceInApprovedCountry(
             @Nullable String carrierInfo);
 
@@ -122,7 +171,6 @@ public abstract class DeviceCheckInClient {
     /**
      * Reports the current provision state of the device.
      *
-     * @param reasonOfFailure            one of {@link SetupFailureReason}
      * @param lastReceivedProvisionState one of {@link DeviceProvisionState}.
      *                                   It must be the value from the response when this API
      *                                   was called last time. If this API is called for the first
@@ -136,7 +184,12 @@ public abstract class DeviceCheckInClient {
      */
     @WorkerThread
     public abstract ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
-            @SetupFailureReason int reasonOfFailure,
             @DeviceProvisionState int lastReceivedProvisionState,
-            boolean isSuccessful);
+            boolean isSuccessful, @ProvisionFailureReason int failureReason);
+
+    /**
+     * Called when this device check in client is no longer in use and should clean up its
+     * resources.
+     */
+    public void cleanUp() {};
 }

@@ -16,18 +16,22 @@
 
 // Generate gRPC client code
 package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "packages_modules_DeviceLock_DeviceLockController_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
     default_applicable_licenses: [
-        "Android-Apache-2.0",
         "packages_modules_DeviceLock_DeviceLockController_license",
     ],
 }
 
-LITE_PROTO_CMD = "mkdir -p $(genDir)/gen && " +
-    "$(location aprotoc) --java_opt=annotate_code=false " +
-    "-Iexternal/protobuf/src -Ipackages/modules/DeviceLock/DeviceLockController/proto " +
-    "--plugin=protoc-gen-grpc-java=$(location protoc-gen-grpc-java-plugin) " +
-    "--grpc-java_out=lite:$(genDir)/gen $(in) && " +
-    "$(location soong_zip) -o $(out) -C $(genDir)/gen -D $(genDir)/gen"
+filegroup {
+    name: "devicelockcontroller-protos",
+    srcs: [
+        "*.proto",
+    ],
+}
 
 genrule {
     name: "checkIn-service-stub-lite",
@@ -36,9 +40,15 @@ genrule {
         "protoc-gen-grpc-java-plugin",
         "soong_zip",
     ],
-    cmd: LITE_PROTO_CMD,
+    cmd: "mkdir -p $(genDir)/gen && " +
+        "$(location aprotoc) --java_opt=annotate_code=false " +
+        "-Iexternal/protobuf/src -Ipackages/modules/DeviceLock/DeviceLockController/proto " +
+        "--plugin=protoc-gen-grpc-java=$(location protoc-gen-grpc-java-plugin) " +
+        "--grpc-java_out=lite:$(genDir)/gen $(locations :devicelockcontroller-protos) && " +
+        "$(location soong_zip) -o $(out) -C $(genDir)/gen -D $(genDir)/gen",
     srcs: [
-        "*.proto",
+        ":devicelockcontroller-protos",
+        ":libprotobuf-internal-protos",
     ],
     out: [
         "protos.srcjar",

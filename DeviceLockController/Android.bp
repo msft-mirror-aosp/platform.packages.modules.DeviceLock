@@ -31,21 +31,36 @@ license {
     ],
 }
 
-filegroup {
-    name: "devicelockcontroller-grpc-impl-sources",
-    srcs: [
-        "src/com/android/devicelockcontroller/provision/grpc/impl/*.java",
-    ],
+genrule {
+    name: "statslog-devicelock-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module devicelock" +
+        " --javaPackage com.android.devicelockcontroller" +
+        " --javaClass DevicelockStatsLog",
+    out: ["com/android/devicelockcontroller/DevicelockStatsLog.java"],
 }
 
 java_library {
     name: "devicelockcontroller-interface",
     sdk_version: "module_current",
-    min_sdk_version: "33", // AIDL compiler does not know about UpsideDownCake
+    min_sdk_version: "UpsideDownCake",
     srcs: ["src/**/*.aidl"],
     apex_available: [
         "com.android.devicelock",
     ],
+    visibility: [
+        "//packages/modules/DeviceLock:__subpackages__",
+    ],
+}
+
+java_library {
+    name: "devicelockcontroller-thread-asserts-lib",
+    srcs: [
+        "src/com/android/devicelockcontroller/util/ThreadAsserts.java",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "UpsideDownCake",
+    apex_available: ["com.android.devicelock"],
     visibility: [
         "//packages/modules/DeviceLock:__subpackages__",
     ],
@@ -62,6 +77,7 @@ java_library {
     apex_available: ["com.android.devicelock"],
     static_libs: [
         "androidx.annotation_annotation",
+        "guava",
     ],
     visibility: [
         "//packages/modules/DeviceLock:__subpackages__",
@@ -70,7 +86,7 @@ java_library {
 
 java_library {
     name: "devicelockcontroller-grpc-interface-lib",
-    srcs: ["src/com/android/devicelockcontroller/provision/grpc/*.java"],
+    srcs: ["src/com/android/devicelockcontroller/provision/grpc/**/*.java"],
     sdk_version: "module_current",
     min_sdk_version: "UpsideDownCake",
     apex_available: ["com.android.devicelock"],
@@ -83,9 +99,32 @@ java_library {
         "opencensus-java-api",
         "opencensus-java-contrib-grpc-metrics",
     ],
+    libs: [
+        "devicelockcontroller-proto-lite",
+        "framework-connectivity",
+    ],
     visibility: [
         "//packages/modules/DeviceLock:__subpackages__",
         "//vendor:__subpackages__",
+    ],
+}
+
+java_test_helper_library {
+    name: "devicelockcontroller-stats",
+    sdk_version: "module_current",
+    srcs: [
+        "src/**/stats/*.java",
+        ":statslog-devicelock-java-gen",
+    ],
+    libs: [
+        "framework-statsd",
+        "modules-utils-expresslog",
+    ],
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
+    visibility: [
+        "//packages/modules/DeviceLock:__subpackages__",
     ],
 }
 
@@ -94,13 +133,22 @@ android_library {
     name: "devicelockcontroller-lib",
     sdk_version: "module_current",
     min_sdk_version: "UpsideDownCake",
-    srcs: ["src/**/*.java"],
-    exclude_srcs: [":devicelockcontroller-grpc-impl-sources"],
+    srcs: [
+        "src/**/*.java",
+        ":statslog-devicelock-java-gen",
+    ],
+    exclude_srcs: [
+        "src/com/android/devicelockcontroller/debug/*.java",
+    ],
     resource_dirs: ["res"],
     libs: [
         "framework-annotations-lib",
         "framework-devicelock.impl",
         "org.apache.http.legacy",
+        "framework-statsd",
+        "modules-utils-expresslog",
+        "devicelockcontroller-proto-lite",
+        "framework-connectivity",
     ],
     static_libs: [
         "androidx.annotation_annotation",
@@ -138,17 +186,11 @@ android_app {
     certificate: "platform",
     rename_resources_package: false,
 
-    srcs: [":devicelockcontroller-grpc-impl-sources"],
-
     static_libs: [
         "devicelockcontroller-lib",
         "devicelockcontroller-grpc-interface-lib",
         "devicelockcontroller-proto-lite",
     ],
-
-    lint: {
-        strict_updatability_linting: true,
-    },
 
     optimize: {
         proguard_flags_files: ["proguard.flags"],
@@ -171,17 +213,11 @@ android_app {
     certificate: "platform",
     rename_resources_package: false,
 
-    srcs: [":devicelockcontroller-grpc-impl-sources"],
-
     static_libs: [
         "devicelockcontroller-debug-lib",
         "devicelockcontroller-grpc-interface-lib",
         "devicelockcontroller-proto-lite",
     ],
-
-    lint: {
-        strict_updatability_linting: true,
-    },
 
     optimize: {
         proguard_flags_files: ["proguard.flags"],

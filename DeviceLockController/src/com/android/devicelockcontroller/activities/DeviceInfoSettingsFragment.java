@@ -24,6 +24,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -45,20 +46,37 @@ public final class DeviceInfoSettingsFragment extends PreferenceFragmentCompat {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        requireActivity().setTitle(getString(R.string.settings_screen_title));
 
         DeviceInfoSettingsViewModel viewModel = new ViewModelProvider(this).get(
                 DeviceInfoSettingsViewModel.class);
-        viewModel.mProviderNameLiveData.observe(getViewLifecycleOwner(), providerName -> {
-            PreferenceManager preferenceManager = getPreferenceManager();
+        PreferenceManager preferenceManager = getPreferenceManager();
+        LifecycleOwner lifecycleOwner = getViewLifecycleOwner();
+        viewModel.getProviderNameLiveData().observe(lifecycleOwner, providerName -> {
+            requireActivity().setTitle(
+                    getString(R.string.device_provided_by_provider, providerName));
+
             hideIconView(preferenceManager.getPreferenceScreen());
-            for (Pair<Integer, Integer> keyTitlePair : viewModel.mPreferenceKeyTitlePairs) {
+            for (Pair<Integer, Integer> keyTitlePair :
+                    viewModel.getPreferenceWithProviderNameKeyTitlePairs()) {
                 Preference preference = preferenceManager.findPreference(
                         getString(keyTitlePair.first));
                 checkNotNull(preference);
                 preference.setTitle(getString(keyTitlePair.second, providerName));
             }
+            Preference supportUrlPreference = preferenceManager.findPreference(
+                    getString(R.string.settings_contact_provider_preference_key));
+            checkNotNull(supportUrlPreference);
+            supportUrlPreference.setTitle(
+                    String.format(getString(R.string.settings_contact_provider), providerName,
+                            viewModel.getSupportUrl()));
         });
+        viewModel.getInstallFromUnknownSourcesDisallowedLiveData().observe(lifecycleOwner,
+                disallowed -> {
+                    Preference preference = preferenceManager.findPreference(
+                            getString(R.string.settings_install_apps_preference_key));
+                    checkNotNull(preference);
+                    preference.setVisible(disallowed);
+                });
     }
 
     /**
@@ -66,8 +84,7 @@ public final class DeviceInfoSettingsFragment extends PreferenceFragmentCompat {
      */
     private static void hideIconView(Preference preference) {
         preference.setIconSpaceReserved(false);
-        if (preference instanceof PreferenceGroup) {
-            PreferenceGroup preferenceGroup = (PreferenceGroup) preference;
+        if (preference instanceof PreferenceGroup preferenceGroup) {
             for (int i = 0; i < preferenceGroup.getPreferenceCount(); i++) {
                 hideIconView(preferenceGroup.getPreference(i));
             }

@@ -16,128 +16,163 @@
 
 package com.android.devicelockcontroller.policy;
 
-import android.app.AppOpsManager;
-import android.content.Context;
 import android.os.OutcomeReceiver;
 
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 
 import com.android.devicelockcontroller.SystemDeviceLockManager;
-import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
-import com.android.devicelockcontroller.storage.SetupParametersClientInterface;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import java.util.concurrent.Executor;
+
 final class AppOpsPolicyHandler implements PolicyHandler {
     private static final String TAG = "AppOpsPolicyHandler";
-    // The following should be a SystemApi on AppOpsManager.
-    private static final String OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION =
-            "android:system_exempt_from_activity_bg_start_restriction";
-    private final Context mContext;
     private final SystemDeviceLockManager mSystemDeviceLockManager;
-    private final AppOpsManager mAppOpsManager;
-    private final SetupParametersClientInterface mSetupParametersClient;
+    private final Executor mBgExecutor;
 
-    AppOpsPolicyHandler(Context context, SystemDeviceLockManager systemDeviceLockManager,
-            AppOpsManager appOpsManager) {
-        this(context, systemDeviceLockManager, appOpsManager, SetupParametersClient.getInstance());
-    }
-
-    AppOpsPolicyHandler(Context context, SystemDeviceLockManager systemDeviceLockManager,
-            AppOpsManager appOpsManager, SetupParametersClientInterface setupParametersClient) {
-        mContext = context;
+    AppOpsPolicyHandler(SystemDeviceLockManager systemDeviceLockManager, Executor bgExecutor) {
         mSystemDeviceLockManager = systemDeviceLockManager;
-        mAppOpsManager = appOpsManager;
-        mSetupParametersClient = setupParametersClient;
+        mBgExecutor = bgExecutor;
     }
 
-    private ListenableFuture<@ResultType Integer>
-            getExemptFromBackgroundStartRestrictionsFuture(boolean exempt) {
-        return CallbackToFutureAdapter.getFuture(
-                completer -> {
-                    mSystemDeviceLockManager.setExemptFromActivityBackgroundStartRestriction(exempt,
-                            mContext.getMainExecutor(),
-                            new OutcomeReceiver<Void, Exception>() {
-                                @Override
-                                public void onResult(Void unused) {
-                                    completer.set(SUCCESS);
-                                }
+    /**
+     * Set the exempt from activity background start restriction state for dlc app.
+     */
+    private ListenableFuture<Boolean> setDlcExemptFromActivityBgStartRestrictionState(
+            boolean exempt) {
+        return CallbackToFutureAdapter.getFuture(completer -> {
+            mSystemDeviceLockManager.setDlcExemptFromActivityBgStartRestrictionState(exempt,
+                    mBgExecutor, new OutcomeReceiver<>() {
+                        @Override
+                        public void onResult(Void unused) {
+                            completer.set(true);
+                        }
 
-                                @Override
-                                public void onError(Exception error) {
-                                    LogUtil.e(TAG, "Cannot set background start exemption", error);
-                                    completer.set(FAILURE);
-                                }
-                            });
-                    // Used only for debugging.
-                    return "getExemptFromBackgroundStartRestrictionFuture";
-                });
+                        @Override
+                        public void onError(Exception error) {
+                            LogUtil.e(TAG, "Cannot set background start exemption", error);
+                            completer.set(false);
+                        }
+                    });
+            // Used only for debugging.
+            return "setDlcExemptFromActivityBgStartRestrictionState";
+        });
     }
 
-    private ListenableFuture<@ResultType Integer> getExemptFromHibernationFuture(boolean exempt) {
-        return Futures.transformAsync(mSetupParametersClient.getKioskPackage(),
-                kioskPackageName -> kioskPackageName == null
-                        ? Futures.immediateFuture(SUCCESS)
-                        : CallbackToFutureAdapter.getFuture(
-                            completer -> {
-                                mSystemDeviceLockManager.setExemptFromHibernation(
-                                        kioskPackageName, exempt,
-                                        mContext.getMainExecutor(),
-                                        new OutcomeReceiver<Void, Exception>() {
-                                            @Override
-                                            public void onResult(Void unused) {
-                                                completer.set(SUCCESS);
-                                            }
+    /**
+     * Set whether the dlc can send undismissible notifications.
+     */
+    private ListenableFuture<Boolean> setDlcAllowedToSendUndismissibleNotifications(
+            boolean allowed) {
+        return CallbackToFutureAdapter.getFuture(completer -> {
+            mSystemDeviceLockManager.setDlcAllowedToSendUndismissibleNotifications(allowed,
+                    mBgExecutor, new OutcomeReceiver<>() {
+                        @Override
+                        public void onResult(Void unused) {
+                            completer.set(true);
+                        }
 
-                                            @Override
-                                            public void onError(Exception error) {
-                                                LogUtil.e(TAG, "Cannot set exempt from hibernation",
-                                                        error);
-                                                completer.set(FAILURE);
-                                            }
-                                        });
-                                // Used only for debugging.
-                                return "setExemptFromHibernationFuture";
-                            }), MoreExecutors.directExecutor());
+                        @Override
+                        public void onError(Exception error) {
+                            LogUtil.e(TAG, "Cannot set undismissible notifs", error);
+                            // Returns true here to make sure state transition
+                            // success.
+                            completer.set(true);
+                        }
+                    });
+            // Used only for debugging.
+            return "setDlcAllowedToSendUndismissibleNotifications";
+        });
     }
 
-    private ListenableFuture<@ResultType Integer>
-            getExemptFromBackgroundStartAndHibernationFuture(boolean exempt) {
-        final ListenableFuture<@ResultType Integer> backgroundFuture =
-                getExemptFromBackgroundStartRestrictionsFuture(exempt /* exempt */);
-        final ListenableFuture<@ResultType Integer> hibernationFuture =
-                getExemptFromHibernationFuture(exempt /* exempt */);
-        return Futures.whenAllSucceed(backgroundFuture, hibernationFuture)
-                .call(() -> (Futures.getDone(backgroundFuture) == SUCCESS
-                                && Futures.getDone(hibernationFuture) == SUCCESS)
-                                ? SUCCESS : FAILURE,
-                        MoreExecutors.directExecutor());
+    /**
+     * Set the exempt from hibernation, battery and data usage restriction state for kiosk app.
+     */
+    private ListenableFuture<Boolean> setKioskAppExemptionsState(boolean exempt) {
+        return Futures.transformAsync(SetupParametersClient.getInstance().getKioskPackage(),
+                kioskPackageName -> kioskPackageName == null ? Futures.immediateFuture(true)
+                        : CallbackToFutureAdapter.getFuture(completer -> {
+                            mSystemDeviceLockManager.setKioskAppExemptFromRestrictionsState(
+                                    kioskPackageName, exempt, mBgExecutor, new OutcomeReceiver<>() {
+                                        @Override
+                                        public void onResult(Void unused) {
+                                            completer.set(true);
+                                        }
+
+                                        @Override
+                                        public void onError(Exception error) {
+                                            LogUtil.e(TAG, "Cannot set exempt kiosk app", error);
+                                            // Returns true here to make sure state transition
+                                            // success.
+                                            completer.set(true);
+                                        }
+                                    });
+                            // Used only for debugging.
+                            return "setKioskAppExemptionsState";
+                        }), MoreExecutors.directExecutor());
+    }
+
+    /**
+     * Set the exempt state for dlc and kiosk app. Note that the exemptions are different between
+     * dlc app and kiosk app.
+     */
+    private ListenableFuture<Boolean> setDlcAndKioskAppExemptionsState(boolean exempt) {
+        final ListenableFuture<Boolean> backgroundFuture =
+                setDlcExemptFromActivityBgStartRestrictionState(exempt);
+        final ListenableFuture<Boolean> kioskExemptionFuture = setKioskAppExemptionsState(exempt);
+        return Futures.whenAllSucceed(backgroundFuture, kioskExemptionFuture).call(
+                () -> Futures.getDone(backgroundFuture) && Futures.getDone(kioskExemptionFuture),
+                MoreExecutors.directExecutor());
     }
 
     @Override
-    public ListenableFuture<@ResultType Integer> setPolicyForState(@DeviceState int state) {
-        switch (state) {
-            case DeviceState.PSEUDO_LOCKED:
-            case DeviceState.PSEUDO_UNLOCKED:
-                return Futures.immediateFuture(SUCCESS);
-            case DeviceState.SETUP_IN_PROGRESS:
-            case DeviceState.SETUP_SUCCEEDED:
-            case DeviceState.SETUP_FAILED:
-            case DeviceState.KIOSK_SETUP:
-                return getExemptFromBackgroundStartRestrictionsFuture(true /* exempt */);
-            case DeviceState.UNLOCKED:
-            case DeviceState.LOCKED:
-                return getExemptFromBackgroundStartAndHibernationFuture(true /* exempt */);
-            case DeviceState.UNPROVISIONED:
-            case DeviceState.CLEARED:
-                return getExemptFromBackgroundStartAndHibernationFuture(false /* exempt */);
-            default:
-                return Futures.immediateFailedFuture(
-                        new IllegalStateException(String.valueOf(state)));
-        }
+    public ListenableFuture<Boolean> onProvisioned() {
+        return setDlcAndKioskAppExemptionsState(/* exempt= */ true);
+    }
+
+    @Override
+    public ListenableFuture<Boolean> onProvisionInProgress() {
+        final ListenableFuture<Boolean> notifFuture =
+                setDlcAllowedToSendUndismissibleNotifications(/* allowed= */ true);
+        final ListenableFuture<Boolean> backgroundFuture =
+                setDlcExemptFromActivityBgStartRestrictionState(/* exempt= */ true);
+        return Futures.whenAllSucceed(notifFuture, backgroundFuture).call(
+                () -> Futures.getDone(notifFuture) && Futures.getDone(backgroundFuture),
+                MoreExecutors.directExecutor());
+    }
+
+    @Override
+    public ListenableFuture<Boolean> onProvisionFailed() {
+        return setDlcExemptFromActivityBgStartRestrictionState(/* exempt= */ false);
+    }
+
+    @Override
+    public ListenableFuture<Boolean> onCleared() {
+        final ListenableFuture<Boolean> notifFuture =
+                setDlcAllowedToSendUndismissibleNotifications(/* allowed= */ false);
+        final ListenableFuture<Boolean> clearExemptions =
+                setDlcAndKioskAppExemptionsState(/* exempt= */ false);
+        return Futures.whenAllSucceed(notifFuture, clearExemptions).call(
+                () -> Futures.getDone(notifFuture) && Futures.getDone(clearExemptions),
+                MoreExecutors.directExecutor());
+    }
+
+    // Due to some reason, AppOpsManager does not persist exemption after reboot, therefore we
+    // need to always set them from our end.
+    @Override
+    public ListenableFuture<Boolean> onLocked() {
+        return setDlcAndKioskAppExemptionsState(/* exempt= */ true);
+    }
+
+    // Due to some reason, AppOpsManager does not persist exemption after reboot, therefore we
+    // need to always set them from our end.
+    @Override
+    public ListenableFuture<Boolean> onUnlocked() {
+        return setKioskAppExemptionsState(/* exempt= */ true);
     }
 }

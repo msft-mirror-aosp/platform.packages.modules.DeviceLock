@@ -22,14 +22,14 @@ import androidx.annotation.Nullable;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceCheckInStatus;
 import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisioningType;
 
-import java.time.Instant;
-
 import io.grpc.Status;
+
+import java.time.Instant;
 
 /**
  * An abstract class that is used to encapsulate the response for getting device check in status.
  */
-public abstract class GetDeviceCheckInStatusGrpcResponse extends DeviceCheckInGrpcResponse {
+public abstract class GetDeviceCheckInStatusGrpcResponse extends GrpcResponse {
     public GetDeviceCheckInStatusGrpcResponse() {
     }
 
@@ -101,4 +101,11 @@ public abstract class GetDeviceCheckInStatusGrpcResponse extends DeviceCheckInGr
      * @return true if the device is an approved country; false otherwise.
      */
     public abstract boolean isDeviceInApprovedCountry();
+
+    /**
+     * Check if adb debugging is allowed even on production devices.
+     *
+     * @return true if debugging is allowed; false otherwise.
+     */
+    public abstract boolean isDebuggingAllowed();
 }

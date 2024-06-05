@@ -16,8 +16,14 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_MEID;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
@@ -25,14 +31,26 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.RETRY_
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STATUS_UNSPECIFIED;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.TOTAL_DEVICE_ID_TYPES;
-import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent.PROVISIONING_SUCCESS;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORKER_BACKOFF_DELAY;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORKER_INITIAL_DELAY;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORK_NAME;
+import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.NETWORK_TIME_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.RESPONSE_UNSPECIFIED;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.NetworkRequest;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.os.UserHandle;
 import android.telephony.TelephonyManager;
 import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
 import androidx.work.BackoffPolicy;
@@ -40,79 +58,56 @@ import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
-import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.common.DeviceId;
-import com.android.devicelockcontroller.policy.DevicePolicyController;
-import com.android.devicelockcontroller.policy.DeviceStateController;
-import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
+import com.android.devicelockcontroller.receivers.ProvisionReadyReceiver;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.base.Strings;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import java.time.DateTimeException;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Locale;
 
 /**
  * Helper class to perform the device check-in process with device lock backend server
  */
 public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
-    @VisibleForTesting
-    public static final String CHECK_IN_WORK_NAME = "checkIn";
     private static final String TAG = "DeviceCheckInHelper";
-    private static final int CHECK_IN_INTERVAL_HOURS = 1;
     private final Context mAppContext;
     private final TelephonyManager mTelephonyManager;
+    private final StatsLogger mStatsLogger;
 
     public DeviceCheckInHelper(Context appContext) {
         mAppContext = appContext;
         mTelephonyManager = mAppContext.getSystemService(TelephonyManager.class);
+        mStatsLogger = ((StatsLoggerProvider) mAppContext).getStatsLogger();
     }
 
-    /**
-     * Enqueue the DeviceCheckIn work request to WorkManager
-     *
-     * @param isExpedited If true, the work request should be expedited;
-     */
-    @Override
-    public void enqueueDeviceCheckInWork(boolean isExpedited) {
-        enqueueDeviceCheckInWork(isExpedited, Duration.ZERO);
+    private boolean hasGsm() {
+        return mAppContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_GSM);
     }
 
-    /**
-     * Enqueue the DeviceCheckIn work request to WorkManager
-     *
-     * @param isExpedited If true, the work request should be expedited;
-     * @param delay       The duration that need to be delayed before performing check-in.
-     */
-    private void enqueueDeviceCheckInWork(boolean isExpedited, Duration delay) {
-        LogUtil.i(TAG, "enqueueDeviceCheckInWork with delay: " + delay);
-        final OneTimeWorkRequest.Builder builder =
-                new OneTimeWorkRequest.Builder(DeviceCheckInWorker.class)
-                        .setConstraints(
-                                new Constraints.Builder().setRequiredNetworkType(
-                                        NetworkType.CONNECTED).build())
-                        .setInitialDelay(delay)
-                        .setBackoffCriteria(BackoffPolicy.LINEAR,
-                                Duration.ofHours(CHECK_IN_INTERVAL_HOURS));
-        if (isExpedited) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
-        WorkManager.getInstance(mAppContext).enqueueUniqueWork(CHECK_IN_WORK_NAME,
-                ExistingWorkPolicy.REPLACE, builder.build());
+    private boolean hasCdma() {
+        return mAppContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA);
     }
-
 
     @Override
-    @NonNull
     ArraySet<DeviceId> getDeviceUniqueIds() {
         final int deviceIdTypeBitmap = mAppContext.getResources().getInteger(
                 R.integer.device_id_type_bitmap);
@@ -133,7 +128,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         if (maximumIdCount == 0) return deviceIds;
 
         for (int i = 0; i < totalSlotCount; i++) {
-            if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
+            if (hasGsm() && (deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
                 final String imei = mTelephonyManager.getImei(i);
 
                 if (imei != null) {
@@ -141,7 +136,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                 }
             }
 
-            if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
+            if (hasCdma() && (deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
                 final String meid = mTelephonyManager.getMeid(i);
 
                 if (meid != null) {
@@ -154,97 +149,118 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
     }
 
     @Override
-    @NonNull
     String getCarrierInfo() {
-        // TODO(b/267507927): Figure out if we need carrier info of all sims.
         return mTelephonyManager.getSimOperator();
     }
 
     @Override
     @WorkerThread
     boolean handleGetDeviceCheckInStatusResponse(
-            @NonNull GetDeviceCheckInStatusGrpcResponse response) {
+            GetDeviceCheckInStatusGrpcResponse response,
+            DeviceLockControllerScheduler scheduler,
+            @Nullable String fcmRegistrationToken) {
         Futures.getUnchecked(GlobalParametersClient.getInstance().setRegisteredDeviceId(
                 response.getRegisteredDeviceIdentifier()));
-        LogUtil.d(TAG, "check in succeed: " + response.getDeviceCheckInStatus());
+        LogUtil.d(TAG, "check in response: " + response.getDeviceCheckInStatus());
         switch (response.getDeviceCheckInStatus()) {
             case READY_FOR_PROVISION:
-                PolicyObjectsInterface policies =
-                        (PolicyObjectsInterface) mAppContext.getApplicationContext();
-                return handleProvisionReadyResponse(
-                        response,
-                        policies.getStateController(),
-                        policies.getPolicyController());
+                boolean result = handleProvisionReadyResponse(response);
+                disableCheckInBootCompletedReceiver(mAppContext);
+                maybeEnqueueFcmRegistrationTokenRetrievalWork(fcmRegistrationToken);
+                return result;
             case RETRY_CHECK_IN:
-                Duration delay = Duration.between(Instant.now(), response.getNextCheckInTime());
-                delay = delay.isNegative() ? Duration.ZERO : delay;
-                enqueueDeviceCheckInWork(false, delay);
-                return true;
+                try {
+                    Duration delay = Duration.between(
+                            SystemClock.currentNetworkTimeClock().instant(),
+                            response.getNextCheckInTime());
+                    // Retry immediately if next check in time is in the past.
+                    delay = delay.isNegative() ? Duration.ZERO : delay;
+                    scheduler.scheduleRetryCheckInWork(delay);
+                    maybeEnqueueFcmRegistrationTokenRetrievalWork(fcmRegistrationToken);
+                    return true;
+                } catch (DateTimeException e) {
+                    LogUtil.e(TAG, "No network time is available!");
+                    mStatsLogger.logCheckInRetry(NETWORK_TIME_UNAVAILABLE);
+                    return false;
+                }
             case STOP_CHECK_IN:
-                Futures.getUnchecked(GlobalParametersClient.getInstance().setNeedCheckIn(false));
+                final ListenableFuture<Void> clearRestrictionsFuture =
+                        ((PolicyObjectsProvider) mAppContext).getFinalizationController()
+                                .finalizeNotEnrolledDevice();
+                Futures.addCallback(clearRestrictionsFuture,
+                        new FutureCallback<>() {
+                            @Override
+                            public void onSuccess(Void result) {
+                                // no-op
+                            }
+
+                            @Override
+                            public void onFailure(Throwable t) {
+                                LogUtil.e(TAG, "Failed to finalize device", t);
+                            }
+                        }, MoreExecutors.directExecutor()
+                );
                 return true;
             case STATUS_UNSPECIFIED:
             default:
+                mStatsLogger.logCheckInRetry(RESPONSE_UNSPECIFIED);
                 return false;
+        }
+    }
+
+    /**
+     * Starts a job to retrieve the FCM registration token later if the current one used to\
+     * check-in is invalid.
+     *
+     * @param fcmRegistrationToken the current token
+     */
+    private void maybeEnqueueFcmRegistrationTokenRetrievalWork(
+            @Nullable String fcmRegistrationToken) {
+        if (Strings.isNullOrEmpty(fcmRegistrationToken) || fcmRegistrationToken.isBlank()) {
+            NetworkRequest request = new NetworkRequest.Builder()
+                    .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                    .addCapability(NET_CAPABILITY_TRUSTED)
+                    .addCapability(NET_CAPABILITY_INTERNET)
+                    .addCapability(NET_CAPABILITY_NOT_VPN)
+                    .build();
+            OneTimeWorkRequest.Builder builder =
+                    new OneTimeWorkRequest.Builder(GetFcmTokenWorker.class)
+                            .setConstraints(
+                                    new Constraints.Builder().setRequiredNetworkRequest(request,
+                                            NetworkType.CONNECTED).build())
+                            .setInitialDelay(FCM_TOKEN_WORKER_INITIAL_DELAY)
+                            .setBackoffCriteria(
+                                    BackoffPolicy.EXPONENTIAL, FCM_TOKEN_WORKER_BACKOFF_DELAY);
+
+            WorkManager.getInstance(mAppContext).enqueueUniqueWork(FCM_TOKEN_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE, builder.build());
         }
     }
 
     @VisibleForTesting
     @WorkerThread
     boolean handleProvisionReadyResponse(
-            @NonNull GetDeviceCheckInStatusGrpcResponse response,
-            DeviceStateController stateController,
-            DevicePolicyController devicePolicyController) {
-        Futures.getUnchecked(GlobalParametersClient.getInstance().setProvisionForced(
+            @NonNull GetDeviceCheckInStatusGrpcResponse response) {
+        GlobalParametersClient globalParametersClient = GlobalParametersClient.getInstance();
+        Futures.getUnchecked(globalParametersClient.setProvisionForced(
                 response.isProvisionForced()));
         final ProvisioningConfiguration configuration = response.getProvisioningConfig();
         if (configuration == null) {
             LogUtil.e(TAG, "Provisioning Configuration is not provided by server!");
+            mStatsLogger.logCheckInRetry(CONFIG_UNAVAILABLE);
             return false;
         }
         final Bundle provisionBundle = configuration.toBundle();
         provisionBundle.putInt(EXTRA_PROVISIONING_TYPE, response.getProvisioningType());
         provisionBundle.putBoolean(EXTRA_MANDATORY_PROVISION,
                 response.isProvisioningMandatory());
+        provisionBundle.putBoolean(EXTRA_ALLOW_DEBUGGING, response.isDebuggingAllowed());
         Futures.getUnchecked(
                 SetupParametersClient.getInstance().createPrefs(provisionBundle));
-        setProvisionSucceeded(stateController, devicePolicyController, mAppContext,
-                response.isProvisioningMandatory());
+        Futures.getUnchecked(globalParametersClient.setProvisionReady(true));
+        mAppContext.sendBroadcastAsUser(
+                new Intent(mAppContext, ProvisionReadyReceiver.class),
+                UserHandle.ALL);
         return true;
-    }
-
-    /**
-     * Helper method to set the state for PROVISIONING_SUCCESS event.
-     */
-    public static void setProvisionSucceeded(DeviceStateController stateController,
-            DevicePolicyController devicePolicyController,
-            Context mAppContext, final boolean isMandatory) {
-        FutureCallback<Void> futureCallback = new FutureCallback<>() {
-            @Override
-            public void onSuccess(Void result) {
-                LogUtil.i(TAG,
-                        String.format(Locale.US,
-                                "State transition succeeded for event: %s",
-                                DeviceStateController.eventToString(PROVISIONING_SUCCESS)));
-                devicePolicyController.enqueueStartLockTaskModeWorker(isMandatory);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                //TODO: Reset the state to where it can successfully transition.
-                LogUtil.e(TAG,
-                        String.format(Locale.US,
-                                "State transition failed for event: %s",
-                                DeviceStateController.eventToString(PROVISIONING_SUCCESS)), t);
-            }
-        };
-        mAppContext.getMainExecutor().execute(
-                () -> {
-                    ListenableFuture<Void> tasks = Futures.whenAllSucceed(
-                                    GlobalParametersClient.getInstance().setNeedCheckIn(false),
-                                    stateController.setNextStateForEvent(PROVISIONING_SUCCESS))
-                            .call(() -> null, MoreExecutors.directExecutor());
-                    Futures.addCallback(tasks, futureCallback, MoreExecutors.directExecutor());
-                });
     }
 }

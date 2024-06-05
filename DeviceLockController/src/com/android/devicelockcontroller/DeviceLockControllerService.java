@@ -16,31 +16,35 @@
 
 package com.android.devicelockcontroller;
 
-import static com.android.devicelockcontroller.IDeviceLockControllerService.KEY_HARDWARE_ID_RESULT;
-import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent.CLEAR;
-import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent.LOCK_DEVICE;
-import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceEvent.UNLOCK_DEVICE;
-import static com.android.devicelockcontroller.policy.DeviceStateController.DeviceState.PSEUDO_LOCKED;
-
 import android.app.Service;
+import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.devicelock.ParcelableException;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteCallback;
 
 import androidx.annotation.NonNull;
-import androidx.work.WorkManager;
+import androidx.annotation.Nullable;
 
 import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DeviceStateController;
-import com.android.devicelockcontroller.policy.PolicyObjectsInterface;
-import com.android.devicelockcontroller.provision.worker.ReportDeviceLockProgramCompleteWorker;
+import com.android.devicelockcontroller.policy.FinalizationController;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Device Lock Controller Service. This is hosted in an APK and is bound
@@ -48,62 +52,123 @@ import com.google.common.util.concurrent.MoreExecutors;
  */
 public final class DeviceLockControllerService extends Service {
     private static final String TAG = "DeviceLockControllerService";
+    private DeviceStateController mDeviceStateController;
     private DevicePolicyController mPolicyController;
-    private DeviceStateController mStateController;
+    private FinalizationController mFinalizationController;
+    private PackageManager mPackageManager;
+    private StatsLogger mStatsLogger;
 
     private final IDeviceLockControllerService.Stub mBinder =
             new IDeviceLockControllerService.Stub() {
                 @Override
                 public void lockDevice(RemoteCallback remoteCallback) {
-                    Futures.addCallback(
-                            Futures.transformAsync(
-                                    mStateController.setNextStateForEvent(LOCK_DEVICE),
-                                    (Void unused) -> mStateController.getState() == PSEUDO_LOCKED
-                                            ? Futures.immediateFuture(true)
-                                            : mPolicyController.launchActivityInLockedMode(),
-                                    DeviceLockControllerService.this.getMainExecutor()),
-                            remoteCallbackWrapper(remoteCallback, KEY_LOCK_DEVICE_RESULT),
+                    logKioskAppRequest();
+                    ListenableFuture<Void> lockDeviceFuture = mDeviceStateController.lockDevice();
+                    Futures.addCallback(lockDeviceFuture,
+                            remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                    Futures.addCallback(lockDeviceFuture,
+                            logLockUnlockDeviceCallback(/* isLockDevice = */ true),
                             MoreExecutors.directExecutor());
                 }
 
                 @Override
                 public void unlockDevice(RemoteCallback remoteCallback) {
-                    Futures.addCallback(
-                            Futures.transform(
-                                    mStateController.setNextStateForEvent(UNLOCK_DEVICE),
-                                    (Void unused) -> true, MoreExecutors.directExecutor()),
-                            remoteCallbackWrapper(remoteCallback, KEY_UNLOCK_DEVICE_RESULT),
+                    logKioskAppRequest();
+                    ListenableFuture<Void> unlockDeviceFuture =
+                            mDeviceStateController.unlockDevice();
+                    Futures.addCallback(unlockDeviceFuture,
+                            remoteCallbackWrapper(remoteCallback),
                             MoreExecutors.directExecutor());
-
+                    Futures.addCallback(unlockDeviceFuture,
+                            logLockUnlockDeviceCallback(/* isLockDevice = */ false),
+                            MoreExecutors.directExecutor());
                 }
 
                 @Override
                 public void isDeviceLocked(RemoteCallback remoteCallback) {
-                    final boolean isLocked = mStateController.isLocked();
-                    sendResult(IDeviceLockControllerService.KEY_IS_DEVICE_LOCKED_RESULT,
-                            remoteCallback, isLocked);
+                    logKioskAppRequest();
+                    Futures.addCallback(mDeviceStateController.isLocked(),
+                            remoteCallbackWrapper(remoteCallback, KEY_RESULT),
+                            MoreExecutors.directExecutor());
                 }
 
                 @Override
                 public void getDeviceIdentifier(RemoteCallback remoteCallback) {
+                    logKioskAppRequest();
                     Futures.addCallback(
                             GlobalParametersClient.getInstance().getRegisteredDeviceId(),
-                            remoteCallbackWrapper(remoteCallback, KEY_HARDWARE_ID_RESULT),
+                            remoteCallbackWrapper(remoteCallback, KEY_RESULT),
                             MoreExecutors.directExecutor());
                 }
 
                 @Override
                 public void clearDeviceRestrictions(RemoteCallback remoteCallback) {
+                    logKioskAppRequest();
                     Futures.addCallback(
-                            Futures.transform(mStateController.setNextStateForEvent(CLEAR),
-                                    (Void unused) -> {
-                                        WorkManager workManager =
-                                                WorkManager.getInstance(getApplicationContext());
-                                        ReportDeviceLockProgramCompleteWorker
-                                                .reportDeviceLockProgramComplete(workManager);
-                                        return true;
-                                    }, MoreExecutors.directExecutor()),
-                            remoteCallbackWrapper(remoteCallback, KEY_CLEAR_DEVICE_RESULT),
+                            Futures.transformAsync(mDeviceStateController.clearDevice(),
+                                    unused -> mFinalizationController.notifyRestrictionsCleared(),
+                                    MoreExecutors.directExecutor()),
+                            remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                }
+
+                @Override
+                public void onUserSwitching(RemoteCallback remoteCallback) {
+                    Futures.addCallback(
+                            Futures.transformAsync(mPolicyController.enforceCurrentPolicies(),
+                                    // Force read from disk in case it progressed on the other user
+                                    unused -> mFinalizationController.enforceDiskState(
+                                            /* force= */ true),
+                                    MoreExecutors.directExecutor()),
+                            remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                }
+
+                @Override
+                public void onUserUnlocked(RemoteCallback remoteCallback) {
+                    DevicePolicyManager dpm = getSystemService(DevicePolicyManager.class);
+                    Objects.requireNonNull(dpm).setUserControlDisabledPackages(
+                            /* admin= */ null,
+                            List.of(getPackageName()));
+                    Futures.addCallback(mPolicyController.onUserUnlocked(),
+                            remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                }
+
+                @Override
+                public void onUserSetupCompleted(RemoteCallback remoteCallback) {
+                    Futures.addCallback(mPolicyController.onUserSetupCompleted(),
+                            remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                }
+
+                @Override
+                public void onAppCrashed(boolean isKiosk, RemoteCallback remoteCallback) {
+                    Futures.addCallback(mPolicyController.onAppCrashed(isKiosk),
+                            remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                }
+
+                private void logKioskAppRequest() {
+                    Futures.addCallback(SetupParametersClient.getInstance().getKioskPackage(),
+                            new FutureCallback<>() {
+                                @Override
+                                public void onSuccess(String result) {
+                                    try {
+                                        final int uid = mPackageManager.getPackageUid(
+                                                result, /* flags= */ 0);
+                                        mStatsLogger.logKioskAppRequest(uid);
+                                    } catch (PackageManager.NameNotFoundException e) {
+                                        LogUtil.e(TAG, "Kiosk App package name not found", e);
+                                    }
+                                }
+
+                                @Override
+                                public void onFailure(Throwable t) {
+                                    LogUtil.e(TAG, "Failed to get Kiosk app package name", t);
+                                }
+                            },
                             MoreExecutors.directExecutor());
 
                 }
@@ -111,7 +176,7 @@ public final class DeviceLockControllerService extends Service {
 
     @NonNull
     private static FutureCallback<Object> remoteCallbackWrapper(RemoteCallback remoteCallback,
-            final String key) {
+            @Nullable final String key) {
         return new FutureCallback<>() {
             @Override
             public void onSuccess(Object result) {
@@ -121,28 +186,106 @@ public final class DeviceLockControllerService extends Service {
             @Override
             public void onFailure(Throwable t) {
                 LogUtil.e(TAG, "Failed to perform the request", t);
-                sendResult(key, remoteCallback, null);
+                sendFailure(t, remoteCallback);
             }
         };
     }
 
-    private static void sendResult(String key, RemoteCallback remoteCallback, Object result) {
+    @NonNull
+    private static FutureCallback<Object> remoteCallbackWrapper(RemoteCallback remoteCallback) {
+        return remoteCallbackWrapper(remoteCallback, /* key= */ null);
+    }
+
+    /**
+     * Send result to caller.
+     *
+     * @param key Key to use in bundle for result. null if no result is needed
+     * @param remoteCallback remote callback used to send the result.
+     * @param result Value to return in bundle.
+     */
+    private static void sendResult(@Nullable String key, RemoteCallback remoteCallback,
+            Object result) {
         final Bundle bundle = new Bundle();
-        if (result instanceof Boolean) {
-            bundle.putBoolean(key, (Boolean) result);
-        } else if (result instanceof String) {
-            bundle.putString(key, (String) result);
+        if (key != null) {
+            if (result instanceof Boolean) {
+                bundle.putBoolean(key, (Boolean) result);
+            } else if (result instanceof String) {
+                bundle.putString(key, (String) result);
+            }
         }
         remoteCallback.sendResult(bundle);
+    }
+
+    private static void sendFailure(Throwable t, RemoteCallback remoteCallback) {
+        final Bundle bundle = new Bundle();
+        bundle.putParcelable(IDeviceLockControllerService.KEY_PARCELABLE_EXCEPTION,
+                new ParcelableException(t instanceof Exception ? (Exception) t : new Exception(t)));
+        remoteCallback.sendResult(bundle);
+    }
+
+    private FutureCallback<Void> logLockUnlockDeviceCallback(boolean isLockDevice) {
+        return new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void result) {
+                if (isLockDevice) {
+                    mStatsLogger.logSuccessfulLockingDevice();
+                } else {
+                    mStatsLogger.logSuccessfulUnlockingDevice();
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                Futures.addCallback(mDeviceStateController.getDeviceState(),
+                        new FutureCallback<Integer>() {
+                            @Override
+                            public void onSuccess(Integer result) {
+                                int deviceStatePostCommand;
+                                switch (result) {
+                                    case DeviceStateController.DeviceState.UNLOCKED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.UNLOCKED;
+                                    case DeviceStateController.DeviceState.LOCKED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.LOCKED;
+                                    case DeviceStateController.DeviceState.CLEARED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.CLEARED;
+                                    case DeviceStateController.DeviceState.UNDEFINED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.UNDEFINED;
+                                    default -> deviceStatePostCommand =
+                                            StatsLogger.DeviceStateStats.UNDEFINED;
+                                }
+                                if (isLockDevice) {
+                                    mStatsLogger.logLockDeviceFailure(deviceStatePostCommand);
+                                } else {
+                                    mStatsLogger.logUnlockDeviceFailure(deviceStatePostCommand);
+                                }
+                            }
+
+                            // We don't expect this to be reached
+                            @Override
+                            public void onFailure(Throwable t) {
+                                LogUtil.e(TAG, "Failed to get device State", t);
+                                throw new RuntimeException(t);
+                            }
+                        }, MoreExecutors.directExecutor());
+            }
+        };
     }
 
     @Override
     public void onCreate() {
         LogUtil.d(TAG, "onCreate");
 
-        final PolicyObjectsInterface policyObjects = (PolicyObjectsInterface) getApplication();
-        mStateController = policyObjects.getStateController();
+        final PolicyObjectsProvider policyObjects = (PolicyObjectsProvider) getApplication();
+        final StatsLoggerProvider statsLoggerProvider = (StatsLoggerProvider) getApplication();
+        mDeviceStateController = policyObjects.getDeviceStateController();
         mPolicyController = policyObjects.getPolicyController();
+        mFinalizationController = policyObjects.getFinalizationController();
+        mPackageManager = getPackageManager();
+        mStatsLogger = statsLoggerProvider.getStatsLogger();
     }
 
     @Override

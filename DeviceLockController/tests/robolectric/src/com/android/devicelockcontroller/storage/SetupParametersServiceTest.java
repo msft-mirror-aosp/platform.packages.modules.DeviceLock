@@ -52,9 +52,9 @@ public final class SetupParametersServiceTest extends AbstractSetupParametersTes
         mISetupParametersService.createPrefs(bundle);
 
         assertThat(mISetupParametersService.getKioskPackage()).isEqualTo(KIOSK_PACKAGE);
-        assertThat(mISetupParametersService.getKioskSetupActivity()).isEqualTo(SETUP_ACTIVITY);
         assertThat(mISetupParametersService.getOutgoingCallsDisabled()).isTrue();
         assertThat(mISetupParametersService.isNotificationsInLockTaskModeEnabled()).isTrue();
+        assertThat(mISetupParametersService.isDebuggingAllowed()).isEqualTo(ALLOW_DEBUGGING);
 
         List<String> expectedKioskAllowlist = new ArrayList<>();
         expectedKioskAllowlist.add(KIOSK_ALLOWLIST_PACKAGE_0);

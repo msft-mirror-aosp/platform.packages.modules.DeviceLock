@@ -21,88 +21,92 @@ import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
-import androidx.work.Constraints;
-import androidx.work.ExistingWorkPolicy;
-import androidx.work.NetworkType;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.WorkManager;
-import androidx.work.Worker;
+import androidx.work.ListenableWorker;
 import androidx.work.WorkerParameters;
 
+import com.android.devicelockcontroller.ClientInterceptorProvider;
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.policy.FinalizationController;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.provision.grpc.DeviceFinalizeClient;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
-import java.util.concurrent.Future;
+import io.grpc.ClientInterceptor;
 
 /**
  * A worker class dedicated to report completion of the device lock program.
  */
-public final class ReportDeviceLockProgramCompleteWorker extends Worker {
+public final class ReportDeviceLockProgramCompleteWorker extends ListenableWorker {
 
-    private static final String REPORT_DEVICE_LOCK_PROGRAM_COMPLETE_WORK_NAME =
+    private static final String TAG = ReportDeviceLockProgramCompleteWorker.class.getSimpleName();
+
+    public static final String REPORT_DEVICE_LOCK_PROGRAM_COMPLETE_WORK_NAME =
             "report-device-lock-program-complete";
-    private final Future<DeviceFinalizeClient> mClient;
-
-    /**
-     * Report that this device has completed the devicelock program by enqueueing a work item.
-     */
-    public static void reportDeviceLockProgramComplete(WorkManager workManager) {
-        Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build();
-        OneTimeWorkRequest work =
-                new OneTimeWorkRequest.Builder(ReportDeviceLockProgramCompleteWorker.class)
-                        .setConstraints(constraints)
-                        .build();
-        workManager.enqueueUniqueWork(
-                REPORT_DEVICE_LOCK_PROGRAM_COMPLETE_WORK_NAME,
-                ExistingWorkPolicy.REPLACE, work);
-    }
+    private final ListenableFuture<DeviceFinalizeClient> mClient;
+    private final PolicyObjectsProvider mPolicyObjectsProvider;
 
     public ReportDeviceLockProgramCompleteWorker(@NonNull Context context,
-            @NonNull WorkerParameters workerParams) {
-        super(context, workerParams);
-        final String hostName = context.getResources().getString(
-                R.string.check_in_server_host_name);
-        final int portNumber = context.getResources().getInteger(
-                R.integer.check_in_server_port_number);
-        final String className = context.getResources().getString(
-                R.string.device_finalize_client_class_name);
-        final Pair<String, String> apikey = new Pair<>(
-                context.getResources().getString(R.string.finalize_service_api_key_name),
-                context.getResources().getString(R.string.finalize_service_api_key_value));
-        ListenableFuture<String> registeredDeviceId =
-                GlobalParametersClient.getInstance().getRegisteredDeviceId();
-        ListenableFuture<String> enrollmentToken =
-                GlobalParametersClient.getInstance().getEnrollmentToken();
-        mClient = Futures.whenAllSucceed(registeredDeviceId, enrollmentToken).call(
-                () -> DeviceFinalizeClient.getInstance(className, hostName, portNumber, apikey,
-                        Futures.getDone(registeredDeviceId), Futures.getDone(enrollmentToken)),
-                context.getMainExecutor());
+            @NonNull WorkerParameters workerParams, ListeningExecutorService executorService) {
+        this(context,
+                workerParams,
+                null,
+                ((PolicyObjectsProvider) context.getApplicationContext()),
+                executorService);
     }
 
     @VisibleForTesting
     ReportDeviceLockProgramCompleteWorker(@NonNull Context context,
-            @NonNull WorkerParameters workerParams, DeviceFinalizeClient client) {
+            @NonNull WorkerParameters workerParams,
+            DeviceFinalizeClient client,
+            PolicyObjectsProvider policyObjectsProvider,
+            ListeningExecutorService executorService) {
         super(context, workerParams);
-        mClient = Futures.immediateFuture(client);
+        if (client == null) {
+            final String hostName = context.getResources().getString(
+                    R.string.finalize_server_host_name);
+            final int portNumber = context.getResources().getInteger(
+                    R.integer.finalize_server_port_number);
+            final Pair<String, String> apikey = new Pair<>(
+                    context.getResources().getString(R.string.finalize_service_api_key_name),
+                    context.getResources().getString(R.string.finalize_service_api_key_value));
+            ListenableFuture<String> registeredDeviceId =
+                    GlobalParametersClient.getInstance().getRegisteredDeviceId();
+            final ClientInterceptorProvider clientInterceptorProvider =
+                    (ClientInterceptorProvider) context.getApplicationContext();
+            final ClientInterceptor clientInterceptor =
+                    clientInterceptorProvider.getClientInterceptor();
+            mClient = Futures.transform(registeredDeviceId,
+                    id -> DeviceFinalizeClient.getInstance(context, hostName,
+                            portNumber, clientInterceptor, id), executorService);
+        } else {
+            mClient = Futures.immediateFuture(client);
+        }
+        mPolicyObjectsProvider = policyObjectsProvider;
     }
 
     @NonNull
     @Override
-    public Result doWork() {
-        DeviceFinalizeClient.ReportDeviceProgramCompleteResponse response =
-                Futures.getUnchecked(mClient).reportDeviceProgramComplete();
-        if (response.isSuccessful()) {
-            return Result.success();
-        } else if (response.hasRecoverableError()) {
-            return Result.retry();
-        } else {
-            return Result.failure();
-        }
+    public ListenableFuture<Result> startWork() {
+        FinalizationController controller = mPolicyObjectsProvider.getFinalizationController();
+        return Futures.transformAsync(mClient, client -> {
+            DeviceFinalizeClient.ReportDeviceProgramCompleteResponse response =
+                    client.reportDeviceProgramComplete();
+            if (response.hasRecoverableError()) {
+                LogUtil.w(TAG, "Report finalization failed w/ recoverable error " + response
+                        + "\nRetrying...");
+                return Futures.immediateFuture(Result.retry());
+            }
+            ListenableFuture<Void> notifyFuture =
+                    controller.notifyFinalizationReportResult(response);
+            return Futures.transform(notifyFuture,
+                    unused -> response.isSuccessful() ? Result.success() : Result.failure(),
+                    MoreExecutors.directExecutor());
+        }, getBackgroundExecutor());
     }
 }

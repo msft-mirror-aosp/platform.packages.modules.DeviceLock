@@ -16,9 +16,11 @@
 
 package com.android.devicelockcontroller.activities;
 
-import com.android.devicelockcontroller.R;
+import androidx.annotation.VisibleForTesting;
 
-import java.util.ArrayList;
+import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.activities.ProvisionInfo.ProvisionInfoType;
+
 import java.util.List;
 
 /**
@@ -26,28 +28,25 @@ import java.util.List;
  */
 public class DeviceFinancingProvisionInfoViewModel extends ProvisionInfoViewModel {
 
-    private static final int HEADER_DRAWABLE_ID = R.drawable.ic_info_24px;
+    private static final int MANDATORY_HEADER_TEXT_ID = R.string.device_provided_by_provider;
+    private static final int SUB_HEADER_TEXT_ID = R.string.enroll_your_device_financing_subheader;
 
-    private static final int HEADER_TEXT_ID = R.string.device_provided_by_provider;
-
-    private static final Integer[] DRAWABLE_IDS = new Integer[]{
-            R.drawable.ic_file_download_24px, R.drawable.ic_lock_outline_24px,
-    };
-
-    private static final Integer[] TEXT_IDS = new Integer[]{
-            R.string.download_kiosk_app, R.string.restrict_device_if_missing_payment,
-    };
+    @VisibleForTesting
+    static final ProvisionInfo[] PROVISION_INFOS = new ProvisionInfo[]{
+            new ProvisionInfo(R.drawable.ic_file_download_24px,
+                    R.string.download_kiosk_app,
+                    ProvisionInfoType.REGULAR),
+            new ProvisionInfo(R.drawable.ic_lock_outline_24px,
+                    R.string.restrict_device_if_missing_payment,
+                    ProvisionInfoType.TERMS_AND_CONDITIONS),
+            new ProvisionInfo(R.drawable.ic_help_24px,
+                    R.string.contact_provider_for_help,
+                    ProvisionInfoType.SUPPORT)};
 
     public DeviceFinancingProvisionInfoViewModel() {
-        super();
-
-        mHeaderDrawableIdLiveData.setValue(HEADER_DRAWABLE_ID);
-        mHeaderTextIdLiveData.setValue(HEADER_TEXT_ID);
-
-        List<ProvisionInfo> provisionInfoList = new ArrayList<>();
-        for (int i = 0, size = DRAWABLE_IDS.length; i < size; ++i) {
-            provisionInfoList.add(new ProvisionInfo(DRAWABLE_IDS[i], TEXT_IDS[i]));
-        }
-        mProvisionInfoListLiveData.setValue(provisionInfoList);
+        mMandatoryHeaderTextId = MANDATORY_HEADER_TEXT_ID;
+        mSubHeaderTextId = SUB_HEADER_TEXT_ID;
+        mProvisionInfoList = List.of(PROVISION_INFOS);
+        retrieveData();
     }
 }

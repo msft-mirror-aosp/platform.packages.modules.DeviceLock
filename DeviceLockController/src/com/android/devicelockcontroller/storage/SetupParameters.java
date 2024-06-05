@@ -16,13 +16,13 @@
 
 package com.android.devicelockcontroller.storage;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ALLOWLIST;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_APP_PROVIDER_NAME;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_DISABLE_OUTGOING_CALLS;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
-import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_SETUP_ACTIVITY;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_SUPPORT_URL;
@@ -58,12 +58,12 @@ final class SetupParameters {
     private static final String TAG = "SetupParameters";
     private static final String FILENAME = "setup-prefs";
     private static final String KEY_KIOSK_PACKAGE = "kiosk-package-name";
-    private static final String KEY_KIOSK_SETUP_ACTIVITY = "kiosk-setup-activity";
     private static final String KEY_KIOSK_ALLOWLIST = "kiosk-allowlist";
     private static final String KEY_KIOSK_DISABLE_OUTGOING_CALLS =
             "kiosk-disable-outgoing-calls";
     private static final String KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE =
             "kiosk-enable-notifications-in-lock-task-mode";
+    private static final String KEY_ALLOW_DEBUGGING = "allow-debugging";
     private static final String KEY_PROVISIONING_TYPE = "provisioning-type";
     private static final String KEY_MANDATORY_PROVISION = "mandatory-provision";
     private static final String KEY_KIOSK_APP_PROVIDER_NAME = "kiosk-app-provider-name";
@@ -92,14 +92,14 @@ final class SetupParameters {
         dumpParameters(context);
     }
 
-    private static void dumpParameters(Context context) {
+    static void dumpParameters(Context context) {
         LogUtil.d(TAG, String.format(Locale.US,
                 "Dumping SetupParameters ...\n"
                 + "%s: %s\n"    // kiosk-package-name:
-                + "%s: %s\n"    // kiosk-setup-activity:
                 + "%s: %s\n"    // kiosk-allowlist:
                 + "%s: %s\n"    // kiosk-disable-outgoing-calls:
                 + "%s: %s\n"    // kiosk-enable-notifications-in-lock-task-mode:
+                + "%s: %s\n"    // allow-debugging:
                 + "%s: %d\n"    // provisioning-type:
                 + "%s: %s\n"    // mandatory-provision:
                 + "%s: %s\n"    // kiosk-app-provider-name:
@@ -107,11 +107,11 @@ final class SetupParameters {
                 + "%s: %s\n"    // terms-and-conditions-url:
                 + "%s: %s\n",   // support-url:
                 KEY_KIOSK_PACKAGE, getKioskPackage(context),
-                KEY_KIOSK_SETUP_ACTIVITY, getKioskSetupActivity(context),
                 KEY_KIOSK_ALLOWLIST, getKioskAllowlist(context),
                 KEY_KIOSK_DISABLE_OUTGOING_CALLS, getOutgoingCallsDisabled(context),
                 KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE,
                 isNotificationsInLockTaskModeEnabled(context),
+                KEY_ALLOW_DEBUGGING, isDebuggingAllowed(context),
                 KEY_PROVISIONING_TYPE, getProvisioningType(context),
                 KEY_MANDATORY_PROVISION, isProvisionMandatory(context),
                 KEY_KIOSK_APP_PROVIDER_NAME, getKioskAppProviderName(context),
@@ -143,7 +143,6 @@ final class SetupParameters {
 
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(KEY_KIOSK_PACKAGE, bundle.getString(EXTRA_KIOSK_PACKAGE));
-        editor.putString(KEY_KIOSK_SETUP_ACTIVITY, bundle.getString(EXTRA_KIOSK_SETUP_ACTIVITY));
         editor.putBoolean(KEY_KIOSK_DISABLE_OUTGOING_CALLS,
                 bundle.getBoolean(EXTRA_KIOSK_DISABLE_OUTGOING_CALLS));
         editor.putBoolean(KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE,
@@ -152,6 +151,7 @@ final class SetupParameters {
                 new ArraySet<>(bundle.getStringArrayList(EXTRA_KIOSK_ALLOWLIST)));
         editor.putInt(KEY_PROVISIONING_TYPE, bundle.getInt(EXTRA_PROVISIONING_TYPE));
         editor.putBoolean(KEY_MANDATORY_PROVISION, bundle.getBoolean(EXTRA_MANDATORY_PROVISION));
+        editor.putBoolean(KEY_ALLOW_DEBUGGING, bundle.getBoolean(EXTRA_ALLOW_DEBUGGING));
         editor.putString(KEY_KIOSK_APP_PROVIDER_NAME,
                 bundle.getString(EXTRA_KIOSK_APP_PROVIDER_NAME));
         editor.putBoolean(KEY_DISALLOW_INSTALLING_FROM_UNKNOWN_SOURCES,
@@ -171,18 +171,6 @@ final class SetupParameters {
     @Nullable
     static String getKioskPackage(Context context) {
         return getSharedPreferences(context).getString(KEY_KIOSK_PACKAGE, null /* defValue */);
-    }
-
-    /**
-     * Get the setup activity for the kiosk app.
-     *
-     * @param context Context used to get the shared preferences.
-     * @return Setup activity.
-     */
-    @Nullable
-    static String getKioskSetupActivity(Context context) {
-        return getSharedPreferences(context)
-                .getString(KEY_KIOSK_SETUP_ACTIVITY, null /* defValue */);
     }
 
     /**
@@ -218,6 +206,16 @@ final class SetupParameters {
     static boolean isNotificationsInLockTaskModeEnabled(Context context) {
         return getSharedPreferences(context)
                 .getBoolean(KEY_KIOSK_ENABLE_NOTIFICATIONS_IN_LOCK_TASK_MODE, false /* defValue */);
+    }
+
+    /**
+     * Check if adb debugging is allowed even on prod devices.
+     *
+     * @param context Context used to get the shared preferences.
+     * @return True if adb debugging is allowed.
+     */
+    static boolean isDebuggingAllowed(Context context) {
+        return getSharedPreferences(context).getBoolean(KEY_ALLOW_DEBUGGING, false /* defValue */);
     }
 
     /**
