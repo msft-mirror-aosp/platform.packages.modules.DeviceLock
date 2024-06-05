@@ -21,12 +21,32 @@ import android.content.Context;
 import android.content.Intent;
 
 import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.util.LogUtil;
+
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /** A receiver to handle explicit provision ready intent */
 public final class ProvisionReadyReceiver extends BroadcastReceiver {
+    private static final String TAG = "ProvisionReadyReceiver";
+
     @Override
     public void onReceive(Context context, Intent intent) {
-        ((PolicyObjectsProvider) context.getApplicationContext())
-                .getProvisionStateController().notifyProvisioningReady();
+        ListenableFuture<Void> notifyProvisioningReady =
+                ((PolicyObjectsProvider) context.getApplicationContext())
+                        .getProvisionStateController().notifyProvisioningReady();
+        Futures.addCallback(notifyProvisioningReady, new FutureCallback<>() {
+            @Override
+            public void onSuccess(Void result) {
+                // Nothing to do.
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LogUtil.e(TAG, "Failed to notify provisioning ready", t);
+            }
+        }, MoreExecutors.directExecutor());
     }
 }
