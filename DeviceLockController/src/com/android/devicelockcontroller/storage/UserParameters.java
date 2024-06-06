@@ -52,6 +52,7 @@ public final class UserParameters {
     public static final String KEY_NEED_INITIAL_CHECK_IN = "need-initial-check-in";
     public static final String KEY_NOTIFICATION_CHANNEL_ID_SUFFIX =
             "notification-channel-id-suffix";
+    public static final String KEY_SUW_TIMED_OUT = "suw-timed-out";
 
     private UserParameters() {
     }
@@ -208,6 +209,18 @@ public final class UserParameters {
                 .putString(KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, notificationChannelSuffix).apply();
     }
 
+    /** Check if SUW timed out. */
+    @WorkerThread
+    public static boolean isSetupWizardTimedOut(Context context) {
+        ThreadAsserts.assertWorkerThread("isSetupWizardTimedOut");
+        return getSharedPreferences(context).getBoolean(KEY_SUW_TIMED_OUT, false);
+    }
+
+    /** Set the provisioning start time */
+    public static void setSetupWizardTimedOut(Context context) {
+        getSharedPreferences(context).edit().putBoolean(KEY_SUW_TIMED_OUT, true).apply();
+    }
+
     /**
      * Clear all user parameters.
      */
@@ -238,7 +251,8 @@ public final class UserParameters {
                             + "%s: %s\n"    // next-provision-failed-step-time-millis:
                             + "%s: %s\n"    // reset-device-time-millis:
                             + "%s: %s\n"    // days-left-until-reset:
-                            + "%s: %s\n",   // notification-channel-suffix:
+                            + "%s: %s\n"    // notification-channel-suffix:
+                            + "%s: %s\n",   // suw-timed-out:
                     context.getUser(),
                     KEY_PROVISION_STATE, getProvisionState(context),
                     KEY_BOOT_TIME_MILLS, getBootTimeMillis(context),
@@ -248,7 +262,8 @@ public final class UserParameters {
                     getNextProvisionFailedStepTimeMills(context),
                     KEY_RESET_DEVICE_TIME_MILLIS, getResetDeviceTimeMillis(context),
                     KEY_DAYS_LEFT_UNTIL_RESET, getDaysLeftUntilReset(context),
-                    KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, getNotificationChannelIdSuffix(context)
+                    KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, getNotificationChannelIdSuffix(context),
+                    KEY_SUW_TIMED_OUT, isSetupWizardTimedOut(context)
             ));
         });
     }
