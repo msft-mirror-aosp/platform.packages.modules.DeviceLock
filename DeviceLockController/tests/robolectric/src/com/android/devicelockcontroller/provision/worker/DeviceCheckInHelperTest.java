@@ -58,6 +58,7 @@ import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceCheckInStatus;
 import com.android.devicelockcontroller.policy.FinalizationController;
+import com.android.devicelockcontroller.policy.ProvisionStateController;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
 import com.android.devicelockcontroller.receivers.ProvisionReadyReceiver;
@@ -127,6 +128,8 @@ public final class DeviceCheckInHelperTest {
     private WorkManager mWorkManager;
     private ShadowPackageManager mPackageManager;
 
+    private ProvisionStateController mMockProvisionStateController;
+
     @Before
     public void setUp() {
         mTestApplication = ApplicationProvider.getApplicationContext();
@@ -149,6 +152,9 @@ public final class DeviceCheckInHelperTest {
         mGlobalParametersClient = GlobalParametersClient.getInstance();
         mStatsLogger = ((StatsLoggerProvider) mTestApplication).getStatsLogger();
         mPackageManager = Shadows.shadowOf(mTestApplication.getPackageManager());
+        mMockProvisionStateController = mTestApplication.getProvisionStateController();
+        when(mMockProvisionStateController.notifyProvisioningReady())
+                .thenReturn(Futures.immediateVoidFuture());
     }
 
     @Test
