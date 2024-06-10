@@ -46,7 +46,7 @@ public final class SetupWizardCompletionTimeoutWorker extends ListenableWorker {
 
     private static final String SETUP_WIZARD_COMPLETION_TIMEOUT_WORK_NAME =
             "setup-wizard-completion-timeout";
-    private static final long TIMEOUT_MINUTES = 15;
+    private static final long TIMEOUT_MINUTES = 60;
 
     private final ListeningExecutorService mListeningExecutorService;
     private final Context mAppContext;
