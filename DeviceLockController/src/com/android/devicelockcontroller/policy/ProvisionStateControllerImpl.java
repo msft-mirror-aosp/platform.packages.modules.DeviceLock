@@ -43,12 +43,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.SystemDeviceLockManagerImpl;
+import com.android.devicelockcontroller.provision.worker.SetupWizardCompletionTimeoutWorker;
 import com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -167,10 +169,20 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
     }
 
     @Override
-    public void notifyProvisioningReady() {
-        if (isUserSetupComplete()) {
-            postSetNextStateForEventRequest(PROVISION_READY);
-        }
+    public ListenableFuture<Void> notifyProvisioningReady() {
+        return FluentFuture.from(isUserSetupCompleteOrTimedOut())
+                .transformAsync(userSetupCompleteOrTimedOut -> {
+                    if (userSetupCompleteOrTimedOut) {
+                        return setNextStateForEvent(PROVISION_READY);
+                    }
+
+                    return Futures.immediateVoidFuture();
+                }, mBgExecutor)
+                .catchingAsync(Throwable.class, t -> {
+                    LogUtil.e(TAG, "Failed to get user setup complete state", t);
+                    // Since we cannot determine the state, start the provisioning flow.
+                    return setNextStateForEvent(PROVISION_READY);
+                }, mBgExecutor);
     }
 
     @NonNull
@@ -255,6 +267,10 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
         return Futures.transformAsync(getState(),
                 state -> {
                     if (state == UNPROVISIONED) {
+                        if (!isUserSetupComplete()) {
+                            SetupWizardCompletionTimeoutWorker
+                                    .scheduleSetupWizardCompletionTimeoutWork(mContext);
+                        }
                         return checkReadyToStartProvisioning();
                     } else {
                         return mPolicyController.enforceCurrentPolicies();
@@ -265,36 +281,49 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
 
     @Override
     public ListenableFuture<Void> onUserSetupCompleted() {
+        SetupWizardCompletionTimeoutWorker.cancelSetupWizardCompletionTimeoutWork(mContext);
         return checkReadyToStartProvisioning();
     }
 
 
     private ListenableFuture<Void> checkReadyToStartProvisioning() {
-        if (!isUserSetupComplete()) {
-            return Futures.immediateVoidFuture();
-        }
-        return Futures.transformAsync(getState(),
-                state -> {
-                    if (state != UNPROVISIONED) {
-                        return Futures.immediateVoidFuture();
-                    }
-                    GlobalParametersClient globalParametersClient =
-                            GlobalParametersClient.getInstance();
-                    return Futures.transformAsync(globalParametersClient.isProvisionReady(),
-                            isReady -> {
-                                if (isReady) {
-                                    notifyProvisioningReady();
-                                }
-                                return Futures.immediateVoidFuture();
-                            },
-                            mBgExecutor);
-                },
-                mBgExecutor);
+        return Futures.transformAsync(isUserSetupCompleteOrTimedOut(), userSetupComplete -> {
+            if (!userSetupComplete) {
+                return Futures.immediateVoidFuture();
+            }
+
+            return Futures.transformAsync(getState(),
+                    state -> {
+                        if (state != UNPROVISIONED) {
+                            return Futures.immediateVoidFuture();
+                        }
+                        GlobalParametersClient globalParametersClient =
+                                GlobalParametersClient.getInstance();
+                        return Futures.transformAsync(globalParametersClient.isProvisionReady(),
+                                isReady -> {
+                                    if (isReady) {
+                                        return notifyProvisioningReady();
+                                    }
+                                    return Futures.immediateVoidFuture();
+                                },
+                                mBgExecutor);
+                    },
+                    mBgExecutor);
+
+        }, mBgExecutor);
     }
 
     private boolean isUserSetupComplete() {
         return Settings.Secure.getInt(
                 mContext.getContentResolver(), Settings.Secure.USER_SETUP_COMPLETE, 0) != 0;
+    }
+
+    private ListenableFuture<Boolean> isUserSetupCompleteOrTimedOut() {
+        return Futures.submit(
+                () -> UserParameters.isSetupWizardTimedOut(mContext) || Settings.Secure.getInt(
+                        mContext.getContentResolver(),
+                        Settings.Secure.USER_SETUP_COMPLETE, 0) != 0,
+                mBgExecutor);
     }
 
     /**
