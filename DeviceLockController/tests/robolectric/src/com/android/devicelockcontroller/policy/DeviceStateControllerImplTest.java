@@ -368,4 +368,15 @@ public final class DeviceStateControllerImplTest {
         assertThat(GlobalParametersClient.getInstance().getDeviceState().get()).isEqualTo(
                 DeviceState.CLEARED);
     }
+
+    @Test
+    public void getDeviceState_shouldReturnResultFromGlobalParametersClient()
+            throws ExecutionException, InterruptedException {
+        GlobalParametersClient globalParametersClient = GlobalParametersClient.getInstance();
+        globalParametersClient.setDeviceState(DeviceState.UNLOCKED).get();
+
+        int deviceState = mDeviceStateController.getDeviceState().get();
+
+        assertThat(deviceState).isEqualTo(DeviceState.UNLOCKED);
+    }
 }

@@ -80,7 +80,7 @@ oneway interface IDeviceLockControllerService {
     void onUserSetupCompleted(in RemoteCallback callback);
 
     /**
-     * Called when the kiosk app has crashed.
+     * Called when the controller or kiosk app has crashed.
      */
-    void onKioskAppCrashed(in RemoteCallback callback);
+    void onAppCrashed(in boolean isKiosk, in RemoteCallback callback);
 }

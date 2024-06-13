@@ -86,14 +86,15 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                     } else if (provisionState == PROVISION_SUCCEEDED) {
                         maybeSetProvisioningSuccess = Futures.immediateVoidFuture();
                     } else if (provisionState == UNPROVISIONED && (deviceState == LOCKED
-                        || deviceState == UNLOCKED)) {
+                            || deviceState == UNLOCKED)) {
                         // During normal operation, we should not get lock/unlock requests in
                         // the UNPROVISIONED state. Used for CTS compliance.
                         mPseudoDeviceState = deviceState;
                         // Do not apply any policies
                         return Futures.immediateVoidFuture();
                     } else {
-                        throw new RuntimeException("User has not been provisioned!");
+                        throw new RuntimeException(
+                                "User has not been provisioned! Current state " + provisionState);
                     }
                     return Futures.transformAsync(maybeSetProvisioningSuccess,
                             unused -> Futures.transformAsync(isCleared(),
@@ -114,7 +115,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     public ListenableFuture<Boolean> isLocked() {
         return Futures.transformAsync(mProvisionStateController.getState(),
                 provisionState -> {
-                    if (provisionState == UNDEFINED) {
+                    if (provisionState == UNPROVISIONED) {
                         // Used for CTS compliance.
                         return Futures.immediateFuture(mPseudoDeviceState == LOCKED);
                     } else {
@@ -131,7 +132,13 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                 }, mExecutor);
     }
 
-    private ListenableFuture<Boolean> isCleared() {
+    @Override
+    public ListenableFuture<Integer> getDeviceState() {
+        return mGlobalParametersClient.getDeviceState();
+    }
+
+    @Override
+    public ListenableFuture<Boolean> isCleared() {
         return Futures.transform(mGlobalParametersClient.getDeviceState(),
                 s -> s == CLEARED, MoreExecutors.directExecutor());
     }

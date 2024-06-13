@@ -36,16 +36,22 @@ import androidx.core.app.NotificationManagerCompat;
 import com.android.devicelockcontroller.DeviceLockControllerApplication;
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
+import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 import com.android.devicelockcontroller.util.StringUtil;
+import com.android.internal.annotations.VisibleForTesting;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
+import java.util.UUID;
+import java.util.concurrent.Executors;
 
 /**
  * A utility class used to send notification.
@@ -54,10 +60,15 @@ public final class DeviceLockNotificationManager {
 
     private static final String TAG = "DeviceLockNotificationManager";
 
-    private static final String PROVISION_NOTIFICATION_CHANNEL_ID = "devicelock-provision";
-    private static final String DEVICE_RESET_NOTIFICATION_TAG = "devicelock-device-reset";
-    private static final int DEVICE_RESET_NOTIFICATION_ID = 0;
+    private static final String PROVISION_NOTIFICATION_CHANNEL_ID_BASE = "devicelock-provision";
+    @VisibleForTesting
+    public static final String DEVICE_RESET_NOTIFICATION_TAG = "devicelock-device-reset";
+    @VisibleForTesting
+    public static final int DEVICE_RESET_NOTIFICATION_ID = 0;
     private static final int DEFER_PROVISIONING_NOTIFICATION_ID = 1;
+
+    private static final ListeningExecutorService sListeningExecutorService =
+            MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
 
     /**
      * Similar to {@link #sendDeviceResetNotification(Context, int)}, except that:
@@ -87,37 +98,48 @@ public final class DeviceLockNotificationManager {
      *                      {@link SystemClock#elapsedRealtime()}.
      */
     public static void sendDeviceResetTimerNotification(Context context, long countDownBase) {
-        createNotificationChannel(context);
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-        Futures.addCallback(SetupParametersClient.getInstance().getKioskAppProviderName(),
-                new FutureCallback<>() {
-                    @Override
-                    public void onSuccess(String providerName) {
-                        Notification notification =
-                                new NotificationCompat.Builder(context,
-                                        PROVISION_NOTIFICATION_CHANNEL_ID)
-                                        .setSmallIcon(R.drawable.ic_action_lock)
-                                        .setColor(R.color.notification_background_color)
-                                        .setOngoing(true)
-                                        .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
-                                        .setCustomContentView(
-                                                buildResetTimerNotif(countDownBase,
-                                                        providerName,
-                                                        false))
-                                        .setCustomBigContentView(
-                                                buildResetTimerNotif(countDownBase, providerName,
-                                                        true))
-                                        .build();
-                        LogUtil.d(TAG, "send device reset notification");
-                        notificationManager.notify(DEVICE_RESET_NOTIFICATION_TAG,
-                                DEVICE_RESET_NOTIFICATION_ID, notification);
-                    }
+        ListenableFuture<String> channelIdFuture = createNotificationChannel(context);
+        ListenableFuture<String> kioskAppProviderNameFuture =
+                SetupParametersClient.getInstance().getKioskAppProviderName();
+        ListenableFuture<Void> result =
+                Futures.whenAllSucceed(channelIdFuture, kioskAppProviderNameFuture).call(() -> {
+                    String channelId = Futures.getDone(channelIdFuture);
+                    String providerName = Futures.getDone(kioskAppProviderNameFuture);
+                    Notification notification =
+                            new NotificationCompat.Builder(context,
+                                    channelId)
+                                    .setSmallIcon(R.drawable.ic_action_lock)
+                                    .setColor(context.getResources()
+                                            .getColor(R.color.notification_background_color,
+                                                    context.getTheme()))
+                                    .setOngoing(true)
+                                    .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
+                                    .setCustomContentView(
+                                            buildResetTimerNotif(countDownBase,
+                                                    providerName,
+                                                    false))
+                                    .setCustomBigContentView(
+                                            buildResetTimerNotif(countDownBase, providerName,
+                                                    true))
+                                    .build();
+                    NotificationManagerCompat notificationManager =
+                            NotificationManagerCompat.from(context);
+                    notificationManager.notify(DEVICE_RESET_NOTIFICATION_TAG,
+                            DEVICE_RESET_NOTIFICATION_ID, notification);
+                    return null;
+                }, sListeningExecutorService);
 
-                    @Override
-                    public void onFailure(Throwable t) {
-                        LogUtil.e(TAG, "Failed to create device reset notification", t);
-                    }
-                }, context.getMainExecutor());
+        Futures.addCallback(result, new FutureCallback<>() {
+            @Override
+            public void onSuccess(Void result) {
+                LogUtil.d(TAG, "send device reset notification");
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LogUtil.e(TAG, "Failed to create device reset notification", t);
+            }
+        }, sListeningExecutorService);
     }
 
     private static RemoteViews buildResetTimerNotif(long countDownBase, String providerName,
@@ -139,13 +161,17 @@ public final class DeviceLockNotificationManager {
         // TODO: check/request permission first
 
         // re-creating the same notification channel is essentially no-op
-        createNotificationChannel(context);
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-        Futures.addCallback(createDeviceResetNotification(context, days, ongoing),
+        ListenableFuture<String> channelIdFuture = createNotificationChannel(context);
+        ListenableFuture<Notification> notificationFuture = Futures.transformAsync(channelIdFuture,
+                channelId -> createDeviceResetNotification(context, days, ongoing, channelId),
+                sListeningExecutorService);
+        Futures.addCallback(notificationFuture,
                 new FutureCallback<>() {
                     @Override
                     public void onSuccess(Notification notification) {
                         LogUtil.d(TAG, "send device reset notification");
+                        NotificationManagerCompat notificationManager =
+                                NotificationManagerCompat.from(context);
                         notificationManager.notify(DEVICE_RESET_NOTIFICATION_TAG,
                                 DEVICE_RESET_NOTIFICATION_ID, notification);
                     }
@@ -154,7 +180,7 @@ public final class DeviceLockNotificationManager {
                     public void onFailure(Throwable t) {
                         LogUtil.e(TAG, "Failed to create device reset notification", t);
                     }
-                }, context.getMainExecutor());
+                }, sListeningExecutorService);
     }
 
     /**
@@ -168,22 +194,39 @@ public final class DeviceLockNotificationManager {
     @SuppressLint("MissingPermission")
     public static void sendDeferredProvisioningNotification(Context context,
             LocalDateTime resumeDateTime, PendingIntent pendingIntent) {
-        createNotificationChannel(context);
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT);
-        String enrollmentResumeTime = timeFormatter.format(resumeDateTime);
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(
-                context, PROVISION_NOTIFICATION_CHANNEL_ID)
-                .setContentTitle(context.getString(R.string.device_enrollment_header_text))
-                .setContentText(context.getString(R.string.device_enrollment_notification_body_text,
-                        enrollmentResumeTime))
-                .setSmallIcon(R.drawable.ic_action_lock)
-                .setColor(R.color.notification_background_color)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true)
-                .setOngoing(true);
-        NotificationManagerCompat notificationManager =
-                NotificationManagerCompat.from(context);
-        notificationManager.notify(DEFER_PROVISIONING_NOTIFICATION_ID, notificationBuilder.build());
+        ListenableFuture<String> channelIdFuture = createNotificationChannel(context);
+
+        Futures.addCallback(channelIdFuture, new FutureCallback<String>() {
+            @Override
+            public void onSuccess(String channelId) {
+                DateTimeFormatter timeFormatter =
+                        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT);
+                String enrollmentResumeTime = timeFormatter.format(resumeDateTime);
+                NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(
+                        context, channelId)
+                        .setContentTitle(context.getString(R.string.device_enrollment_header_text))
+                        .setContentText(context
+                                .getString(R.string.device_enrollment_notification_body_text,
+                                        enrollmentResumeTime))
+                        .setSmallIcon(R.drawable.ic_action_lock)
+                        .setColor(context.getResources()
+                                .getColor(R.color.notification_background_color,
+                                        context.getTheme()))
+                        .setContentIntent(pendingIntent)
+                        .setAutoCancel(true)
+                        .setOngoing(true);
+                NotificationManagerCompat notificationManager =
+                        NotificationManagerCompat.from(context);
+                notificationManager.notify(DEFER_PROVISIONING_NOTIFICATION_ID,
+                        notificationBuilder.build());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                LogUtil.e(TAG, "Failed to create deferred provisioning notification", t);
+            }
+        }, sListeningExecutorService);
+
     }
 
     static void cancelDeferredProvisioningNotification(Context context) {
@@ -192,12 +235,15 @@ public final class DeviceLockNotificationManager {
     }
 
     private static ListenableFuture<Notification> createDeviceResetNotification(Context context,
-            int days, boolean ongoing) {
+            int days, boolean ongoing, String channelId) {
         return Futures.transform(SetupParametersClient.getInstance().getKioskAppProviderName(),
                 providerName ->
-                        new NotificationCompat.Builder(context, PROVISION_NOTIFICATION_CHANNEL_ID)
+                        new NotificationCompat.Builder(context,
+                                channelId)
                                 .setSmallIcon(R.drawable.ic_action_lock)
-                                .setColor(R.color.notification_background_color)
+                                .setColor(context.getResources()
+                                        .getColor(R.color.notification_background_color,
+                                                context.getTheme()))
                                 .setOngoing(ongoing)
                                 .setContentTitle(StringUtil.getPluralString(context, days,
                                         R.string.device_reset_in_days_notification_title))
@@ -214,14 +260,49 @@ public final class DeviceLockNotificationManager {
                 context.getMainExecutor());
     }
 
-    private static void createNotificationChannel(Context context) {
-        NotificationManager notificationManager = context.getSystemService(
-                NotificationManager.class);
-        checkNotNull(notificationManager);
-        NotificationChannel notificationChannel = new NotificationChannel(
-                PROVISION_NOTIFICATION_CHANNEL_ID,
-                context.getString(R.string.provision_notification_channel_name),
-                NotificationManager.IMPORTANCE_HIGH);
-        notificationManager.createNotificationChannel(notificationChannel);
+    private static String getProvisionNotificationChannelId(Context context) {
+        return PROVISION_NOTIFICATION_CHANNEL_ID_BASE + "-"
+                + UserParameters.getNotificationChannelIdSuffix(context);
+    }
+
+    private static String createProvisionNotificationChannelId(Context context) {
+        String notificationChannelIdSuffix = UUID.randomUUID().toString();
+        String provisioningChannelId = PROVISION_NOTIFICATION_CHANNEL_ID_BASE
+                + "-" + notificationChannelIdSuffix;
+        UserParameters.setNotificationChannelIdSuffix(context, notificationChannelIdSuffix);
+
+        return provisioningChannelId;
+    }
+
+    // Create a notification channel and return a future with its ID.
+    private static ListenableFuture<String> createNotificationChannel(Context context) {
+        return sListeningExecutorService.submit(() -> {
+            String provisioningChannelId = getProvisionNotificationChannelId(context);
+            NotificationManager notificationManager =
+                    context.getSystemService(NotificationManager.class);
+            checkNotNull(notificationManager);
+            NotificationChannel notificationChannel =
+                    notificationManager.getNotificationChannel(provisioningChannelId);
+            if (notificationChannel != null
+                    && notificationChannel.getImportance() != NotificationManager.IMPORTANCE_HIGH) {
+                // Channel importance has been changed by user
+                LogUtil.w(TAG, "Channel " + provisioningChannelId
+                        + " importance changed by user, deleting it");
+                notificationManager.deleteNotificationChannel(provisioningChannelId);
+                notificationChannel = null;
+            }
+
+            if (notificationChannel == null) {
+                provisioningChannelId = createProvisionNotificationChannelId(context);
+                notificationChannel = new NotificationChannel(
+                        provisioningChannelId,
+                        context.getString(R.string.provision_notification_channel_name),
+                        NotificationManager.IMPORTANCE_HIGH);
+                LogUtil.i(TAG, "New notification channel: " + provisioningChannelId);
+            }
+            notificationManager.createNotificationChannel(notificationChannel);
+
+            return provisioningChannelId;
+        });
     }
 }

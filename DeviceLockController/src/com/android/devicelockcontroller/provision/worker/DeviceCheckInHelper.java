@@ -26,9 +26,13 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.STATUS
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.TOTAL_DEVICE_ID_TYPES;
 import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.NETWORK_TIME_UNAVAILABLE;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.RESPONSE_UNSPECIFIED;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -46,6 +50,8 @@ import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrp
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
 import com.android.devicelockcontroller.receivers.ProvisionReadyReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
@@ -65,10 +71,22 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
     private static final String TAG = "DeviceCheckInHelper";
     private final Context mAppContext;
     private final TelephonyManager mTelephonyManager;
+    private final StatsLogger mStatsLogger;
 
     public DeviceCheckInHelper(Context appContext) {
         mAppContext = appContext;
         mTelephonyManager = mAppContext.getSystemService(TelephonyManager.class);
+        mStatsLogger = ((StatsLoggerProvider) mAppContext).getStatsLogger();
+    }
+
+    private boolean hasGsm() {
+        return mAppContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_GSM);
+    }
+
+    private boolean hasCdma() {
+        return mAppContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA);
     }
 
     @Override
@@ -92,7 +110,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         if (maximumIdCount == 0) return deviceIds;
 
         for (int i = 0; i < totalSlotCount; i++) {
-            if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
+            if (hasGsm() && (deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
                 final String imei = mTelephonyManager.getImei(i);
 
                 if (imei != null) {
@@ -100,7 +118,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                 }
             }
 
-            if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
+            if (hasCdma() && (deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
                 final String meid = mTelephonyManager.getMeid(i);
 
                 if (meid != null) {
@@ -141,6 +159,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                     return true;
                 } catch (DateTimeException e) {
                     LogUtil.e(TAG, "No network time is available!");
+                    mStatsLogger.logCheckInRetry(NETWORK_TIME_UNAVAILABLE);
                     return false;
                 }
             case STOP_CHECK_IN:
@@ -164,6 +183,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                 return true;
             case STATUS_UNSPECIFIED:
             default:
+                mStatsLogger.logCheckInRetry(RESPONSE_UNSPECIFIED);
                 return false;
         }
     }
@@ -178,6 +198,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         final ProvisioningConfiguration configuration = response.getProvisioningConfig();
         if (configuration == null) {
             LogUtil.e(TAG, "Provisioning Configuration is not provided by server!");
+            mStatsLogger.logCheckInRetry(CONFIG_UNAVAILABLE);
             return false;
         }
         final Bundle provisionBundle = configuration.toBundle();

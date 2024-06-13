@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller;
 
+import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
+
 import android.annotation.IntDef;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -28,6 +30,11 @@ import android.os.SystemClock;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.devicelockcontroller.policy.DevicePolicyController;
+import com.android.devicelockcontroller.policy.DeviceStateController;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
+import com.android.devicelockcontroller.policy.ProvisionStateController;
+import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
@@ -58,8 +65,9 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
     @VisibleForTesting
     public static final String ALARM_REASON = "ALARM_REASON";
 
-    private final Context mContext;
     private final Executor mWorkManagerTaskExecutor;
+    private final Runnable mTerminateRunnable;
+    private static volatile WorkManagerExceptionHandler sWorkManagerExceptionHandler;
 
     /** Alarm reason definitions. */
     @Target(ElementType.TYPE_USE)
@@ -163,12 +171,12 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
         }
     }
 
-    private Executor createWorkManagerTaskExecutor() {
+    private Executor createWorkManagerTaskExecutor(Context context) {
         final ThreadFactory threadFactory = new ThreadFactory() {
             private final AtomicInteger mThreadCount = new AtomicInteger(0);
             @Override
             public Thread newThread(Runnable r) {
-                Thread thread = new DlcWmThread(r,
+                Thread thread = new DlcWmThread(context, r,
                         "DLC.WorkManager.task-" + mThreadCount.incrementAndGet());
                 thread.setUncaughtExceptionHandler(WorkManagerExceptionHandler.this);
                 return thread;
@@ -181,14 +189,20 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
 
     private static final class DlcWmThread extends Thread {
         private final Thread.UncaughtExceptionHandler mOriginalUncaughtExceptionHandler;
+        private final Context mContext;
 
-        DlcWmThread(Runnable target, String name) {
+        DlcWmThread(Context context, Runnable target, String name) {
             super(target, name);
+            mContext = context;
             mOriginalUncaughtExceptionHandler = getUncaughtExceptionHandler();
         }
 
         UncaughtExceptionHandler getOriginalUncaughtExceptionHandler() {
             return mOriginalUncaughtExceptionHandler;
+        }
+
+        Context getContext() {
+            return mContext;
         }
     }
 
@@ -204,7 +218,7 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
         intent.putExtras(bundle);
         final PendingIntent alarmIntent =
                 PendingIntent.getBroadcast(context, /* requestCode = */ 0, intent,
-                        PendingIntent.FLAG_IMMUTABLE);
+                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
 
         alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime()
                 + RETRY_ALARM_MILLISECONDS, alarmIntent);
@@ -215,18 +229,35 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
      * Schedule an alarm to restart the app in case of critical failures.
      * This is called if we failed to initialize WorkManager.
      */
-    public static void scheduleAlarmAndTerminate(Context context, @AlarmReason int alarmReason) {
+    public void scheduleAlarmAndTerminate(Context context, @AlarmReason int alarmReason) {
         scheduleAlarm(context, alarmReason);
         // Terminate the process without calling the original uncaught exception handler,
         // otherwise the alarm may be canceled if there are several crashes in a short period
         // of time (similar to what happens in the force stopped case).
         LogUtil.i(TAG, "Terminating Device Lock Controller because of a critical failure.");
-        System.exit(0);
+        mTerminateRunnable.run();
     }
 
-    WorkManagerExceptionHandler(Context context) {
-        mContext = context;
-        mWorkManagerTaskExecutor = createWorkManagerTaskExecutor();
+    @VisibleForTesting
+    WorkManagerExceptionHandler(Context context, Runnable terminateRunnable) {
+        mWorkManagerTaskExecutor = createWorkManagerTaskExecutor(context);
+        mTerminateRunnable = terminateRunnable;
+    }
+
+    /**
+     * Get the only instance of WorkManagerExceptionHandler.
+     */
+    public static WorkManagerExceptionHandler getInstance(Context context) {
+        if (sWorkManagerExceptionHandler == null) {
+            synchronized (WorkManagerExceptionHandler.class) {
+                if (sWorkManagerExceptionHandler == null) {
+                    sWorkManagerExceptionHandler = new WorkManagerExceptionHandler(context,
+                            () -> System.exit(0));
+                }
+            }
+        }
+
+        return sWorkManagerExceptionHandler;
     }
 
     Executor getWorkManagerTaskExecutor() {
@@ -244,7 +275,7 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
         }
 
         if (e instanceof SQLiteException) {
-            scheduleAlarmAndTerminate(mContext, AlarmReason.INITIALIZATION);
+            handleWorkManagerException(((DlcWmThread) t).getContext(), e);
         } else {
             final Thread.UncaughtExceptionHandler originalExceptionHandler =
                     ((DlcWmThread) t).getOriginalUncaughtExceptionHandler();
@@ -253,11 +284,55 @@ public final class WorkManagerExceptionHandler implements Thread.UncaughtExcepti
         }
     }
 
+    private void handleWorkManagerException(Context context, Throwable t) {
+        Futures.addCallback(handleException(context, t), new FutureCallback<>() {
+            @Override
+            public void onSuccess(Void result) {
+                // No-op
+            }
+
+            @Override
+            public void onFailure(Throwable e) {
+                LogUtil.e(TAG, "Error handling WorkManager exception", e);
+            }
+        }, mWorkManagerTaskExecutor);
+    }
+
     // This is setup in WM configuration and is called when initialization fails. It does not
     // include the SQLiteFullException case.
-    void initializationExceptionHandler(Throwable t) {
+    void initializationExceptionHandler(Context context, Throwable t) {
         LogUtil.e(TAG, "WorkManager initialization error", t);
 
-        scheduleAlarmAndTerminate(mContext, AlarmReason.INITIALIZATION);
+        handleWorkManagerException(context, t);
+    }
+
+    @VisibleForTesting
+    ListenableFuture<Void> handleException(Context context, Throwable t) {
+        final Context applicationContext = context.getApplicationContext();
+        final PolicyObjectsProvider policyObjectsProvider =
+                (PolicyObjectsProvider) applicationContext;
+        final ProvisionStateController provisionStateController =
+                policyObjectsProvider.getProvisionStateController();
+        final DeviceStateController deviceStateController =
+                policyObjectsProvider.getDeviceStateController();
+        final ListenableFuture<@ProvisionState Integer> provisionStateFuture =
+                provisionStateController.getState();
+        final ListenableFuture<Boolean> isClearedFuture = deviceStateController.isCleared();
+
+        return Futures.whenAllSucceed(provisionStateFuture, isClearedFuture).call(() -> {
+            final @ProvisionState Integer provisionState = Futures.getDone(provisionStateFuture);
+            if (provisionState == UNPROVISIONED) {
+                scheduleAlarmAndTerminate(context, AlarmReason.INITIALIZATION);
+            } else if (!Futures.getDone(isClearedFuture)) {
+                LogUtil.e(TAG, "Resetting device, current provisioning state: "
+                        + provisionState, t);
+                final DevicePolicyController devicePolicyController =
+                        policyObjectsProvider.getPolicyController();
+                devicePolicyController.wipeDevice();
+            } else {
+                LogUtil.w(TAG, "Device won't be reset (restrictions cleared)");
+            }
+            return null;
+        }, mWorkManagerTaskExecutor);
     }
 }

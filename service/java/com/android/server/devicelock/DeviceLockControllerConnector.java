@@ -69,7 +69,7 @@ public interface DeviceLockControllerConnector {
     void onUserSetupCompleted(OutcomeReceiver<Void, Exception> callback);
 
     /**
-     * Called when the kiosk app has crashed.
+     * Called when the controller or kiosk app has crashed.
      */
-    void onKioskAppCrashed(OutcomeReceiver<Void, Exception> callback);
+    void onAppCrashed(boolean isKiosk, OutcomeReceiver<Void, Exception> callback);
 }

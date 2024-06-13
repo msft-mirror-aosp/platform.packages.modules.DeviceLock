@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
+
 import android.content.Context;
 
 import androidx.annotation.NonNull;
@@ -77,6 +79,11 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                 deviceIds -> {
                     if (deviceIds.isEmpty()) {
                         LogUtil.w(TAG, "CheckIn failed. No device identifier available!");
+                        // This device cannot be financed since it does not have any suitable
+                        // device identifiers. Similarly to STOP_CHECK_IN, disable the check in
+                        // boot completed receiver.
+                        disableCheckInBootCompletedReceiver(mContext);
+
                         return Futures.immediateFuture(Result.failure());
                     }
                     String carrierInfo = mCheckInHelper.getCarrierInfo();
@@ -91,17 +98,21 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         GetDeviceCheckInStatusGrpcResponse response =
                                 client.getDeviceCheckInStatus(
                                         deviceIds, carrierInfo, fcmToken);
+                        mStatsLogger.logGetDeviceCheckInStatus();
                         if (response.hasRecoverableError()) {
                             LogUtil.w(TAG, "Check-in failed w/ recoverable error" + response
                                     + "\nRetrying...");
+                            mStatsLogger.logCheckInRetry(
+                                    StatsLogger.CheckInRetryReason.RPC_FAILURE);
                             return Result.retry();
                         }
                         if (response.isSuccessful()) {
-                            mStatsLogger.logGetDeviceCheckInStatus();
-                            return mCheckInHelper.handleGetDeviceCheckInStatusResponse(response,
-                                    scheduler)
-                                    ? Result.success()
-                                    : Result.retry();
+                            boolean isResponseHandlingSuccessful = mCheckInHelper
+                                    .handleGetDeviceCheckInStatusResponse(response, scheduler);
+                            if (isResponseHandlingSuccessful) {
+                                mStatsLogger.logSuccessfulCheckIn();
+                            }
+                            return isResponseHandlingSuccessful ? Result.success() : Result.retry();
                         }
 
                         if (response.isInterrupted()) {
@@ -112,6 +123,8 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         LogUtil.e(TAG, "CheckIn failed: " + response + "\nRetry check-in in: "
                                 + RETRY_ON_FAILURE_DELAY);
                         scheduler.scheduleRetryCheckInWork(RETRY_ON_FAILURE_DELAY);
+                        mStatsLogger.logCheckInRetry(
+                                StatsLogger.CheckInRetryReason.RPC_FAILURE);
                         return Result.failure();
                     }, mExecutorService);
                 }, mExecutorService);
