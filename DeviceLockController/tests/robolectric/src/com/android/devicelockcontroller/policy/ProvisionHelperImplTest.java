@@ -181,6 +181,41 @@ public final class ProvisionHelperImplTest {
     }
 
     @Test
+    public void checkGeoEligibility_cancelled_thenProceedToFailure() throws Exception {
+        // WHEN Installation is executed
+        mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
+                mProgressController, /* isProvisionMandatory= */ false);
+        cancelWork(COUNTRY_WORKER_UNIQUE_NAME);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // THEN Installation fails
+        verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
+                ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
+                        ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE)));
+    }
+
+    @Test
+    public void checkGeoEligibility_workTimeout_thenProceedToFailure() throws Exception {
+        // WHEN Installation is initiated
+        mProvisionHelper.scheduleKioskAppInstallation(mMockLifecycleOwner,
+                mProgressController, /* isProvisionMandatory= */ false);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Enqueue the work
+        List<WorkInfo> workInfoList = Futures.getChecked(
+                WorkManager.getInstance(mTestApp).getWorkInfosForUniqueWork(
+                        IsDeviceInApprovedCountryWorker.class.getSimpleName()), Exception.class);
+        assertThat(workInfoList.size()).isEqualTo(1);
+
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        // THEN Installation fails
+        verifyProgressesSet(Arrays.asList(ProvisioningProgress.GETTING_DEVICE_READY,
+                ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(
+                        ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE)));
+    }
+
+    @Test
     public void checkGeoEligibility_inApprovedCountry_thenProceedToInstalling() throws Exception {
         // GIVEN Country is approved
         mTestWorkerFactory.setWorkResult(COUNTRY_WORKER_CLASS_NAME,
@@ -604,6 +639,15 @@ public final class ProvisionHelperImplTest {
                         .getWorkInfosForUniqueWork(uniqueWorkName), Exception.class);
         assertThat(workInfoList.size()).isEqualTo(1);
         mTestDriver.setAllConstraintsMet(workInfoList.get(0).getId());
+        ShadowLooper.runUiThreadTasks();
+    }
+
+    private void cancelWork(String uniqueWorkName) throws Exception {
+        List<WorkInfo> workInfoList = Futures.getChecked(
+                WorkManager.getInstance(mTestApp)
+                        .getWorkInfosForUniqueWork(uniqueWorkName), Exception.class);
+        assertThat(workInfoList.size()).isEqualTo(1);
+        WorkManager.getInstance(mTestApp).cancelWorkById(workInfoList.get(0).getId());
         ShadowLooper.runUiThreadTasks();
     }
 
