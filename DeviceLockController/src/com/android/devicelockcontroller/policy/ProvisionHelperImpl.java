@@ -21,13 +21,13 @@ import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
 
+import static androidx.work.WorkInfo.State.CANCELLED;
 import static androidx.work.WorkInfo.State.FAILED;
 import static androidx.work.WorkInfo.State.SUCCEEDED;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_KIOSK;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_PAUSE;
-import static com.android.devicelockcontroller.provision.worker.IsDeviceInApprovedCountryWorker.BACKOFF_DELAY;
 import static com.android.devicelockcontroller.provision.worker.IsDeviceInApprovedCountryWorker.KEY_IS_IN_APPROVED_COUNTRY;
 
 import android.app.PendingIntent;
@@ -39,6 +39,8 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.sqlite.SQLiteException;
 import android.net.NetworkRequest;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
@@ -51,6 +53,7 @@ import androidx.work.ListenableWorker;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.Operation;
+import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 import androidx.work.WorkRequest;
@@ -78,6 +81,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -94,6 +98,7 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
     // 10 seconds since the situation should resolve relatively quickly.
     private static final Duration PLAY_INSTALL_BACKOFF_DELAY =
             Duration.ofMillis(WorkRequest.MIN_BACKOFF_MILLIS);
+    private static final long IS_DEVICE_IN_APPROVED_COUNTRY_NETWORK_TIMEOUT_MS = 60_000;
 
     @VisibleForTesting
     static synchronized SharedPreferences getSharedPreferences(Context context) {
@@ -206,7 +211,8 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
             }
         };
 
-        workManager.getWorkInfoByIdLiveData(isDeviceInApprovedCountryWork.getId())
+        UUID isDeviceInApprovedCountryWorkId = isDeviceInApprovedCountryWork.getId();
+        workManager.getWorkInfoByIdLiveData(isDeviceInApprovedCountryWorkId)
                 .observe(owner, workInfo -> {
                     if (workInfo == null) return;
                     WorkInfo.State state = workInfo.getState();
@@ -222,12 +228,42 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
                             handleFailure(ProvisionFailureReason.NOT_IN_ELIGIBLE_COUNTRY,
                                     isMandatory, progressController);
                         }
-                    } else if (state == FAILED) {
+                    } else if (state == FAILED || state == CANCELLED) {
                         LogUtil.w(TAG, "Failed to get country eligibility!");
                         handleFailure(ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE, isMandatory,
                                 progressController);
                     }
                 });
+
+        // If the network is not available while checking if the device is in an approved country,
+        // wait for a finite amount of time for the network to come back up, to avoid blocking
+        // indefinitely.
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.postDelayed(() -> {
+            ListenableFuture<WorkInfo> workInfoFuture =
+                    WorkManager.getInstance(mContext)
+                            .getWorkInfoById(isDeviceInApprovedCountryWorkId);
+            Futures.addCallback(workInfoFuture, new FutureCallback<>() {
+                @Override
+                public void onSuccess(WorkInfo workInfo) {
+                    WorkInfo.State state = workInfo.getState();
+                    if (!(state == WorkInfo.State.SUCCEEDED
+                            || state == WorkInfo.State.FAILED
+                            || state == WorkInfo.State.CANCELLED)) {
+                        LogUtil.e(TAG, "Cannot determine if device "
+                                + "is in an approved country, cancelling job");
+                        WorkManager.getInstance(mContext)
+                                .cancelWorkById(isDeviceInApprovedCountryWorkId);
+                    }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    LogUtil.e(TAG, "Cannot determine work state for device in approved "
+                            + "country", t);
+                }
+            }, mExecutor);
+        }, IS_DEVICE_IN_APPROVED_COUNTRY_NETWORK_TIMEOUT_MS);
     }
 
     private void installFromPlay(LifecycleOwner owner, String kioskPackage, boolean isMandatory,
@@ -340,7 +376,11 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
         return new OneTimeWorkRequest.Builder(IsDeviceInApprovedCountryWorker.class)
                 .setConstraints(new Constraints.Builder().setRequiredNetworkRequest(
                         request, NetworkType.CONNECTED).build())
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY)
+                // Set the request as expedited and use a short retry backoff time since the
+                // user is in the setup flow while we check if the device is in an approved country
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL,
+                        Duration.ofMillis(WorkRequest.MIN_BACKOFF_MILLIS))
                 .build();
     }
 
