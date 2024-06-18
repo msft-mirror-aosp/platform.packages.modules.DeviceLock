@@ -59,7 +59,7 @@ public interface ProvisionStateController {
     /**
      * Notify that the device is ready for provisioning.
      */
-    void notifyProvisioningReady();
+    ListenableFuture<Void> notifyProvisioningReady();
 
     /** Get the instance for {@link DeviceStateController} */
     DeviceStateController getDeviceStateController();
