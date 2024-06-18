@@ -40,6 +40,7 @@ import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.List;
@@ -62,16 +63,25 @@ public final class DeviceLockControllerService extends Service {
                 @Override
                 public void lockDevice(RemoteCallback remoteCallback) {
                     logKioskAppRequest();
-                    Futures.addCallback(mDeviceStateController.lockDevice(),
+                    ListenableFuture<Void> lockDeviceFuture = mDeviceStateController.lockDevice();
+                    Futures.addCallback(lockDeviceFuture,
                             remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                    Futures.addCallback(lockDeviceFuture,
+                            logLockUnlockDeviceCallback(/* isLockDevice = */ true),
                             MoreExecutors.directExecutor());
                 }
 
                 @Override
                 public void unlockDevice(RemoteCallback remoteCallback) {
                     logKioskAppRequest();
-                    Futures.addCallback(mDeviceStateController.unlockDevice(),
+                    ListenableFuture<Void> unlockDeviceFuture =
+                            mDeviceStateController.unlockDevice();
+                    Futures.addCallback(unlockDeviceFuture,
                             remoteCallbackWrapper(remoteCallback),
+                            MoreExecutors.directExecutor());
+                    Futures.addCallback(unlockDeviceFuture,
+                            logLockUnlockDeviceCallback(/* isLockDevice = */ false),
                             MoreExecutors.directExecutor());
                 }
 
@@ -129,8 +139,8 @@ public final class DeviceLockControllerService extends Service {
                 }
 
                 @Override
-                public void onKioskAppCrashed(RemoteCallback remoteCallback) {
-                    Futures.addCallback(mPolicyController.onKioskAppCrashed(),
+                public void onAppCrashed(boolean isKiosk, RemoteCallback remoteCallback) {
+                    Futures.addCallback(mPolicyController.onAppCrashed(isKiosk),
                             remoteCallbackWrapper(remoteCallback),
                             MoreExecutors.directExecutor());
                 }
@@ -206,6 +216,58 @@ public final class DeviceLockControllerService extends Service {
         bundle.putParcelable(IDeviceLockControllerService.KEY_PARCELABLE_EXCEPTION,
                 new ParcelableException(t instanceof Exception ? (Exception) t : new Exception(t)));
         remoteCallback.sendResult(bundle);
+    }
+
+    private FutureCallback<Void> logLockUnlockDeviceCallback(boolean isLockDevice) {
+        return new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void result) {
+                if (isLockDevice) {
+                    mStatsLogger.logSuccessfulLockingDevice();
+                } else {
+                    mStatsLogger.logSuccessfulUnlockingDevice();
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                Futures.addCallback(mDeviceStateController.getDeviceState(),
+                        new FutureCallback<Integer>() {
+                            @Override
+                            public void onSuccess(Integer result) {
+                                int deviceStatePostCommand;
+                                switch (result) {
+                                    case DeviceStateController.DeviceState.UNLOCKED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.UNLOCKED;
+                                    case DeviceStateController.DeviceState.LOCKED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.LOCKED;
+                                    case DeviceStateController.DeviceState.CLEARED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.CLEARED;
+                                    case DeviceStateController.DeviceState.UNDEFINED ->
+                                            deviceStatePostCommand =
+                                                    StatsLogger.DeviceStateStats.UNDEFINED;
+                                    default -> deviceStatePostCommand =
+                                            StatsLogger.DeviceStateStats.UNDEFINED;
+                                }
+                                if (isLockDevice) {
+                                    mStatsLogger.logLockDeviceFailure(deviceStatePostCommand);
+                                } else {
+                                    mStatsLogger.logUnlockDeviceFailure(deviceStatePostCommand);
+                                }
+                            }
+
+                            // We don't expect this to be reached
+                            @Override
+                            public void onFailure(Throwable t) {
+                                LogUtil.e(TAG, "Failed to get device State", t);
+                                throw new RuntimeException(t);
+                            }
+                        }, MoreExecutors.directExecutor());
+            }
+        };
     }
 
     @Override

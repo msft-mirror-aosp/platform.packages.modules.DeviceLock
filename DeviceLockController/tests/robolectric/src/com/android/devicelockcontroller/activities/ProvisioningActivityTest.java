@@ -63,7 +63,8 @@ public final class ProvisioningActivityTest {
 
         ProvisioningProgress actual = new ViewModelProvider(activity).get(
                 ProvisioningProgressViewModel.class).getProvisioningProgressLiveData().getValue();
-        assertThat(actual).isEqualTo(ProvisioningProgress.MANDATORY_FAILED_PROVISION);
+        assertThat(actual).isEqualTo(ProvisioningProgress.getMandatoryProvisioningFailedProgress(
+                DeviceLockConstants.ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED));
 
         Fragment fragment = activity.getSupportFragmentManager().findFragmentById(
                 R.id.fragment_container);

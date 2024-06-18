@@ -22,6 +22,8 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.Device
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.RETRY_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
+import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
+
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -30,6 +32,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.telephony.TelephonyManager;
 import android.util.ArraySet;
@@ -48,6 +51,8 @@ import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrp
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
 import com.android.devicelockcontroller.receivers.ProvisionReadyReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+import com.android.devicelockcontroller.stats.StatsLogger;
+import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 
 import com.google.common.util.concurrent.Futures;
@@ -59,6 +64,7 @@ import org.mockito.Mockito;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.LooperMode;
+import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowTelephonyManager;
 
 import java.time.Duration;
@@ -106,6 +112,8 @@ public final class DeviceCheckInHelperTest {
     private ShadowTelephonyManager mTelephonyManager;
     private GlobalParametersClient mGlobalParametersClient;
     private DeviceLockControllerScheduler mScheduler;
+    private StatsLogger mStatsLogger;
+    private ShadowPackageManager mPackageManager;
 
     @Before
     public void setUp() {
@@ -124,10 +132,16 @@ public final class DeviceCheckInHelperTest {
                         .setExecutor(new SynchronousExecutor())
                         .build());
         mGlobalParametersClient = GlobalParametersClient.getInstance();
+        mStatsLogger = ((StatsLoggerProvider) mTestApplication).getStatsLogger();
+        mPackageManager = Shadows.shadowOf(mTestApplication.getPackageManager());
     }
 
     @Test
     public void getDeviceAvailableUniqueIds_shouldReturnAllAvailableUniqueIds() {
+        mPackageManager.setSystemFeature(PackageManager.FEATURE_TELEPHONY_GSM,
+                /* supported= */ true);
+        mPackageManager.setSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA,
+                /* supported= */ true);
         mTelephonyManager.setActiveModemCount(TOTAL_SLOT_COUNT);
         mTelephonyManager.setImei(/* slotIndex= */ 0, IMEI_1);
         mTelephonyManager.setImei(/* slotIndex= */ 1, IMEI_2);
@@ -172,6 +186,16 @@ public final class DeviceCheckInHelperTest {
         assertThat(Futures.getUnchecked(mGlobalParametersClient.isProvisionReady())).isFalse();
         List<Intent> intents = Shadows.shadowOf(mTestApplication).getBroadcastIntents();
         assertThat(intents.size()).isEqualTo(0);
+    }
+
+    @Test
+    public void handleProvisionReadyResponse_invalidConfiguration_shouldLogRetryCheckIn() {
+        GetDeviceCheckInStatusGrpcResponse response = createReadyResponse(
+                /* configuration= */ null);
+
+        mHelper.handleProvisionReadyResponse(response);
+
+        verify(mStatsLogger).logCheckInRetry(CONFIG_UNAVAILABLE);
     }
 
     @Test

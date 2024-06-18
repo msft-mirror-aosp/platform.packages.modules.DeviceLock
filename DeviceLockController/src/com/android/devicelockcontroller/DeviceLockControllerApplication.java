@@ -71,7 +71,7 @@ public class DeviceLockControllerApplication extends Application implements
     public DeviceLockControllerApplication() {
         super();
 
-        mWorkManagerExceptionHandler = new WorkManagerExceptionHandler(this);
+        mWorkManagerExceptionHandler = WorkManagerExceptionHandler.getInstance(this);
     }
 
     @Override
@@ -134,7 +134,8 @@ public class DeviceLockControllerApplication extends Application implements
                 .setWorkerFactory(factory)
                 .setMinimumLoggingLevel(android.util.Log.INFO)
                 .setInitializationExceptionHandler(
-                        mWorkManagerExceptionHandler::initializationExceptionHandler)
+                        (t) -> mWorkManagerExceptionHandler
+                                .initializationExceptionHandler(this, t))
                 .setTaskExecutor(mWorkManagerExceptionHandler.getWorkManagerTaskExecutor())
                 .build();
     }

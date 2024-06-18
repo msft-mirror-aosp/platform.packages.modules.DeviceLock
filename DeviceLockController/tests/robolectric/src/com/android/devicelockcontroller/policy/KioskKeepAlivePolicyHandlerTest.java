@@ -66,7 +66,7 @@ public final class KioskKeepAlivePolicyHandlerTest {
     }
 
     @Test
-    public void onProvisioned_withSuccess_shouldCallExpectedServiceMethod()
+    public void onProvisioned_enablesKioskKeepalive()
             throws ExecutionException, InterruptedException {
         setExpectationsOnEnableKioskKeepalive(/* isSuccess =*/ true);
         assertThat(mHandler.onProvisioned().get()).isTrue();
@@ -76,17 +76,17 @@ public final class KioskKeepAlivePolicyHandlerTest {
     }
 
     @Test
-    public void onProvisioned_withFailure_shouldCallExpectedServiceMethod()
+    public void onProvisioned_onFailure_stillReturnsTrue()
             throws ExecutionException, InterruptedException {
         setExpectationsOnEnableKioskKeepalive(/* isSuccess =*/ false);
-        assertThat(mHandler.onProvisioned().get()).isFalse();
+        assertThat(mHandler.onProvisioned().get()).isTrue();
         verify(mSystemDeviceLockManager).enableKioskKeepalive(eq(TEST_KIOSK_PACKAGE),
                 any(Executor.class), any());
         verify(mSystemDeviceLockManager, never()).disableKioskKeepalive(any(Executor.class), any());
     }
 
     @Test
-    public void onCleared_withSuccess_shouldCallExpectedServiceMethod()
+    public void onCleared_disablesKioskKeepalive()
             throws ExecutionException, InterruptedException {
         setExpectationsOnDisableKioskKeepalive(/* isSuccess =*/ true);
         assertThat(mHandler.onCleared().get()).isTrue();
@@ -96,7 +96,7 @@ public final class KioskKeepAlivePolicyHandlerTest {
     }
 
     @Test
-    public void onCleared_withFailure_shouldCallExpectedServiceMethod()
+    public void onCleared_onFailure_stillReturnsTrue()
             throws ExecutionException, InterruptedException {
         setExpectationsOnDisableKioskKeepalive(/* isSuccess =*/ false);
         assertThat(mHandler.onCleared().get()).isTrue();

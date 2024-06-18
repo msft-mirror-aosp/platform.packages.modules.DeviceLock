@@ -123,6 +123,9 @@ java_test_helper_library {
         "framework-statsd",
         "modules-utils-expresslog",
     ],
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
     visibility: [
         "//packages/modules/DeviceLock:__subpackages__",
     ],
@@ -193,10 +196,6 @@ android_app {
         "devicelockcontroller-proto-lite",
     ],
 
-    lint: {
-        strict_updatability_linting: true,
-    },
-
     optimize: {
         proguard_flags_files: ["proguard.flags"],
         shrink_resources: true,
@@ -225,10 +224,6 @@ android_app {
         "devicelockcontroller-grpc-interface-lib",
         "devicelockcontroller-proto-lite",
     ],
-
-    lint: {
-        strict_updatability_linting: true,
-    },
 
     optimize: {
         proguard_flags_files: ["proguard.flags"],

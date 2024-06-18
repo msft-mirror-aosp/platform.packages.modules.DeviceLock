@@ -16,6 +16,7 @@
 
 package com.android.devicelockcontroller.activities;
 
+import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.UNKNOWN_REASON;
 
 import android.content.Intent;
@@ -69,15 +70,22 @@ public final class ProvisioningActivity extends AppCompatActivity {
         final Intent intent = getIntent();
         if (intent.getBooleanExtra(EXTRA_SHOW_CRITICAL_PROVISION_FAILED_UI_ON_START, false)) {
             LogUtil.d(TAG, "showing critical provision failed ui");
-            viewModel.setProvisioningProgress(ProvisioningProgress.MANDATORY_FAILED_PROVISION);
+            viewModel.setProvisioningProgress(
+                    ProvisioningProgress.getMandatoryProvisioningFailedProgress(
+                            POLICY_ENFORCEMENT_FAILED));
         } else if (intent.getBooleanExtra(EXTRA_SHOW_PROVISION_FAILED_UI_ON_START, false)) {
             LogUtil.d(TAG, "showing provision failed ui");
+            // Using an unknown reason should not be allowed but is okay here because the UI will
+            // not report to the server
+            // TODO(b/321110148): Refactor reporting logic so that we don't need to do this
             viewModel.setProvisioningProgress(
                     ProvisioningProgress.getNonMandatoryProvisioningFailedProgress(UNKNOWN_REASON));
         }
-        getSupportFragmentManager()
-                .beginTransaction()
-                .add(R.id.fragment_container, new DevicePoliciesFragment())
-                .commit();
+        if (savedInstanceState == null) {
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.fragment_container, new DevicePoliciesFragment())
+                    .commit();
+        }
     }
 }

@@ -169,14 +169,6 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
                 }
             }
         }
-        // clear the adb access restriction if we added it before
-        if (!mIsDebug
-                && enable
-                && restrictions.contains(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
-            mDpm.clearUserRestriction(null /* admin */, UserManager.DISALLOW_DEBUGGING_FEATURES);
-            LogUtil.v(TAG, String.format(Locale.US, "clear %s restriction",
-                    UserManager.DISALLOW_DEBUGGING_FEATURES));
-        }
         return true;
     }
 
