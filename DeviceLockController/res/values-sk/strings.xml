@@ -74,7 +74,7 @@
     <string name="restrictions_lifted" msgid="5785586265984319396">"Všetky obmedzenia vo vašom zariadení boli zrušené"</string>
     <string name="uninstall_kiosk_app" msgid="3459557395024053988">"Verejnú aplikáciu môžete zo zariadenia odinštalovať"</string>
     <string name="getting_device_ready" msgid="2829009584599871699">"Zariadenie sa pripravuje…"</string>
-    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"Môže to trvať niekoľko minút"</string>
+    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"Môže to pár minút trvať"</string>
     <string name="installing_kiosk_app" msgid="324208168205545860">"Aplikácia <xliff:g id="CREDITOR_APP">%1$s</xliff:g> sa inštaluje…"</string>
     <string name="opening_kiosk_app" msgid="2021888641430165654">"Aplikácia <xliff:g id="CREDITOR_APP">%1$s</xliff:g> sa otvára…"</string>
     <string name="settings_banner_title" msgid="527041021011279252">"Zariadenie poskytuje <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Zariadenie sa resetuje o <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Všetky údaje budú zo zariadenia odstránené. Ak potrebujete pomoc s registráciou zariadenia, kontaktujte <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>."</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Financie sa nepodarilo poskytnúť"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Ak chcete zistiť, ako kontaktovať správcu financií, kliknite tu. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Ďalšie informácie<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Ak potrebujete pomoc s registráciou zariadenia, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>kontaktujte poskytovateľa <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Zavrieť"</string>
     <string name="retry" msgid="7497287909193345356">"Skúsiť znova"</string>
 </resources>

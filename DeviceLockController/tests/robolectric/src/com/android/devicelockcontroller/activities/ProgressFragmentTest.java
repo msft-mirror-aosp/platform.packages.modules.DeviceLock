@@ -162,10 +162,12 @@ public final class ProgressFragmentTest {
 
         // Check Header Icon
         if (mProvisioningProgress.mIconId != 0) {
-            ShadowDrawable drawable = Shadows.shadowOf(((ImageView) activity.findViewById(
-                    R.id.header_icon)).getDrawable());
+            ImageView headerIcon = activity.findViewById(R.id.header_icon);
+            ShadowDrawable drawable = Shadows.shadowOf(headerIcon.getDrawable());
+
             assertThat(drawable.getCreatedFromResId()).isEqualTo(
                     mProvisioningProgress.mIconId);
+            assertThat(headerIcon.isImportantForAccessibility()).isFalse();
         }
 
         // Check header text
@@ -186,6 +188,15 @@ public final class ProgressFragmentTest {
             URLSpan[] spans = actualUrlSubHeader.getSpans(/* queryStart= */ 0,
                     actualUrlSubHeader.length(), URLSpan.class);
 
+            // Assert text itself matches
+            Truth.assertThat(actualSubHeaderText.toString()).isEqualTo(
+                    Html.fromHtml(
+                        activity.getString(mProvisioningProgress.mSubheaderId,
+                                provisioningProgressViewModel.mProviderNameLiveData.getValue(),
+                                provisioningProgressViewModel.mSupportUrlLiveData.getValue()),
+                            Html.FROM_HTML_MODE_COMPACT).toString());
+
+            // Assert linked text goes to URL
             assertThat(spans.length).isLessThan(2);
             if (spans.length == 1) {
                 spans[0].onClick(subHeaderView);

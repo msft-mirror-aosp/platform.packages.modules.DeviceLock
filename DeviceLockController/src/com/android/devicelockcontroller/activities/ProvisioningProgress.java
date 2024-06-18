@@ -47,7 +47,7 @@ public final class ProvisioningProgress {
     @ProvisionFailureReason
     final int mFailureReason;
 
-    ProvisioningProgress(int iconId, int headerId) {
+    private ProvisioningProgress(int iconId, int headerId) {
         this(iconId, headerId, 0);
     }
 

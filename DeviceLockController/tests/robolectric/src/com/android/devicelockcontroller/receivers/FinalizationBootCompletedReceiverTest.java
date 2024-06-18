@@ -16,13 +16,17 @@
 
 package com.android.devicelockcontroller.receivers;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.Intent;
 
 import androidx.test.core.app.ApplicationProvider;
 
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
+
+import com.google.common.util.concurrent.Futures;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -45,8 +49,11 @@ public final class FinalizationBootCompletedReceiverTest {
 
     @Test
     public void onReceive_initializeFinalizationController() {
+        when(mTestApplication.getFinalizationController().enforceDiskState(anyBoolean()))
+                .thenReturn(Futures.immediateVoidFuture());
+
         mReceiver.onReceive(mTestApplication, INTENT);
 
-        verify(mTestApplication.getFinalizationController()).enforceInitialState();
+        verify(mTestApplication.getFinalizationController()).enforceDiskState(false);
     }
 }

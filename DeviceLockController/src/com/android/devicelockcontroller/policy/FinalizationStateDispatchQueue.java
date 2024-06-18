@@ -104,7 +104,14 @@ final class FinalizationStateDispatchQueue {
         if (oldState == UNINITIALIZED) {
             return true;
         }
+        if (newState == UNINITIALIZED) {
+            // Valid to reset state on multi-user switch
+            return true;
+        }
         if (oldState == UNFINALIZED && newState == FINALIZED_UNREPORTED) {
+            return true;
+        }
+        if (oldState == UNFINALIZED && newState == FINALIZED) {
             return true;
         }
         if (oldState == FINALIZED_UNREPORTED && newState == FINALIZED) {

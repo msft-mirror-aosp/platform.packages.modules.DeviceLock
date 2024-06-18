@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Réinitialisation de l\'appareil dans <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Toute les données de l\'appareil seront supprimées. Pour obtenir de l\'aide lors de l\'enregistrement de votre appareil, contactez <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Le provisionnement du financement a échoué"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Pour contacter votre financier, cliquez ici. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>En savoir plus<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Pour obtenir de l\'aide lors de l\'enregistrement de votre appareil, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>contactez <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Quitter"</string>
     <string name="retry" msgid="7497287909193345356">"Réessayer"</string>
 </resources>

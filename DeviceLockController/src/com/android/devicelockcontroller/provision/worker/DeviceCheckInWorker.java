@@ -16,8 +16,6 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
-import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
-
 import android.content.Context;
 
 import androidx.annotation.NonNull;
@@ -25,6 +23,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.work.WorkerParameters;
 
 import com.android.devicelockcontroller.FcmRegistrationTokenProvider;
+import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
@@ -45,6 +44,7 @@ import java.time.Duration;
 public final class DeviceCheckInWorker extends AbstractCheckInWorker {
 
     private final AbstractDeviceCheckInHelper mCheckInHelper;
+    private final FcmRegistrationTokenProvider mFcmRegistrationTokenProvider;
 
     private final StatsLogger mStatsLogger;
 
@@ -53,14 +53,18 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
 
     public DeviceCheckInWorker(@NonNull Context context,
             @NonNull WorkerParameters workerParams, ListeningExecutorService executorService) {
-        this(context, workerParams, new DeviceCheckInHelper(context), null, executorService);
+        this(context, workerParams, new DeviceCheckInHelper(context),
+                (FcmRegistrationTokenProvider) context.getApplicationContext(),
+                /* client= */ null,
+                executorService);
     }
 
     @VisibleForTesting
     DeviceCheckInWorker(@NonNull Context context, @NonNull WorkerParameters workerParameters,
-            AbstractDeviceCheckInHelper helper, DeviceCheckInClient client,
-            ListeningExecutorService executorService) {
+            AbstractDeviceCheckInHelper helper, FcmRegistrationTokenProvider tokenProvider,
+            DeviceCheckInClient client, ListeningExecutorService executorService) {
         super(context, workerParameters, client, executorService);
+        mFcmRegistrationTokenProvider = tokenProvider;
         mCheckInHelper = helper;
         StatsLoggerProvider loggerProvider =
                 (StatsLoggerProvider) context.getApplicationContext();
@@ -79,28 +83,27 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                 deviceIds -> {
                     if (deviceIds.isEmpty()) {
                         LogUtil.w(TAG, "CheckIn failed. No device identifier available!");
-                        // This device cannot be financed since it does not have any suitable
-                        // device identifiers. Similarly to STOP_CHECK_IN, disable the check in
-                        // boot completed receiver.
-                        disableCheckInBootCompletedReceiver(mContext);
-
-                        return Futures.immediateFuture(Result.failure());
+                        // Similarly to STOP_CHECK_IN, finalize the device (without reporting it
+                        // to the backend, since it's not part of the financing program).
+                        final ListenableFuture<Void> finalizeDeviceFuture =
+                                ((PolicyObjectsProvider) mContext).getFinalizationController()
+                                        .finalizeNotEnrolledDevice();
+                        return Futures.transformAsync(finalizeDeviceFuture,
+                                unused -> Futures.immediateFuture(Result.failure()),
+                                mExecutorService);
                     }
                     String carrierInfo = mCheckInHelper.getCarrierInfo();
-                    Context applicationContext = mContext.getApplicationContext();
                     ListenableFuture<String> fcmRegistrationToken =
-                            ((FcmRegistrationTokenProvider) applicationContext)
-                                    .getFcmRegistrationToken();
+                            mFcmRegistrationTokenProvider.getFcmRegistrationToken();
                     return Futures.whenAllSucceed(mClient, fcmRegistrationToken).call(() -> {
                         DeviceCheckInClient client = Futures.getDone(mClient);
                         String fcmToken = Futures.getDone(fcmRegistrationToken);
-
                         GetDeviceCheckInStatusGrpcResponse response =
                                 client.getDeviceCheckInStatus(
                                         deviceIds, carrierInfo, fcmToken);
                         mStatsLogger.logGetDeviceCheckInStatus();
                         if (response.hasRecoverableError()) {
-                            LogUtil.w(TAG, "Check-in failed w/ recoverable error" + response
+                            LogUtil.w(TAG, "Check-in failed w/ recoverable error " + response
                                     + "\nRetrying...");
                             mStatsLogger.logCheckInRetry(
                                     StatsLogger.CheckInRetryReason.RPC_FAILURE);
@@ -108,7 +111,8 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         }
                         if (response.isSuccessful()) {
                             boolean isResponseHandlingSuccessful = mCheckInHelper
-                                    .handleGetDeviceCheckInStatusResponse(response, scheduler);
+                                    .handleGetDeviceCheckInStatusResponse(response, scheduler,
+                                            fcmToken);
                             if (isResponseHandlingSuccessful) {
                                 mStatsLogger.logSuccessfulCheckIn();
                             }
