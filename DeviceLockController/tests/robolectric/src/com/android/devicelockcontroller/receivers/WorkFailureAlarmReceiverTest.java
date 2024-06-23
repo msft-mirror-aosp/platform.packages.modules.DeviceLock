@@ -39,7 +39,6 @@ import androidx.test.core.app.ApplicationProvider;
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.WorkManagerExceptionHandler;
 import com.android.devicelockcontroller.WorkManagerExceptionHandler.AlarmReason;
-import com.android.devicelockcontroller.WorkManagerExceptionHandler.WorkFailureAlarmReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 
@@ -146,7 +145,7 @@ public final class WorkFailureAlarmReceiverTest {
     }
 
     @Test
-    public void onReceive_whenProvisionReady_doesNotSchedule() throws Exception{
+    public void onReceive_whenProvisionReady_doesNotSchedule() throws Exception {
         GlobalParametersClient.getInstance().setProvisionReady(true).get();
 
         when(mScheduler.maybeScheduleInitialCheckIn()).thenReturn(Futures.immediateVoidFuture());
@@ -155,8 +154,6 @@ public final class WorkFailureAlarmReceiverTest {
                 sendBroadcastToWorkFailureAlarmReceiver(AlarmReason.INITIALIZATION);
 
         shadowOf(Looper.getMainLooper()).idle();
-
-        broadcastComplete.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         broadcastComplete.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 

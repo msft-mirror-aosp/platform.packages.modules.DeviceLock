@@ -81,11 +81,11 @@ public final class DeviceLockManagerTest {
         SystemUtil.runShellCommandOrThrow(cmd);
     }
 
-    public ListenableFuture<Boolean> getIsDeviceLockedFuture() {
+    private ListenableFuture<Boolean> getIsDeviceLockedFuture() {
         return CallbackToFutureAdapter.getFuture(
                 completer -> {
                     mDeviceLockManager.isDeviceLocked(mExecutorService,
-                            new OutcomeReceiver<Boolean, Exception>() {
+                            new OutcomeReceiver<>() {
                                 @Override
                                 public void onResult(Boolean locked) {
                                     completer.set(locked);
@@ -101,11 +101,11 @@ public final class DeviceLockManagerTest {
                 });
     }
 
-    public ListenableFuture<Void> getLockDeviceFuture() {
+    private ListenableFuture<Void> getLockDeviceFuture() {
         return CallbackToFutureAdapter.getFuture(
                 completer -> {
                     mDeviceLockManager.lockDevice(mExecutorService,
-                            new OutcomeReceiver<Void, Exception>() {
+                            new OutcomeReceiver<>() {
                                 @Override
                                 public void onResult(Void result) {
                                     completer.set(null);
@@ -121,11 +121,11 @@ public final class DeviceLockManagerTest {
                 });
     }
 
-    public ListenableFuture<Void> getUnlockDeviceFuture() {
+    private ListenableFuture<Void> getUnlockDeviceFuture() {
         return CallbackToFutureAdapter.getFuture(
                 completer -> {
                     mDeviceLockManager.unlockDevice(mExecutorService,
-                            new OutcomeReceiver<Void, Exception>() {
+                            new OutcomeReceiver<>() {
                                 @Override
                                 public void onResult(Void result) {
                                     completer.set(null);
@@ -141,11 +141,11 @@ public final class DeviceLockManagerTest {
                 });
     }
 
-    public ListenableFuture<DeviceId> getDeviceIdFuture() {
+    private ListenableFuture<DeviceId> getDeviceIdFuture() {
         return CallbackToFutureAdapter.getFuture(
                 completer -> {
                     mDeviceLockManager.getDeviceId(mExecutorService,
-                            new OutcomeReceiver<DeviceId, Exception>() {
+                            new OutcomeReceiver<>() {
                                 @Override
                                 public void onResult(DeviceId deviceId) {
                                     completer.set(deviceId);
@@ -161,11 +161,11 @@ public final class DeviceLockManagerTest {
                 });
     }
 
-    public ListenableFuture<Map<Integer, String>> getKioskAppsFuture() {
+    private ListenableFuture<Map<Integer, String>> getKioskAppsFuture() {
         return CallbackToFutureAdapter.getFuture(
                 completer -> {
                     mDeviceLockManager.getKioskApps(mExecutorService,
-                            new OutcomeReceiver<Map<Integer, String>, Exception>() {
+                            new OutcomeReceiver<>() {
                                 @Override
                                 public void onResult(Map<Integer, String> result) {
                                     completer.set(result);
@@ -189,9 +189,7 @@ public final class DeviceLockManagerTest {
         Exception lockDeviceResponseException =
                 assertThrows(
                         ExecutionException.class,
-                        () -> {
-                            lockDeviceFuture.get(TIMEOUT, TimeUnit.SECONDS);
-                        });
+                        () -> lockDeviceFuture.get(TIMEOUT, TimeUnit.SECONDS));
         assertThat(lockDeviceResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
@@ -204,9 +202,7 @@ public final class DeviceLockManagerTest {
         Exception lockDeviceResponseException =
                 assertThrows(
                         ExecutionException.class,
-                        () -> {
-                            unlockDeviceFuture.get(TIMEOUT, TimeUnit.SECONDS);
-                        });
+                        () -> unlockDeviceFuture.get(TIMEOUT, TimeUnit.SECONDS));
         assertThat(lockDeviceResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
@@ -219,9 +215,7 @@ public final class DeviceLockManagerTest {
         Exception isDeviceLockedResponseException =
                 assertThrows(
                         ExecutionException.class,
-                        () -> {
-                            isDeviceLockedFuture.get(TIMEOUT, TimeUnit.SECONDS);
-                        });
+                        () -> isDeviceLockedFuture.get(TIMEOUT, TimeUnit.SECONDS));
         assertThat(isDeviceLockedResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
@@ -234,9 +228,7 @@ public final class DeviceLockManagerTest {
         Exception isDeviceLockedResponseException =
                 assertThrows(
                         ExecutionException.class,
-                        () -> {
-                            deviceIdFuture.get(TIMEOUT, TimeUnit.SECONDS);
-                        });
+                        () -> deviceIdFuture.get(TIMEOUT, TimeUnit.SECONDS));
         assertThat(isDeviceLockedResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
@@ -244,13 +236,12 @@ public final class DeviceLockManagerTest {
     @Test
     @ApiTest(
             apis = {
-                "android.devicelock.DeviceLockManager#isDeviceLocked",
-                "android.devicelock.DeviceLockManager#lockDevice",
-                "android.devicelock.DeviceLockManager#unlockDevice"
+                    "android.devicelock.DeviceLockManager#isDeviceLocked",
+                    "android.devicelock.DeviceLockManager#lockDevice",
+                    "android.devicelock.DeviceLockManager#unlockDevice"
             })
-    public void deviceShouldLockAndUnlock() throws InterruptedException, ExecutionException,
-            TimeoutException {
-
+    public void deviceShouldLockAndUnlock()
+            throws ExecutionException, InterruptedException, TimeoutException {
         try {
             addFinancedDeviceKioskRole();
 
@@ -270,8 +261,7 @@ public final class DeviceLockManagerTest {
 
     @Test
     @ApiTest(apis = {"android.devicelock.DeviceLockManager#getDeviceId"})
-    public void getDeviceIdShouldReturnAnId()
-            throws ExecutionException, InterruptedException, TimeoutException {
+    public void getDeviceIdShouldReturnAnId() {
         try {
             addFinancedDeviceKioskRole();
 
@@ -292,7 +282,7 @@ public final class DeviceLockManagerTest {
     @ApiTest(apis = {"android.devicelock.DeviceLockManager#getKioskApps"})
     public void getKioskApp_financedRoleHolderExists_returnsMapping()
             throws ExecutionException, InterruptedException, TimeoutException {
-        final ArrayMap expectedKioskApps = new ArrayMap<Integer, String>();
+        final ArrayMap<Integer, String> expectedKioskApps = new ArrayMap<>();
         expectedKioskApps.put(
                 DeviceLockManager.DEVICE_LOCK_ROLE_FINANCING, mContext.getPackageName());
 
@@ -313,15 +303,5 @@ public final class DeviceLockManagerTest {
             throws ExecutionException, InterruptedException, TimeoutException {
         Map<Integer, String> kioskAppsMap = getKioskAppsFuture().get(TIMEOUT, TimeUnit.SECONDS);
         assertThat(kioskAppsMap).isEmpty();
-    }
-
-    private static void adoptShellPermissions() {
-        InstrumentationRegistry
-                .getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
-    }
-
-    private static void dropShellPermissions() {
-        InstrumentationRegistry
-                .getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
     }
 }

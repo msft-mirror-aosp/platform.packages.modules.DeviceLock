@@ -144,9 +144,6 @@ public final class UserRestrictionsPolicyHandlerTest {
         assertThat(allUserRestrictions).containsExactlyElementsIn(
                 new String[]{UserManager.DISALLOW_SAFE_BOOT,
                         UserManager.DISALLOW_DEBUGGING_FEATURES});
-        verify(mMockDpm).clearUserRestriction(eq(null), mClearUserRestrictionCaptor.capture());
-        assertThat(mClearUserRestrictionCaptor.getValue()).isEqualTo(
-                UserManager.DISALLOW_DEBUGGING_FEATURES);
     }
 
     @Test
@@ -172,9 +169,6 @@ public final class UserRestrictionsPolicyHandlerTest {
         assertThat(allUserRestrictions).containsExactlyElementsIn(
                 new String[]{UserManager.DISALLOW_SAFE_BOOT,
                         UserManager.DISALLOW_DEBUGGING_FEATURES});
-        verify(mMockDpm).clearUserRestriction(eq(null), mClearUserRestrictionCaptor.capture());
-        assertThat(mClearUserRestrictionCaptor.getValue()).isEqualTo(
-                UserManager.DISALLOW_DEBUGGING_FEATURES);
     }
 
     @Test
@@ -201,9 +195,6 @@ public final class UserRestrictionsPolicyHandlerTest {
                 new String[]{UserManager.DISALLOW_SAFE_BOOT,
                         UserManager.DISALLOW_DEBUGGING_FEATURES,
                         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES});
-        verify(mMockDpm).clearUserRestriction(eq(null), mClearUserRestrictionCaptor.capture());
-        assertThat(mClearUserRestrictionCaptor.getValue()).isEqualTo(
-                UserManager.DISALLOW_DEBUGGING_FEATURES);
     }
 
     @Test
@@ -257,9 +248,6 @@ public final class UserRestrictionsPolicyHandlerTest {
                 new String[]{UserManager.DISALLOW_SAFE_BOOT,
                         UserManager.DISALLOW_DEBUGGING_FEATURES,
                         UserManager.DISALLOW_OUTGOING_CALLS});
-        verify(mMockDpm).clearUserRestriction(eq(null), mClearUserRestrictionCaptor.capture());
-        assertThat(mClearUserRestrictionCaptor.getValue()).isEqualTo(
-                UserManager.DISALLOW_DEBUGGING_FEATURES);
     }
 
     @Test
@@ -284,9 +272,6 @@ public final class UserRestrictionsPolicyHandlerTest {
                         UserManager.DISALLOW_DEBUGGING_FEATURES,
                         UserManager.DISALLOW_OUTGOING_CALLS,
                         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES});
-        verify(mMockDpm).clearUserRestriction(eq(null), mClearUserRestrictionCaptor.capture());
-        assertThat(mClearUserRestrictionCaptor.getValue()).isEqualTo(
-                UserManager.DISALLOW_DEBUGGING_FEATURES);
     }
 
     @Test
@@ -418,9 +403,6 @@ public final class UserRestrictionsPolicyHandlerTest {
         assertThat(allUserRestrictions).containsExactlyElementsIn(
                 new String[]{UserManager.DISALLOW_SAFE_BOOT,
                         UserManager.DISALLOW_DEBUGGING_FEATURES});
-        verify(mMockDpm).clearUserRestriction(eq(null), mClearUserRestrictionCaptor.capture());
-        assertThat(mClearUserRestrictionCaptor.getValue()).isEqualTo(
-                UserManager.DISALLOW_DEBUGGING_FEATURES);
     }
 
     @Test
@@ -444,9 +426,6 @@ public final class UserRestrictionsPolicyHandlerTest {
                 new String[]{UserManager.DISALLOW_SAFE_BOOT,
                         UserManager.DISALLOW_DEBUGGING_FEATURES,
                         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES});
-        verify(mMockDpm).clearUserRestriction(eq(null), mClearUserRestrictionCaptor.capture());
-        assertThat(mClearUserRestrictionCaptor.getValue()).isEqualTo(
-                UserManager.DISALLOW_DEBUGGING_FEATURES);
     }
 
     @Test

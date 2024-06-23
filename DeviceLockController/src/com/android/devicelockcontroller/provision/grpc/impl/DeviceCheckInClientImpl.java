@@ -17,6 +17,7 @@
 package com.android.devicelockcontroller.provision.grpc.impl;
 
 import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_COUNTRY_INFO_UNAVAILABLE;
+import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_DEADLINE_PASSED;
 import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_NOT_IN_ELIGIBLE_COUNTRY;
 import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_PLAY_INSTALLATION_FAILED;
 import static com.android.devicelockcontroller.proto.ClientProvisionFailureReason.PROVISION_FAILURE_REASON_PLAY_TASK_UNAVAILABLE;
@@ -246,14 +247,20 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             case ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED:
                 reasonProto = PROVISION_FAILURE_REASON_POLICY_ENFORCEMENT_FAILED;
                 break;
+            case ProvisionFailureReason.DEADLINE_PASSED:
+                reasonProto = PROVISION_FAILURE_REASON_DEADLINE_PASSED;
+                break;
             default:
                 throw new IllegalArgumentException("Unexpected value: " + reason);
         }
-        return ReportDeviceProvisionStateRequest.newBuilder()
-                .setClientProvisionFailureReason(isSuccessful ? null : reasonProto)
-                .setPreviousClientProvisionState(state)
-                .setProvisionSuccess(isSuccessful)
-                .setRegisteredDeviceIdentifier(registeredId)
-                .build();
+        ReportDeviceProvisionStateRequest.Builder builder =
+                ReportDeviceProvisionStateRequest.newBuilder()
+                        .setPreviousClientProvisionState(state)
+                        .setProvisionSuccess(isSuccessful)
+                        .setRegisteredDeviceIdentifier(registeredId);
+        if (!isSuccessful) {
+            builder.setClientProvisionFailureReason(reasonProto);
+        }
+        return builder.build();
     }
 }

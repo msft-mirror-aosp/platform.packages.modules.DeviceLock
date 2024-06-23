@@ -75,17 +75,23 @@ oneway interface IDeviceLockService {
     void removeFinancedDeviceKioskRole(in String packageName, in RemoteCallback remoteCallback);
 
     /**
-     * Set the Device Lock Controller exempt from starting an activity from the background
-     * for the calling user.
+     * Set the exempt from activity background restrction app op mode for the calling uid.
      */
-    void setExemptFromActivityBackgroundStartRestriction(in boolean exempt,
-        in RemoteCallback remoteCallback);
+    void setCallerExemptFromActivityBgStartRestrictionState(in boolean exempt,
+     in RemoteCallback remoteCallback);
 
     /**
-     * Exampt kiosk app from hibernation.
+     * Set whether the caller should be allowed to send undismissible notifications.
      */
-    void setExemptFromHibernation(in String packageName, in boolean exempt,
-        in RemoteCallback remoteCallback);
+    void setCallerAllowedToSendUndismissibleNotifications(in boolean allowed,
+     in RemoteCallback remoteCallback);
+
+    /**
+     * Set the exempt from hibernation, battery usage, data usage restrictions state for the
+     * given uid.
+     */
+    void setUidExemptFromRestrictionsState(in int uid, in boolean exempt,
+     in RemoteCallback remoteCallback);
 
     /**
      * Enable kiosk keepalive.
@@ -98,7 +104,22 @@ oneway interface IDeviceLockService {
      void disableKioskKeepalive(in RemoteCallback remoteCallback);
 
     /**
+     * Enable controller keepalive.
+     */
+     void enableControllerKeepalive(in RemoteCallback remoteCallback);
+
+    /**
+     * Disable controller keepalive.
+     */
+     void disableControllerKeepalive(in RemoteCallback remoteCallback);
+
+    /**
      * Set device finalized.
      */
      void setDeviceFinalized(in boolean finalized, in RemoteCallback remoteCallback);
+
+     /**
+      * Set/clear controller POST_NOTIFICATIONS FLAG_PERMISSION_SYSTEM_FIXED flag.
+      */
+     void setPostNotificationsSystemFixed(in boolean systemFixed, in RemoteCallback remoteCallback);
 }

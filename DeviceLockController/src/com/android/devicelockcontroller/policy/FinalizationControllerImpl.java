@@ -231,7 +231,10 @@ public final class FinalizationControllerImpl implements FinalizationController 
 
                     @Override
                     public void onFailure(Throwable t) {
-                        throw new RuntimeException(t);
+                        // Don't reset the device in this case since the financing program is
+                        // effectively over.
+                        LogUtil.e(TAG, "Failed to enqueue 'device lock program complete' work",
+                                t);
                     }
                 },
                 MoreExecutors.directExecutor()

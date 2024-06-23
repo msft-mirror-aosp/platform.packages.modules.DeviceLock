@@ -16,7 +16,7 @@
 
 <resources>
     <!-- Allowed device identifiers bitmap -->
-    <integer name="device_id_type_bitmap">3</integer>
+    <integer name="device_id_type_bitmap">0</integer>
     <!-- Packages allow-listed in locked mode -->
     <array name="lock_task_allowlist"/>
 

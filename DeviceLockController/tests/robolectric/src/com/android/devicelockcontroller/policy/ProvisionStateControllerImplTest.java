@@ -16,8 +16,6 @@
 
 package com.android.devicelockcontroller.policy;
 
-import static com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
@@ -35,8 +33,6 @@ import android.os.SystemClock;
 import android.provider.Settings;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.work.WorkInfo;
-import androidx.work.WorkManager;
 import androidx.work.testing.WorkManagerTestInitHelper;
 
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
@@ -44,11 +40,11 @@ import com.android.devicelockcontroller.policy.ProvisionStateController.Provisio
 import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState;
 import com.android.devicelockcontroller.policy.ProvisionStateControllerImpl.StateTransitionException;
 import com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver;
+import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -59,7 +55,6 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
 
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
@@ -75,6 +70,7 @@ public final class ProvisionStateControllerImplTest {
 
     private TestDeviceLockControllerApplication mTestApp;
     private ProvisionStateController mProvisionStateController;
+    private StatsLogger mStatsLogger;
 
     @Before
     public void setUp() {
@@ -83,6 +79,7 @@ public final class ProvisionStateControllerImplTest {
         mProvisionStateController = new ProvisionStateControllerImpl(mTestApp,
                 mMockPolicyController, mMockDeviceStateController,
                 Executors.newSingleThreadExecutor());
+        mStatsLogger = mTestApp.getStatsLogger();
     }
 
     @Test
@@ -153,6 +150,18 @@ public final class ProvisionStateControllerImplTest {
     }
 
     @Test
+    public void setNextStateForEvent_shouldLogSuccessfulProvisioning_whenProvisionSuccess()
+            throws ExecutionException, InterruptedException {
+        when(mMockPolicyController.enforceCurrentPolicies()).thenReturn(
+                Futures.immediateVoidFuture());
+        UserParameters.setProvisionState(mTestApp, ProvisionState.KIOSK_PROVISIONED);
+
+        mProvisionStateController.setNextStateForEvent(ProvisionEvent.PROVISION_SUCCESS).get();
+
+        verify(mStatsLogger).logSuccessfulProvisioning();
+    }
+
+    @Test
     public void setNextStateForEvent_withException_shouldRetainProvisionState()
             throws ExecutionException, InterruptedException {
         when(mMockPolicyController.enforceCurrentPolicies()).thenReturn(
@@ -198,12 +207,7 @@ public final class ProvisionStateControllerImplTest {
         assertThat(mProvisionStateController.getState().get()).isEqualTo(
                 ProvisionState.PROVISION_IN_PROGRESS);
 
-        verify(mTestApp.getDeviceLockControllerScheduler()).scheduleMandatoryResetDeviceAlarm();
-        ListenableFuture<List<WorkInfo>> workInfoListFuture =
-                WorkManager.getInstance(mTestApp)
-                        .getWorkInfosForUniqueWork(REPORT_PROVISION_STATE_WORK_NAME);
-        List<WorkInfo> actualWorks = workInfoListFuture.get();
-        assertThat(actualWorks.size()).isEqualTo(1);
+        verify(mMockPolicyController).enforceCurrentPoliciesForCriticalFailure();
     }
 
     @Test
