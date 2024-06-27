@@ -16,11 +16,6 @@
 
 package com.android.devicelockcontroller.schedule;
 
-import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
-
 import static com.android.devicelockcontroller.WorkManagerExceptionHandler.AlarmReason;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.NON_MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE;
@@ -35,7 +30,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.NetworkRequest;
 import android.os.Build;
 import android.os.SystemClock;
 
@@ -487,16 +481,10 @@ public final class DeviceLockControllerSchedulerImpl implements DeviceLockContro
     }
 
     private Operation enqueueCheckInWorkRequest(boolean isExpedited, Duration delay) {
-        NetworkRequest request = new NetworkRequest.Builder()
-                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
-                .addCapability(NET_CAPABILITY_TRUSTED)
-                .addCapability(NET_CAPABILITY_INTERNET)
-                .addCapability(NET_CAPABILITY_NOT_VPN)
-                .build();
         OneTimeWorkRequest.Builder builder =
                 new OneTimeWorkRequest.Builder(DeviceCheckInWorker.class)
                         .setConstraints(
-                                new Constraints.Builder().setRequiredNetworkRequest(request,
+                                new Constraints.Builder().setRequiredNetworkType(
                                         NetworkType.CONNECTED).build())
                         .setInitialDelay(delay)
                         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_DELAY);
