@@ -16,11 +16,6 @@
 
 package com.android.devicelockcontroller.schedule;
 
-import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
-import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
-
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_PAUSED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
 import static com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerImpl.DEVICE_CHECK_IN_WORK_NAME;
@@ -29,12 +24,12 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.net.NetworkRequest;
 import android.os.SystemClock;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.work.Configuration;
 import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
@@ -257,11 +252,8 @@ public final class DeviceLockControllerSchedulerImplTest {
                 DEVICE_CHECK_IN_WORK_NAME));
         assertThat(actualWorks.size()).isEqualTo(1);
         WorkInfo actualWorkInfo = actualWorks.get(0);
-        NetworkRequest networkRequest = actualWorkInfo.getConstraints().getRequiredNetworkRequest();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_TRUSTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_INTERNET)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_VPN)).isTrue();
+        assertThat(actualWorkInfo.getConstraints().getRequiredNetworkType()).isEqualTo(
+                NetworkType.CONNECTED);
         assertThat(actualWorkInfo.getInitialDelayMillis()).isEqualTo(0);
     }
 
@@ -280,11 +272,8 @@ public final class DeviceLockControllerSchedulerImplTest {
                 DEVICE_CHECK_IN_WORK_NAME));
         assertThat(actualWorks.size()).isEqualTo(1);
         WorkInfo actualWorkInfo = actualWorks.get(0);
-        NetworkRequest networkRequest = actualWorkInfo.getConstraints().getRequiredNetworkRequest();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_TRUSTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_INTERNET)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_VPN)).isTrue();
+        assertThat(actualWorkInfo.getConstraints().getRequiredNetworkType()).isEqualTo(
+                NetworkType.CONNECTED);
         assertThat(actualWorkInfo.getInitialDelayMillis()).isEqualTo(
                 TEST_RETRY_CHECK_IN_DELAY.toMillis());
 
@@ -318,11 +307,8 @@ public final class DeviceLockControllerSchedulerImplTest {
                 DEVICE_CHECK_IN_WORK_NAME));
         assertThat(actualWorks.size()).isEqualTo(1);
         WorkInfo actualWorkInfo = actualWorks.get(0);
-        NetworkRequest networkRequest = actualWorkInfo.getConstraints().getRequiredNetworkRequest();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_TRUSTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_INTERNET)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_VPN)).isTrue();
+        assertThat(actualWorkInfo.getConstraints().getRequiredNetworkType()).isEqualTo(
+                NetworkType.CONNECTED);
 
         long expectedDelay = TEST_NEXT_CHECK_IN_TIME_MILLIS - TEST_CURRENT_TIME_MILLIS;
         assertThat(actualWorkInfo.getInitialDelayMillis()).isEqualTo(expectedDelay);
@@ -390,11 +376,8 @@ public final class DeviceLockControllerSchedulerImplTest {
                 DEVICE_CHECK_IN_WORK_NAME));
         assertThat(actualWorks.size()).isEqualTo(1);
         WorkInfo actualWorkInfo = actualWorks.get(0);
-        NetworkRequest networkRequest = actualWorkInfo.getConstraints().getRequiredNetworkRequest();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_TRUSTED)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_INTERNET)).isTrue();
-        assertThat(networkRequest.hasCapability(NET_CAPABILITY_NOT_VPN)).isTrue();
+        assertThat(actualWorkInfo.getConstraints().getRequiredNetworkType()).isEqualTo(
+                NetworkType.CONNECTED);
 
         long expectedDelay = TEST_NEXT_CHECK_IN_TIME_MILLIS - TEST_CURRENT_TIME_MILLIS;
         assertThat(actualWorkInfo.getInitialDelayMillis()).isEqualTo(expectedDelay);

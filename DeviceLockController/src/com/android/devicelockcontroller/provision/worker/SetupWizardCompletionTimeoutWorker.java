@@ -16,15 +16,23 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_READY;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
 
 import android.content.Context;
+import android.net.NetworkRequest;
 import android.provider.Settings;
 
 import androidx.annotation.NonNull;
+import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.ListenableWorker;
+import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.WorkerParameters;
@@ -46,7 +54,7 @@ public final class SetupWizardCompletionTimeoutWorker extends ListenableWorker {
 
     private static final String SETUP_WIZARD_COMPLETION_TIMEOUT_WORK_NAME =
             "setup-wizard-completion-timeout";
-    private static final long TIMEOUT_MINUTES = 15;
+    private static final long TIMEOUT_MINUTES = 60;
 
     private final ListeningExecutorService mListeningExecutorService;
     private final Context mAppContext;
@@ -103,9 +111,21 @@ public final class SetupWizardCompletionTimeoutWorker extends ListenableWorker {
      * in the allotted time.
      */
     public static void scheduleSetupWizardCompletionTimeoutWork(Context context) {
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
+
+        // Beside setting a delay, we also require network connectivity since for the case of
+        // mandatory provisioning, the setup flow cannot be interrupted and eventual errors
+        // due to network unavailable would result in the device being reset.
         OneTimeWorkRequest workRequest =
                 new OneTimeWorkRequest.Builder(SetupWizardCompletionTimeoutWorker.class)
                         .setInitialDelay(TIMEOUT_MINUTES, TimeUnit.MINUTES)
+                        .setConstraints(new Constraints.Builder().setRequiredNetworkRequest(
+                                request, NetworkType.CONNECTED).build())
                         .build();
 
         WorkManager.getInstance(context)
