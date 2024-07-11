@@ -19,7 +19,7 @@ package android.devicelock;
 import android.devicelock.IGetKioskAppsCallback;
 import android.devicelock.IGetDeviceIdCallback;
 import android.devicelock.IIsDeviceLockedCallback;
-import android.devicelock.IVoidResultCallback;
+import android.devicelock.ILockUnlockDeviceCallback;
 
 import android.os.RemoteCallback;
 
@@ -31,22 +31,17 @@ oneway interface IDeviceLockService {
     /**
      * Asynchronously lock the device.
      */
-    void lockDevice(in IVoidResultCallback callback);
+    void lockDevice(in ILockUnlockDeviceCallback callback);
 
     /**
      * Asynchronously unlock the device.
      */
-    void unlockDevice(in IVoidResultCallback callback);
+    void unlockDevice(in ILockUnlockDeviceCallback callback);
 
     /**
      * Asynchronously retrieve the device lock status.
      */
     void isDeviceLocked(in IIsDeviceLockedCallback callback);
-
-    /**
-     * Asynchronously clear the device restrictions.
-     */
-    void clearDeviceRestrictions(in IVoidResultCallback callback);
 
     /**
      * Asynchronously retrieve the device identifier.

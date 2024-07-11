@@ -19,11 +19,11 @@ package android.devicelock;
 import android.devicelock.ParcelableException;
 
 /**
-  * Generic callback for requests not returning a value.
+  * Callback for a lockDevice()/unlockDevice() request.
   * {@hide}
   */
-oneway interface IVoidResultCallback {
-    void onSuccess();
+oneway interface ILockUnlockDeviceCallback {
+    void onDeviceLockedUnlocked();
 
     void onError(in ParcelableException parcelableException);
 }

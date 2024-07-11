@@ -25,9 +25,6 @@ import static com.android.devicelockcontroller.policy.ProvisionStateController.P
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_SUCCEEDED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
 
-import androidx.annotation.VisibleForTesting;
-
-import com.android.devicelock.flags.Flags;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 
 import com.google.common.util.concurrent.Futures;
@@ -45,8 +42,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     // Used to exercising APIs under CTS without actually applying any policies.
     // This is not persistent across controller restarts, but should be good enough for the
     // intended purpose.
-    @VisibleForTesting
-    volatile @DeviceState int mPseudoDeviceState;
+    private volatile @DeviceState int mPseudoDeviceState;
 
     public DeviceStateControllerImpl(DevicePolicyController policyController,
             ProvisionStateController provisionStateController, Executor executor) {
@@ -92,13 +88,6 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                     } else if (provisionState == UNPROVISIONED && (deviceState == LOCKED
                             || deviceState == UNLOCKED)) {
                         // During normal operation, we should not get lock/unlock requests in
-                        // the UNPROVISIONED state. Used for CTS compliance.
-                        mPseudoDeviceState = deviceState;
-                        // Do not apply any policies
-                        return Futures.immediateVoidFuture();
-                    } else if (Flags.clearDeviceRestrictions()
-                            && (provisionState == UNPROVISIONED && deviceState == CLEARED)) {
-                        // During normal operation, we should not get clear requests in
                         // the UNPROVISIONED state. Used for CTS compliance.
                         mPseudoDeviceState = deviceState;
                         // Do not apply any policies
