@@ -51,7 +51,7 @@ import android.devicelock.IDeviceLockService;
 import android.devicelock.IGetDeviceIdCallback;
 import android.devicelock.IGetKioskAppsCallback;
 import android.devicelock.IIsDeviceLockedCallback;
-import android.devicelock.ILockUnlockDeviceCallback;
+import android.devicelock.IVoidResultCallback;
 import android.devicelock.ParcelableException;
 import android.net.NetworkPolicyManager;
 import android.net.Uri;
@@ -460,11 +460,11 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                 == PERMISSION_GRANTED;
     }
 
-    private void reportDeviceLockedUnlocked(@NonNull ILockUnlockDeviceCallback callback,
+    private void reportDeviceLockedUnlocked(@NonNull IVoidResultCallback callback,
             @Nullable Exception exception) {
         try {
             if (exception == null) {
-                callback.onDeviceLockedUnlocked();
+                callback.onSuccess();
             } else {
                 callback.onError(getParcelableException(exception));
             }
@@ -474,7 +474,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     private OutcomeReceiver<Void, Exception> getLockUnlockOutcomeReceiver(
-            @NonNull ILockUnlockDeviceCallback callback, @NonNull String successMessage) {
+            @NonNull IVoidResultCallback callback, @NonNull String successMessage) {
         return new OutcomeReceiver<>() {
             @Override
             public void onResult(Void ignored) {
@@ -496,7 +496,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     @Override
-    public void lockDevice(@NonNull ILockUnlockDeviceCallback callback) {
+    public void lockDevice(@NonNull IVoidResultCallback callback) {
         if (!checkCallerPermission()) {
             try {
                 callback.onError(new ParcelableException(new SecurityException()));
@@ -511,7 +511,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     @Override
-    public void unlockDevice(@NonNull ILockUnlockDeviceCallback callback) {
+    public void unlockDevice(@NonNull IVoidResultCallback callback) {
         if (!checkCallerPermission()) {
             try {
                 callback.onError(new ParcelableException(new SecurityException()));
@@ -523,6 +523,45 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         getDeviceLockControllerConnector().unlockDevice(
                 getLockUnlockOutcomeReceiver(callback, "Device unlocked"));
+    }
+
+    @Override
+    public void clearDeviceRestrictions(@NonNull IVoidResultCallback callback) {
+        if (!checkCallerPermission()) {
+            try {
+                callback.onError(new ParcelableException(new SecurityException()));
+            } catch (RemoteException e) {
+                Slog.e(TAG, "clearDeviceRestrictions() - Unable to send error to the callback", e);
+            }
+            return;
+        }
+
+        final UserHandle userHandle = Binder.getCallingUserHandle();
+
+        getDeviceLockControllerConnector(userHandle).clearDeviceRestrictions(
+                new OutcomeReceiver<>() {
+                    @Override
+                    public void onResult(Void ignored) {
+                        Slog.i(TAG, "Device cleared ");
+
+                        try {
+                            callback.onSuccess();
+                        } catch (RemoteException e) {
+                            Slog.e(TAG, "Unable to send result to the callback", e);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception ex) {
+                        Slog.e(TAG, "Exception clearing device: ", ex);
+
+                        try {
+                            callback.onError(getParcelableException(ex));
+                        } catch (RemoteException e) {
+                            Slog.e(TAG, "Unable to send error to the callback", e);
+                        }
+                    }
+                });
     }
 
     @Override

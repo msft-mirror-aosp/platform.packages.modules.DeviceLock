@@ -9,6 +9,7 @@ package android.devicelock {
   }
 
   public final class DeviceLockManager {
+    method @FlaggedApi("com.android.devicelock.flags.clear_device_restrictions") @RequiresPermission(android.Manifest.permission.MANAGE_DEVICE_LOCK_STATE) public void clearDeviceRestrictions(@NonNull java.util.concurrent.Executor, @NonNull android.os.OutcomeReceiver<java.lang.Void,java.lang.Exception>);
     method @RequiresPermission(android.Manifest.permission.MANAGE_DEVICE_LOCK_STATE) public void getDeviceId(@NonNull java.util.concurrent.Executor, @NonNull android.os.OutcomeReceiver<android.devicelock.DeviceId,java.lang.Exception>);
     method public void getKioskApps(@NonNull java.util.concurrent.Executor, @NonNull android.os.OutcomeReceiver<java.util.Map<java.lang.Integer,java.lang.String>,java.lang.Exception>);
     method @RequiresPermission(android.Manifest.permission.MANAGE_DEVICE_LOCK_STATE) public void isDeviceLocked(@NonNull java.util.concurrent.Executor, @NonNull android.os.OutcomeReceiver<java.lang.Boolean,java.lang.Exception>);
