@@ -23,6 +23,7 @@ android_app {
 
 android_robolectric_test {
     name: "DeviceLockUnitTests",
+    team: "trendy_team_android_go",
     srcs: [
         "src/**/*.java",
         ":framework-devicelock-sources",
@@ -30,8 +31,10 @@ android_robolectric_test {
     java_resource_dirs: ["config"],
     static_libs: [
         "service-devicelock",
+        "devicelock-aconfig-flags-lib",
         "androidx.test.core",
         "androidx.test.runner",
+        "flag-junit",
         "mockito-robolectric-prebuilt",
         "truth",
     ],
