@@ -22,6 +22,10 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import android.platform.test.annotations.EnableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
+
+import com.android.devicelock.flags.Flags;
 import com.android.devicelockcontroller.policy.DeviceStateController.DeviceState;
 import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent;
 import com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState;
@@ -47,6 +51,9 @@ public final class DeviceStateControllerImplTest {
     private static final String DEVICE_HAS_BEEN_CLEARED = "Device has been cleared!";
     @Rule
     public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     @Mock
     private DevicePolicyController mMockDevicePolicyController;
@@ -74,6 +81,9 @@ public final class DeviceStateControllerImplTest {
         // Should not have changed the real device state
         assertThat(GlobalParametersClient.getInstance().getDeviceState().get()).isEqualTo(
                 DeviceState.UNDEFINED);
+
+        assertThat(((DeviceStateControllerImpl) mDeviceStateController).mPseudoDeviceState)
+                .isEqualTo(DeviceState.LOCKED);
     }
 
     @Test
@@ -193,6 +203,9 @@ public final class DeviceStateControllerImplTest {
         // Should not have changed the real device state
         assertThat(GlobalParametersClient.getInstance().getDeviceState().get()).isEqualTo(
                 DeviceState.UNDEFINED);
+
+        assertThat(((DeviceStateControllerImpl) mDeviceStateController).mPseudoDeviceState)
+                .isEqualTo(DeviceState.UNLOCKED);
     }
 
     @Test
@@ -367,6 +380,24 @@ public final class DeviceStateControllerImplTest {
 
         assertThat(GlobalParametersClient.getInstance().getDeviceState().get()).isEqualTo(
                 DeviceState.CLEARED);
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_CLEAR_DEVICE_RESTRICTIONS)
+    public void clearDevice_withUnprovisionedState_shouldNotThrowException()
+            throws ExecutionException, InterruptedException {
+        when(mMockProvisionStateController.getState()).thenReturn(
+                Futures.immediateFuture(ProvisionState.UNPROVISIONED));
+
+        // Clearing the device state should not throw an exception.
+        mDeviceStateController.clearDevice().get();
+
+        // Should not have changed the real device state
+        assertThat(GlobalParametersClient.getInstance().getDeviceState().get()).isEqualTo(
+                DeviceState.UNDEFINED);
+
+        assertThat(((DeviceStateControllerImpl) mDeviceStateController).mPseudoDeviceState)
+                .isEqualTo(DeviceState.CLEARED);
     }
 
     @Test
