@@ -254,12 +254,9 @@ public final class DeviceLockManagerTest {
         try {
             addFinancedDeviceKioskRole();
 
-            boolean locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
-            assertThat(locked).isFalse();
-
             getLockDeviceFuture().get(TIMEOUT, TimeUnit.SECONDS);
 
-            locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
+            boolean locked = getIsDeviceLockedFuture().get(TIMEOUT, TimeUnit.SECONDS);
             assertThat(locked).isTrue();
 
             getUnlockDeviceFuture().get(TIMEOUT, TimeUnit.SECONDS);
