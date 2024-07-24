@@ -18,72 +18,85 @@ package com.android.devicelockcontroller.receivers;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import android.content.BroadcastReceiver.PendingResult;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.UserHandle;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.work.Configuration;
-import androidx.work.WorkInfo;
-import androidx.work.WorkManager;
-import androidx.work.testing.SynchronousExecutor;
-import androidx.work.testing.WorkManagerTestInitHelper;
 
-import com.android.devicelockcontroller.policy.DeviceStateController;
-import com.android.devicelockcontroller.provision.worker.DeviceCheckInHelper;
+import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
+import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
+
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
 @RunWith(RobolectricTestRunner.class)
-public class CheckInBootCompletedReceiverTest {
+public final class CheckInBootCompletedReceiverTest {
 
-    private DeviceStateController mDeviceStateController;
-    private DeviceCheckInHelper mDeviceCheckInHelper;
-    private WorkManager mWorkManager;
+    public static final Intent INTENT = new Intent(Intent.ACTION_BOOT_COMPLETED);
+    private DeviceLockControllerScheduler mScheduler;
+    private CheckInBootCompletedReceiver mReceiver;
+    private TestDeviceLockControllerApplication mTestApp;
 
     @Before
     public void setUp() {
-        final Context context = ApplicationProvider.getApplicationContext();
-        mDeviceStateController = mock(DeviceStateController.class);
-        mDeviceCheckInHelper = new DeviceCheckInHelper(context);
-        WorkManagerTestInitHelper.initializeTestWorkManager(context,
-                new Configuration.Builder()
-                        .setMinimumLoggingLevel(android.util.Log.DEBUG)
-                        .setExecutor(new SynchronousExecutor())
-                        .build());
-        mWorkManager = WorkManager.getInstance(context);
+        HandlerThread handlerThread = new HandlerThread("test");
+        handlerThread.start();
+        Handler handler = handlerThread.getThreadHandler();
+        mReceiver = new CheckInBootCompletedReceiver(
+                MoreExecutors.newSequentialExecutor(handler::post));
+        mTestApp = ApplicationProvider.getApplicationContext();
+        mScheduler = mTestApp.getDeviceLockControllerScheduler();
     }
 
     @Test
-    public void onReceive_checkInIsNeeded_shouldEnqueueCheckInWork()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        when(mDeviceStateController.isCheckInNeeded()).thenReturn(true);
+    public void onReceive_shouldCallMaybeScheduleInitialCheckIn() {
+        when(mScheduler.maybeScheduleInitialCheckIn()).thenReturn(Futures.immediateVoidFuture());
 
-        CheckInBootCompletedReceiver.checkInIfNeeded(mDeviceStateController, mDeviceCheckInHelper);
+        final PendingResult pendingResult = new PendingResult(
+                1 /* resultCode */,
+                "resultData",
+                new Bundle(),
+                0 /* type */,
+                true /* ordered */,
+                false /*sticky*/,
+                null /* ibinder token */,
+                0 /* userid */,
+                0 /* flags */);
+        mReceiver.setPendingResult(pendingResult);
 
-        List<WorkInfo> workInfo = mWorkManager.getWorkInfosForUniqueWork(
-                DeviceCheckInHelper.CHECK_IN_WORK_NAME).get(500, TimeUnit.MILLISECONDS);
-        assertThat(workInfo.size()).isEqualTo(1);
+        mReceiver.onReceive(mTestApp, INTENT);
+
+        verify(mScheduler).maybeScheduleInitialCheckIn();
     }
 
     @Test
-    public void onReceive_checkInNotNeeded_shouldNotEnqueueCheckInWork()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        when(mDeviceStateController.isCheckInNeeded()).thenReturn(false);
+    public void onReceive_notSystemUser_disablesReceiver() {
+        Context secondaryUserContext = mTestApp.createContextAsUser(
+                UserHandle.of(/* userId= */ 1), /* flags= */ 0);
+        PackageManager packageManager = secondaryUserContext.getPackageManager();
 
-        CheckInBootCompletedReceiver.checkInIfNeeded(mDeviceStateController, mDeviceCheckInHelper);
+        mReceiver.onReceive(secondaryUserContext, INTENT);
 
-        List<WorkInfo> workInfo = mWorkManager.getWorkInfosForUniqueWork(
-                DeviceCheckInHelper.CHECK_IN_WORK_NAME).get(500, TimeUnit.MILLISECONDS);
-        assertThat(workInfo).isEmpty();
+        ComponentName receiverCmp =
+                new ComponentName(secondaryUserContext, CheckInBootCompletedReceiver.class);
+        assertThat(packageManager.getComponentEnabledSetting(receiverCmp))
+                .isEqualTo(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
+        verifyNoInteractions(mScheduler);
     }
 }

@@ -16,6 +16,8 @@
 
 package com.android.devicelockcontroller.storage;
 
+import static com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState.FINALIZED;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -27,9 +29,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @RunWith(RobolectricTestRunner.class)
 public final class GlobalParametersTest extends AbstractGlobalParametersTestBase {
     private Context mContext;
@@ -37,35 +36,6 @@ public final class GlobalParametersTest extends AbstractGlobalParametersTestBase
     @Before
     public void setup() {
         mContext = ApplicationProvider.getApplicationContext();
-    }
-
-    @Test
-    public void getLockTaskAllowlist_shouldReturnExpectedAllowlist() {
-        assertThat(GlobalParameters.getLockTaskAllowlist(mContext)).isEmpty();
-        final ArrayList<String> expectedAllowlist = new ArrayList<>();
-        expectedAllowlist.add(ALLOWLIST_PACKAGE_0);
-        expectedAllowlist.add(ALLOWLIST_PACKAGE_1);
-        GlobalParameters.setLockTaskAllowlist(mContext, expectedAllowlist);
-        final List<String> actualAllowlist = GlobalParameters.getLockTaskAllowlist(mContext);
-        assertThat(actualAllowlist).containsExactlyElementsIn(expectedAllowlist);
-    }
-
-    @Test
-    public void getKioskSigningCertificate_shouldReturnExpectedResult() {
-        assertThat(GlobalParameters.getKioskSignature(mContext)).isNull();
-
-        GlobalParameters.setKioskSignature(mContext, KIOSK_SIGNING_CERT);
-
-        assertThat(GlobalParameters.getKioskSignature(mContext)).isEqualTo(KIOSK_SIGNING_CERT);
-    }
-
-    @Test
-    public void needCheckIn_shouldReturnExpectedResult() {
-        assertThat(GlobalParameters.needCheckIn(mContext)).isNotEqualTo(NEED_CHECK_IN);
-
-        GlobalParameters.setNeedCheckIn(mContext, NEED_CHECK_IN);
-
-        assertThat(GlobalParameters.needCheckIn(mContext)).isEqualTo(NEED_CHECK_IN);
     }
 
     @Test
@@ -88,15 +58,6 @@ public final class GlobalParametersTest extends AbstractGlobalParametersTestBase
     }
 
     @Test
-    public void getEnrollmentToken_shouldReturnExpectedResult() {
-        assertThat(GlobalParameters.getEnrollmentToken(mContext)).isNull();
-
-        GlobalParameters.setEnrollmentToken(mContext, ENROLLMENT_TOKEN);
-
-        assertThat(GlobalParameters.getEnrollmentToken(mContext)).isEqualTo(ENROLLMENT_TOKEN);
-    }
-
-    @Test
     public void getLastReceivedProvisionState_shouldReturnExpectedResult() {
         assertThat(GlobalParameters.getLastReceivedProvisionState(mContext)).isNotEqualTo(
                 LAST_RECEIVED_PROVISION_STATE);
@@ -105,5 +66,14 @@ public final class GlobalParametersTest extends AbstractGlobalParametersTestBase
 
         assertThat(GlobalParameters.getLastReceivedProvisionState(mContext)).isEqualTo(
                 LAST_RECEIVED_PROVISION_STATE);
+    }
+
+    @Test
+    public void getFinalizationState_shouldReturnExpectedResult() {
+        assertThat(GlobalParameters.getFinalizationState(mContext)).isNotEqualTo(FINALIZED);
+
+        GlobalParameters.setFinalizationState(mContext, FINALIZED);
+
+        assertThat(GlobalParameters.getFinalizationState(mContext)).isEqualTo(FINALIZED);
     }
 }
