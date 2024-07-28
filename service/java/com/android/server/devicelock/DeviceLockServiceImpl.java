@@ -612,7 +612,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     void getDeviceId(@NonNull IGetDeviceIdCallback callback, int deviceIdTypeBitmap) {
         try {
             if (deviceIdTypeBitmap < 0 || deviceIdTypeBitmap >= (1 << (LAST_DEVICE_ID_TYPE + 1))) {
-                callback.onError(new ParcelableException("Invalid device type"));
+                Exception exception = new Exception("Invalid device type");
+                callback.onError(new ParcelableException(exception));
                 return;
             }
         } catch (RemoteException e) {
@@ -659,7 +660,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                     //
                     // TODO(b/270392813): Send the device ID back to the callback with
                     //  UNSPECIFIED device ID type.
-                    callback.onError(new ParcelableException("Unable to get device id"));
+                    Exception exception = new Exception("Unable to get device id");
+                    callback.onError(new ParcelableException(exception));
                 } catch (RemoteException e) {
                     Slog.e(TAG, "getDeviceId() - Unable to send result to the callback", e);
                 }
