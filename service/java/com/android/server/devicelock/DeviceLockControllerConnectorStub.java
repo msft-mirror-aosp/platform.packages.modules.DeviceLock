@@ -19,6 +19,7 @@ package com.android.server.devicelock;
 import android.annotation.IntDef;
 import android.os.OutcomeReceiver;
 
+import com.android.devicelock.flags.Flags;
 import com.android.internal.annotations.GuardedBy;
 
 import java.lang.annotation.ElementType;
@@ -144,6 +145,10 @@ public class DeviceLockControllerConnectorStub implements DeviceLockControllerCo
 
     @GuardedBy("this")
     private boolean setExceptionIfDeviceIsCleared(OutcomeReceiver<?, Exception> callback) {
+        if (Flags.clearDeviceRestrictions()) {
+            return false;
+        }
+
         if (mPseudoState == DevicePseudoState.CLEARED) {
             setException(callback, "Device has been cleared!");
 
