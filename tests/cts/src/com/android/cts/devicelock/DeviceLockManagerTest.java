@@ -26,6 +26,9 @@ import android.devicelock.DeviceLockManager;
 import android.os.Build;
 import android.os.OutcomeReceiver;
 import android.os.UserHandle;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.util.ArrayMap;
 
 import androidx.concurrent.futures.CallbackToFutureAdapter;
@@ -34,9 +37,11 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.devicelock.flags.Flags;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -60,6 +65,9 @@ public final class DeviceLockManagerTest {
 
     private final DeviceLockManager mDeviceLockManager =
             mContext.getSystemService(DeviceLockManager.class);
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
 
     private static final int TIMEOUT = 1;
 
@@ -181,6 +189,26 @@ public final class DeviceLockManagerTest {
                 });
     }
 
+    private ListenableFuture<Void> getClearDeviceRestrictionsFuture() {
+        return CallbackToFutureAdapter.getFuture(
+                completer -> {
+                    mDeviceLockManager.clearDeviceRestrictions(mExecutorService,
+                            new OutcomeReceiver<>() {
+                                @Override
+                                public void onResult(Void result) {
+                                    completer.set(null);
+                                }
+
+                                @Override
+                                public void onError(Exception error) {
+                                    completer.setException(error);
+                                }
+                            });
+                    // Used only for debugging.
+                    return "clearDeviceRestrictions operation";
+                });
+    }
+
     @Test
     @ApiTest(apis = {"android.devicelock.DeviceLockManager#lockDevice"})
     public void lockDevicePermissionCheck() {
@@ -204,6 +232,20 @@ public final class DeviceLockManagerTest {
                         ExecutionException.class,
                         () -> unlockDeviceFuture.get(TIMEOUT, TimeUnit.SECONDS));
         assertThat(lockDeviceResponseException).hasCauseThat()
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_CLEAR_DEVICE_RESTRICTIONS)
+    @ApiTest(apis = {"android.devicelock.DeviceLockManager#clearDeviceRestrictions"})
+    public void clearDeviceRestrictionsPermissionCheck() {
+        ListenableFuture<Void> clearDeviceRestrictionsFuture = getClearDeviceRestrictionsFuture();
+
+        Exception clearDeviceRestrictionsResponseException =
+                assertThrows(
+                        ExecutionException.class,
+                        () -> clearDeviceRestrictionsFuture.get(TIMEOUT, TimeUnit.SECONDS));
+        assertThat(clearDeviceRestrictionsResponseException).hasCauseThat()
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -303,5 +345,20 @@ public final class DeviceLockManagerTest {
             throws ExecutionException, InterruptedException, TimeoutException {
         Map<Integer, String> kioskAppsMap = getKioskAppsFuture().get(TIMEOUT, TimeUnit.SECONDS);
         assertThat(kioskAppsMap).isEmpty();
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_CLEAR_DEVICE_RESTRICTIONS)
+    @ApiTest(apis = {"android.devicelock.DeviceLockManager#clearDeviceRestrictions"})
+    public void clearDeviceRestrictionsShouldSucceed()
+            throws ExecutionException, InterruptedException, TimeoutException {
+        try {
+            addFinancedDeviceKioskRole();
+
+            // Clearing device restrictions should not throw an exception.
+            getClearDeviceRestrictionsFuture().get(TIMEOUT, TimeUnit.SECONDS);
+        } finally {
+            removeFinancedDeviceKioskRole();
+        }
     }
 }
