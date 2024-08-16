@@ -18,6 +18,7 @@ package {
 
 android_robolectric_test {
     name: "DeviceLockControllerRoboTests",
+    team: "trendy_team_android_go",
     instrumentation_for: "DeviceLockController",
     upstream: true,
     java_resource_dirs: [
@@ -32,9 +33,11 @@ android_robolectric_test {
         "guava-android-testlib",
         "grpc-java-lite",
         "grpc-java-testing",
+        "flag-junit",
     ],
     libs: [
         "androidx.work_work-testing",
+        "devicelock-aconfig-flags-lib",
     ],
     test_suites: ["general-tests"],
 

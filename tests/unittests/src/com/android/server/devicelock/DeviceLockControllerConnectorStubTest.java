@@ -21,12 +21,17 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.os.OutcomeReceiver;
+import android.platform.test.annotations.DisableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 
 import androidx.concurrent.futures.CallbackToFutureAdapter;
+
+import com.android.devicelock.flags.Flags;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -42,6 +47,9 @@ import java.util.concurrent.TimeoutException;
 public final class DeviceLockControllerConnectorStubTest {
     private DeviceLockControllerConnectorStub mDeviceLockControllerConnectorStub;
     private static final int TIMEOUT_SEC = 5;
+
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     @Before
     public void setup() throws Exception {
@@ -78,6 +86,7 @@ public final class DeviceLockControllerConnectorStubTest {
     }
 
     @Test
+    @DisableFlags(Flags.FLAG_CLEAR_DEVICE_RESTRICTIONS)
     public void lockDevice_withClearedState_shouldThrowException()
             throws ExecutionException, InterruptedException, TimeoutException {
         // Given the device state is CLEARED
@@ -119,6 +128,7 @@ public final class DeviceLockControllerConnectorStubTest {
     }
 
     @Test
+    @DisableFlags(Flags.FLAG_CLEAR_DEVICE_RESTRICTIONS)
     public void unlockDevice_withClearedState_shouldThrowException()
             throws ExecutionException, InterruptedException, TimeoutException {
         // Given the device state is CLEARED
@@ -160,6 +170,7 @@ public final class DeviceLockControllerConnectorStubTest {
     }
 
     @Test
+    @DisableFlags(Flags.FLAG_CLEAR_DEVICE_RESTRICTIONS)
     public void clearDeviceRestrictions_withClearedState_shouldThrowException()
             throws ExecutionException, InterruptedException, TimeoutException {
         // Given the device state is CLEARED
@@ -202,6 +213,7 @@ public final class DeviceLockControllerConnectorStubTest {
     }
 
     @Test
+    @DisableFlags(Flags.FLAG_CLEAR_DEVICE_RESTRICTIONS)
     public void isDeviceLocked_withClearedState_shouldThrownException()
             throws ExecutionException, InterruptedException, TimeoutException {
         // Given the device state is CLEARED
