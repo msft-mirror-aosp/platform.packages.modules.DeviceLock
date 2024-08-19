@@ -123,7 +123,7 @@
     <string name="provision_notification_channel_name" msgid="6123500714047647805">"Pružanje usluge"</string>
     <string name="device_reset_in_days_notification_title" msgid="920859483535317727">"{count,plural, =1{Uređaj će se vratiti na zadano za 1 dan}one{Uređaj će se vratiti na zadano za # dan}few{Uređaj će se vratiti na zadano za # dana}other{Uređaj će se vratiti na zadano za # dana}}"</string>
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Uređaj će se vratiti na zadano za <xliff:g id="TIMER">%s</xliff:g>"</string>
-    <string name="device_reset_notification_content" msgid="7642367488663440437">"Izbrisat će se svi podaci s uređaja. Za pomoć prilikom prijave uređaja kontaktirajte <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="device_reset_notification_content" msgid="7642367488663440437">"Izbrisat će se svi podaci uređaja. Za pomoć prilikom prijave uređaja kontaktirajte <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Pružanje usluge finansiranja nije uspjelo"</string>
     <string name="click_to_contact_financier" msgid="5932768971588112528">"Za pomoć prilikom prijave uređaja <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>kontaktirajte pružaoca usluge <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Izađi"</string>
