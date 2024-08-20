@@ -17,7 +17,6 @@
 package com.android.devicelockcontroller;
 
 import android.app.Service;
-import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.devicelock.ParcelableException;
@@ -42,9 +41,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-
-import java.util.List;
-import java.util.Objects;
 
 /**
  * Device Lock Controller Service. This is hosted in an APK and is bound
@@ -127,10 +123,6 @@ public final class DeviceLockControllerService extends Service {
 
                 @Override
                 public void onUserUnlocked(RemoteCallback remoteCallback) {
-                    DevicePolicyManager dpm = getSystemService(DevicePolicyManager.class);
-                    Objects.requireNonNull(dpm).setUserControlDisabledPackages(
-                            /* admin= */ null,
-                            List.of(getPackageName()));
                     Futures.addCallback(mPolicyController.onUserUnlocked(),
                             remoteCallbackWrapper(remoteCallback),
                             MoreExecutors.directExecutor());
