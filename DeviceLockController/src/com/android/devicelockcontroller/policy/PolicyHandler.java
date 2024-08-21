@@ -24,6 +24,10 @@ import com.google.common.util.concurrent.ListenableFuture;
  */
 interface PolicyHandler {
 
+    default ListenableFuture<Boolean> onUnprovisioned() {
+        return Futures.immediateFuture(true);
+    }
+
     default ListenableFuture<Boolean> onProvisioned() {
         return Futures.immediateFuture(true);
     }
