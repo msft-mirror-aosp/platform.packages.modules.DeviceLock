@@ -44,6 +44,11 @@ final class PackagePolicyHandler implements PolicyHandler {
     }
 
     @Override
+    public ListenableFuture<Boolean> onUnprovisioned() {
+        return enablePackageProtection(/* enableForKiosk= */ false);
+    }
+
+    @Override
     public ListenableFuture<Boolean> onProvisioned() {
         return enablePackageProtection(/* enableForKiosk= */ true);
     }
