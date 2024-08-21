@@ -74,7 +74,7 @@
     <string name="restrictions_lifted" msgid="5785586265984319396">"כל ההגבלות על המכשיר הוסרו"</string>
     <string name="uninstall_kiosk_app" msgid="3459557395024053988">"אפשר להסיר את אפליקציית \"קיוסק\" מהמכשיר"</string>
     <string name="getting_device_ready" msgid="2829009584599871699">"המכשיר בתהליך הגדרה…"</string>
-    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"הפעולה עשויה להימשך מספר דקות"</string>
+    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"זה יכול לקחת כמה דקות"</string>
     <string name="installing_kiosk_app" msgid="324208168205545860">"אפליקציית <xliff:g id="CREDITOR_APP">%1$s</xliff:g> מותקנת…"</string>
     <string name="opening_kiosk_app" msgid="2021888641430165654">"האפליקציה <xliff:g id="CREDITOR_APP">%1$s</xliff:g> נפתחת…"</string>
     <string name="settings_banner_title" msgid="527041021011279252">"המכשיר סופק על ידי <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
