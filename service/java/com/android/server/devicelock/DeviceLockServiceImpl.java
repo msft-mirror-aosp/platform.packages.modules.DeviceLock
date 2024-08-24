@@ -1026,21 +1026,37 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
     @Override
     public void enableKioskKeepalive(String packageName, @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         enableKeepalive(true /* forKiosk */, packageName, remoteCallback);
     }
 
     @Override
     public void disableKioskKeepalive(@NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         disableKeepalive(true /* forKiosk */, remoteCallback);
     }
 
     @Override
     public void enableControllerKeepalive(@NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         enableKeepalive(false /* forKiosk */, mServiceInfo.packageName, remoteCallback);
     }
 
     @Override
     public void disableControllerKeepalive(@NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         disableKeepalive(false /* forKiosk */, remoteCallback);
     }
 
@@ -1110,6 +1126,10 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
     @Override
     public void setDeviceFinalized(boolean finalized, @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         mPersistentStore.scheduleWrite(finalized);
         UserHandle user = getCallingUserHandle();
         if (canDlcBeDisabledForFinalizedUser(user)) {
@@ -1125,6 +1145,10 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     @Override
     public void setPostNotificationsSystemFixed(boolean systemFixed,
             @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         final UserHandle userHandle = Binder.getCallingUserHandle();
         final PackageManager packageManager = mContext.getPackageManager();
         final int permissionFlags = PackageManager.FLAG_PERMISSION_SYSTEM_FIXED;
