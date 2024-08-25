@@ -77,6 +77,20 @@ public final class PackagePolicyHandlerTest {
     }
 
     @Test
+    public void onUnprovisioned_shouldSetUserControlDisabledPackagesForController()
+            throws ExecutionException, InterruptedException {
+
+        assertThat(mHandler.onUnprovisioned().get()).isTrue();
+
+        verify(mMockDpm).setUserControlDisabledPackages(eq(null),
+                mUserControlDisabledPackages.capture());
+        List<String> userControlDisabledPackages = mUserControlDisabledPackages.getValue();
+
+        assertThat(userControlDisabledPackages).hasSize(1);
+        assertThat(userControlDisabledPackages).contains(mContext.getPackageName());
+    }
+
+    @Test
     public void onProvisioned_withKioskPackageSet_shouldHaveExpectedMethodCalls()
             throws ExecutionException, InterruptedException {
         setupSetupParameters();
