@@ -127,15 +127,43 @@ public final class KioskKeepAlivePolicyHandlerTest {
     }
 
     @Test
-    public void onLocked_shouldDoNothing() throws ExecutionException, InterruptedException {
+    public void onLocked_enablesKioskKeepalive()
+            throws ExecutionException, InterruptedException {
+        setExpectationsOnEnableKioskKeepalive(/* isSuccess =*/ true);
         assertThat(mHandler.onLocked().get()).isTrue();
-        verifyNoInteractions(mSystemDeviceLockManager);
+        verify(mSystemDeviceLockManager).enableKioskKeepalive(eq(TEST_KIOSK_PACKAGE),
+                any(Executor.class), any());
+        verify(mSystemDeviceLockManager, never()).disableKioskKeepalive(any(Executor.class), any());
     }
 
     @Test
-    public void onUnlocked_shouldDoNothing() throws ExecutionException, InterruptedException {
+    public void onLocked_onFailure_stillReturnsTrue()
+            throws ExecutionException, InterruptedException {
+        setExpectationsOnEnableKioskKeepalive(/* isSuccess =*/ false);
+        assertThat(mHandler.onLocked().get()).isTrue();
+        verify(mSystemDeviceLockManager).enableKioskKeepalive(eq(TEST_KIOSK_PACKAGE),
+                any(Executor.class), any());
+        verify(mSystemDeviceLockManager, never()).disableKioskKeepalive(any(Executor.class), any());
+    }
+
+    @Test
+    public void onUnlocked_disablesKioskKeepalive()
+            throws ExecutionException, InterruptedException {
+        setExpectationsOnDisableKioskKeepalive(/* isSuccess =*/ true);
         assertThat(mHandler.onUnlocked().get()).isTrue();
-        verifyNoInteractions(mSystemDeviceLockManager);
+        verify(mSystemDeviceLockManager).disableKioskKeepalive(any(Executor.class), any());
+        verify(mSystemDeviceLockManager, never()).enableKioskKeepalive(eq(TEST_KIOSK_PACKAGE),
+                any(Executor.class), any());
+    }
+
+    @Test
+    public void onUnlocked_onFailure_stillReturnsTrue()
+            throws ExecutionException, InterruptedException {
+        setExpectationsOnDisableKioskKeepalive(/* isSuccess =*/ false);
+        assertThat(mHandler.onUnlocked().get()).isTrue();
+        verify(mSystemDeviceLockManager).disableKioskKeepalive(any(Executor.class), any());
+        verify(mSystemDeviceLockManager, never()).enableKioskKeepalive(eq(TEST_KIOSK_PACKAGE),
+                any(Executor.class), any());
     }
 
     private void setExpectationsOnEnableKioskKeepalive(boolean isSuccess) {
