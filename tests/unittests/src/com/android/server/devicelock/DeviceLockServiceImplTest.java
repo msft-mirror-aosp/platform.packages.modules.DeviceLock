@@ -398,6 +398,78 @@ public final class DeviceLockServiceImplTest {
                 .isEqualTo(COMPONENT_ENABLED_STATE_DISABLED);
     }
 
+    @Test
+    public void enableKioskKeepalive_withoutPermission_shouldFail() throws Exception {
+        mShadowApplication.denyPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
+
+        AtomicBoolean succeeded = new AtomicBoolean(true);
+        mService.enableKioskKeepalive(mContext.getPackageName(), new RemoteCallback(result ->
+                succeeded.set(result.getBoolean(KEY_REMOTE_CALLBACK_RESULT))));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isFalse();
+    }
+
+    @Test
+    public void disableKioskKeepalive_withoutPermission_shouldFail() throws Exception {
+        mShadowApplication.denyPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
+
+        AtomicBoolean succeeded = new AtomicBoolean(true);
+        mService.disableKioskKeepalive(new RemoteCallback(result ->
+                succeeded.set(result.getBoolean(KEY_REMOTE_CALLBACK_RESULT))));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isFalse();
+    }
+
+    @Test
+    public void enableControllerKeepalive_withoutPermission_shouldFail() throws Exception {
+        mShadowApplication.denyPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
+
+        AtomicBoolean succeeded = new AtomicBoolean(true);
+        mService.enableControllerKeepalive(new RemoteCallback(result ->
+                succeeded.set(result.getBoolean(KEY_REMOTE_CALLBACK_RESULT))));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isFalse();
+    }
+
+    @Test
+    public void disableControllerKeepalive_withoutPermission_shouldFail() throws Exception {
+        mShadowApplication.denyPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
+
+        AtomicBoolean succeeded = new AtomicBoolean(true);
+        mService.disableControllerKeepalive(new RemoteCallback(result ->
+                succeeded.set(result.getBoolean(KEY_REMOTE_CALLBACK_RESULT))));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isFalse();
+    }
+
+    @Test
+    public void setDeviceFinalized_withoutPermission_shouldFail() throws Exception {
+        mShadowApplication.denyPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
+
+        AtomicBoolean succeeded = new AtomicBoolean(true);
+        mService.setDeviceFinalized(true, new RemoteCallback(result ->
+                succeeded.set(result.getBoolean(KEY_REMOTE_CALLBACK_RESULT))));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isFalse();
+    }
+
+    @Test
+    public void setPostNotificationsSystemFixed_withoutPermission_shouldFail() throws Exception {
+        mShadowApplication.denyPermissions(MANAGE_DEVICE_LOCK_SERVICE_FROM_CONTROLLER);
+
+        AtomicBoolean succeeded = new AtomicBoolean(true);
+        mService.setPostNotificationsSystemFixed(true, new RemoteCallback(result ->
+                succeeded.set(result.getBoolean(KEY_REMOTE_CALLBACK_RESULT))));
+        waitUntilBgExecutorIdle();
+
+        assertThat(succeeded.get()).isFalse();
+    }
+
     /**
      * Make the resolve info for the DLC package.
      */

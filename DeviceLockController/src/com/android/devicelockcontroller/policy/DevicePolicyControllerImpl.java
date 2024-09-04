@@ -134,14 +134,14 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
     DevicePolicyControllerImpl(Context context,
             DevicePolicyManager devicePolicyManager,
             UserManager userManager,
-            UserRestrictionsPolicyHandler userRestrictionsPolicyHandler,
-            AppOpsPolicyHandler appOpsPolicyHandler,
-            LockTaskModePolicyHandler lockTaskModePolicyHandler,
-            PackagePolicyHandler packagePolicyHandler,
-            RolePolicyHandler rolePolicyHandler,
-            KioskKeepAlivePolicyHandler kioskKeepAlivePolicyHandler,
-            ControllerKeepAlivePolicyHandler controllerKeepAlivePolicyHandler,
-            NotificationsPolicyHandler notificationsPolicyHandler,
+            PolicyHandler userRestrictionsPolicyHandler,
+            PolicyHandler appOpsPolicyHandler,
+            PolicyHandler lockTaskModePolicyHandler,
+            PolicyHandler packagePolicyHandler,
+            PolicyHandler rolePolicyHandler,
+            PolicyHandler kioskKeepAlivePolicyHandler,
+            PolicyHandler controllerKeepAlivePolicyHandler,
+            PolicyHandler notificationsPolicyHandler,
             ProvisionStateController provisionStateController,
             Executor bgExecutor) {
         mContext = context;
@@ -258,9 +258,6 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             @ProvisionState int provisionState, @DeviceState int deviceState) {
         LogUtil.i(TAG, "Enforcing policies for provision state " + provisionState
                 + " and device state " + deviceState);
-        if (provisionState == UNPROVISIONED) {
-            return Futures.immediateFuture(resolveLockTaskType(provisionState, deviceState));
-        }
         List<ListenableFuture<Boolean>> futures = new ArrayList<>();
         if (deviceState == CLEARED) {
             // If device is cleared, then ignore provision state and add cleared policies
@@ -292,6 +289,9 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
                 PolicyHandler policy = mPolicyList.get(i);
                 switch (provisionState) {
+                    case UNPROVISIONED:
+                        futures.add(policy.onUnprovisioned());
+                        break;
                     case PROVISION_IN_PROGRESS:
                         futures.add(policy.onProvisionInProgress());
                         break;
