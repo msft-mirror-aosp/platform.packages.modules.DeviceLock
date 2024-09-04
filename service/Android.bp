@@ -33,8 +33,8 @@ java_library {
     min_sdk_version: "UpsideDownCake",
     libs: [
         "framework-devicelock.impl",
-        "framework-permission",
-        "framework-permission-s",
+        "framework-permission.stubs.module_lib",
+        "framework-permission-s.stubs.module_lib",
     ],
     static_libs: [
         "devicelockcontroller-interface",
