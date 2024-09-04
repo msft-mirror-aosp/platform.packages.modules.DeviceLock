@@ -100,6 +100,16 @@ public final class KioskKeepAlivePolicyHandler implements PolicyHandler {
     }
 
     @Override
+    public ListenableFuture<Boolean> onLocked() {
+        return getEnableKioskKeepAliveFuture();
+    }
+
+    @Override
+    public ListenableFuture<Boolean> onUnlocked() {
+        return getDisableKioskKeepAliveFuture();
+    }
+
+    @Override
     public ListenableFuture<Boolean> onProvisioned() {
         return getEnableKioskKeepAliveFuture();
     }
