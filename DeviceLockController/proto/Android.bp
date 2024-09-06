@@ -26,6 +26,13 @@ package {
     ],
 }
 
+filegroup {
+    name: "devicelockcontroller-protos",
+    srcs: [
+        "*.proto",
+    ],
+}
+
 genrule {
     name: "checkIn-service-stub-lite",
     tools: [
@@ -37,10 +44,10 @@ genrule {
         "$(location aprotoc) --java_opt=annotate_code=false " +
         "-Iexternal/protobuf/src -Ipackages/modules/DeviceLock/DeviceLockController/proto " +
         "--plugin=protoc-gen-grpc-java=$(location protoc-gen-grpc-java-plugin) " +
-        "--grpc-java_out=lite:$(genDir)/gen $(locations *.proto) && " +
+        "--grpc-java_out=lite:$(genDir)/gen $(locations :devicelockcontroller-protos) && " +
         "$(location soong_zip) -o $(out) -C $(genDir)/gen -D $(genDir)/gen",
     srcs: [
-        "*.proto",
+        ":devicelockcontroller-protos",
         ":libprotobuf-internal-protos",
     ],
     out: [

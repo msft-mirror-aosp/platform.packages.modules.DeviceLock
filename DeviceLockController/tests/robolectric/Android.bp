@@ -30,6 +30,8 @@ android_robolectric_test {
         "mockito-robolectric-prebuilt",
         "truth",
         "guava-android-testlib",
+        "grpc-java-lite",
+        "grpc-java-testing",
     ],
     libs: [
         "androidx.work_work-testing",
@@ -37,4 +39,14 @@ android_robolectric_test {
     test_suites: ["general-tests"],
 
     strict_mode: false,
+}
+
+filegroup {
+    name: "devicelockcontroller-test-application-sources",
+    srcs: [
+        "src/com/android/devicelockcontroller/TestDeviceLockControllerApplication.java",
+    ],
+    visibility: [
+        "//vendor:__subpackages__",
+    ],
 }

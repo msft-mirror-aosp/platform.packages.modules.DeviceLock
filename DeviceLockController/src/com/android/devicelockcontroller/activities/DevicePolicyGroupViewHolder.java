@@ -52,6 +52,9 @@ final class DevicePolicyGroupViewHolder extends RecyclerView.ViewHolder {
             DevicePolicy devicePolicy = devicePolicyGroup.getDevicePolicyList().get(i);
             String policyText = context.getString(devicePolicy.getTextId(), providerName);
             UrlUtils.setUrlText(devicePolicyItemView, policyText);
+            // Focus is set to false because we want all the views to fall under the parent
+            // container when it is focused
+            devicePolicyItemView.setFocusable(false);
             devicePolicyItemView.setCompoundDrawablesRelativeWithIntrinsicBounds(
                     devicePolicy.getDrawableId(),
                     /* top=*/ 0,

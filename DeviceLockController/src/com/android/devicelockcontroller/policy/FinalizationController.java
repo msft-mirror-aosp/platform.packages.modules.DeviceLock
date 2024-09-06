@@ -27,11 +27,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 public interface FinalizationController {
 
     /**
-     * Initializes the controller and enforces the initial state.
+     * Enforces the disk state.
      *
+     * @param force if true, forcefully reset the state to the disk state and enforce it.
+     *              Otherwise, only enforce if the state is uninitialized
      * @return future for when the state has been enforced
      */
-    ListenableFuture<Void> enforceInitialState();
+    ListenableFuture<Void> enforceDiskState(boolean force);
 
     /**
      * Notifies the controller that the device restrictions have been cleared and that the device
@@ -40,6 +42,13 @@ public interface FinalizationController {
      * @return future for when the clear has been handled
      */
     ListenableFuture<Void> notifyRestrictionsCleared();
+
+    /**
+     * Finalize a device that is not enrolled in the program, without reporting to the backend.
+     *
+     * @return future for when finalization has been handled
+     */
+    ListenableFuture<Void> finalizeNotEnrolledDevice();
 
     /**
      * Notifies the controller of the result of reporting the finalization state to the server

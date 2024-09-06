@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"<xliff:g id="TIMER">%s</xliff:g>ல் சாதனம் மீட்டமைக்கப்படும்"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"சாதனத்திலுள்ள அனைத்துத் தரவும் நீக்கப்படும். சாதனத்தைப் பதிவுசெய்வதற்கான உதவிக்கு, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ஐத் தொடர்புகொள்ளவும்"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"கடன் வழங்கல் தோல்வியடைந்தது"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"கடன் வழங்குநரைத் தொடர்புகொள்வதற்கான வழிகளை அறிந்துகொள்ள இங்கே கிளிக் செய்யுங்கள். <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>மேலும் அறிக<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"உங்கள் சாதனத்தைப் பதிவுசெய்வதற்கான உதவிக்கு, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g> ஐத் தொடர்புகொள்ளுங்கள்."</string>
     <string name="exit" msgid="645084771882733921">"வெளியேறு"</string>
     <string name="retry" msgid="7497287909193345356">"மீண்டும் முயல்க"</string>
 </resources>

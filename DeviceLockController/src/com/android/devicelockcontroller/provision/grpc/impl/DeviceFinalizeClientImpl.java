@@ -23,6 +23,7 @@ import com.android.devicelockcontroller.proto.ReportDeviceProgramCompleteRequest
 import com.android.devicelockcontroller.provision.grpc.DeviceFinalizeClient;
 import com.android.devicelockcontroller.util.ThreadAsserts;
 
+import io.grpc.ClientInterceptor;
 import io.grpc.StatusRuntimeException;
 import io.grpc.okhttp.OkHttpChannelBuilder;
 
@@ -33,12 +34,12 @@ import io.grpc.okhttp.OkHttpChannelBuilder;
 public final class DeviceFinalizeClientImpl extends DeviceFinalizeClient {
     private final DeviceLockFinalizeServiceGrpc.DeviceLockFinalizeServiceBlockingStub mBlockingStub;
 
-    public DeviceFinalizeClientImpl() {
+    public DeviceFinalizeClientImpl(ClientInterceptor clientInterceptor) {
         mBlockingStub = DeviceLockFinalizeServiceGrpc.newBlockingStub(
                         OkHttpChannelBuilder
                                 .forAddress(sHostName, sPortNumber)
                                 .build())
-                .withInterceptors(new ApiKeyClientInterceptor(sApiKey));
+                .withInterceptors(clientInterceptor);
     }
 
     /**

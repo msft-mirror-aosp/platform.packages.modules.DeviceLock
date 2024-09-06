@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"डिवाइस <xliff:g id="TIMER">%s</xliff:g> में रीसेट हो जाएगा"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"डिवाइस का सारा डेटा मिटा दिया जाएगा. अपने डिवाइस को रजिस्टर करने में मदद पाने के लिए, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> से संपर्क करें"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"डिवाइस प्रॉविज़निंग को फ़ाइनेंस नहीं किया जा सका"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"कृपया, अपने फ़ाइनेंशियर से संपर्क करने के तरीके जानने के लिए यहां क्लिक करें. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>ज़्यादा जानें<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"अपने डिवाइस को रजिस्टर करने में मदद पाने के लिए, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g> से संपर्क करें<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"बाहर निकलें"</string>
     <string name="retry" msgid="7497287909193345356">"फिर से कोशिश करें"</string>
 </resources>

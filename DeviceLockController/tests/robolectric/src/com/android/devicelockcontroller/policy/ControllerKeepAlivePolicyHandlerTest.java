@@ -59,7 +59,7 @@ public final class ControllerKeepAlivePolicyHandlerTest {
 
     @Test
     public void onProvisioned_withSuccess_shouldDisableControllerKeepalive()
-        throws ExecutionException, InterruptedException {
+            throws ExecutionException, InterruptedException {
         setExpectationsOnDisableControllerKeepalive(/* isSuccess =*/ true);
         assertThat(mHandler.onProvisioned().get()).isTrue();
         verify(mSystemDeviceLockManager).disableControllerKeepalive(any(Executor.class), any());

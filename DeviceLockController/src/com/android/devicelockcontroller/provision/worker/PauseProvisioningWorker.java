@@ -16,10 +16,16 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.REASON_UNSPECIFIED;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.USER_DEFERRED_DEVICE_PROVISIONING;
 
 import android.content.Context;
+import android.net.NetworkRequest;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
@@ -64,8 +70,14 @@ public final class PauseProvisioningWorker extends AbstractCheckInWorker {
         Data inputData = new Data.Builder()
                 .putInt(KEY_PAUSE_DEVICE_PROVISIONING_REASON, USER_DEFERRED_DEVICE_PROVISIONING)
                 .build();
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiredNetworkRequest(request, NetworkType.CONNECTED)
                 .build();
         OneTimeWorkRequest work =
                 new OneTimeWorkRequest.Builder(PauseProvisioningWorker.class)
@@ -115,7 +127,7 @@ public final class PauseProvisioningWorker extends AbstractCheckInWorker {
                     REASON_UNSPECIFIED);
             PauseDeviceProvisioningGrpcResponse response = client.pauseDeviceProvisioning(reason);
             if (response.hasRecoverableError()) {
-                LogUtil.w(TAG, "Report paused provisioning failed w/ recoverable error" + response
+                LogUtil.w(TAG, "Report paused provisioning failed w/ recoverable error " + response
                         + "\nRetrying...");
                 return Result.retry();
             }

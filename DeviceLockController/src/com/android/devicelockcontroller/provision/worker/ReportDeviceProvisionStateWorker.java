@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_DISMISSIBLE_UI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_FACTORY_RESET;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState.PROVISION_STATE_PERSISTENT_UI;
@@ -25,6 +30,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.Device
 import static com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason.DEADLINE_PASSED;
 
 import android.content.Context;
+import android.net.NetworkRequest;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
@@ -48,6 +54,7 @@ import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerPr
 import com.android.devicelockcontroller.stats.StatsLogger;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
+import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
@@ -103,8 +110,14 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
     }
 
     private static void enqueueReportWork(Data inputData, WorkManager workManager) {
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiredNetworkRequest(request, NetworkType.CONNECTED)
                 .build();
         OneTimeWorkRequest work =
                 new OneTimeWorkRequest.Builder(ReportDeviceProvisionStateWorker.class)
@@ -154,11 +167,13 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
         GlobalParametersClient globalParametersClient = GlobalParametersClient.getInstance();
         ListenableFuture<Integer> lastState =
                 globalParametersClient.getLastReceivedProvisionState();
+        ListenableFuture<Boolean> isMandatory =
+                SetupParametersClient.getInstance().isProvisionMandatory();
         DeviceLockControllerSchedulerProvider schedulerProvider =
                 (DeviceLockControllerSchedulerProvider) mContext;
         DeviceLockControllerScheduler scheduler =
                 schedulerProvider.getDeviceLockControllerScheduler();
-        return Futures.whenAllSucceed(mClient, lastState).call(() -> {
+        return Futures.whenAllSucceed(mClient, lastState, isMandatory).call(() -> {
             boolean isSuccessful = getInputData().getBoolean(
                     KEY_IS_PROVISION_SUCCESSFUL, /* defaultValue= */ false);
             int failureReason = getInputData().getInt(KEY_PROVISION_FAILURE_REASON,
@@ -172,7 +187,7 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                             isSuccessful,
                             failureReason);
             if (response.hasRecoverableError()) {
-                LogUtil.w(TAG, "Report provision state failed w/ recoverable error" + response
+                LogUtil.w(TAG, "Report provision state failed w/ recoverable error " + response
                         + "\nRetrying...");
                 return Result.retry();
             }
@@ -188,13 +203,15 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
             }
             int nextState = response.getNextClientProvisionState();
             Futures.getUnchecked(globalParametersClient.setLastReceivedProvisionState(nextState));
-            onNextProvisionStateReceived(nextState, daysLeftUntilReset);
-            if (nextState == PROVISION_STATE_FACTORY_RESET) {
-                scheduler.scheduleResetDeviceAlarm();
-            } else if (nextState != PROVISION_STATE_SUCCESS) {
-                scheduler.scheduleNextProvisionFailedStepAlarm();
-            }
             mStatsLogger.logReportDeviceProvisionState();
+            if (!Futures.getDone(isMandatory)) {
+                onNextProvisionStateReceived(nextState, daysLeftUntilReset);
+                if (nextState == PROVISION_STATE_FACTORY_RESET) {
+                    scheduler.scheduleResetDeviceAlarm();
+                } else if (nextState != PROVISION_STATE_SUCCESS) {
+                    scheduler.scheduleNextProvisionFailedStepAlarm();
+                }
+            }
             return Result.success();
         }, mExecutorService);
     }
@@ -209,11 +226,11 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
                 // no-op
                 break;
             case PROVISION_STATE_DISMISSIBLE_UI:
-                DeviceLockNotificationManager.sendDeviceResetNotification(mContext,
-                        daysLeftUntilReset);
+                DeviceLockNotificationManager.getInstance()
+                        .sendDeviceResetNotification(mContext, daysLeftUntilReset);
                 break;
             case PROVISION_STATE_PERSISTENT_UI:
-                DeviceLockNotificationManager
+                DeviceLockNotificationManager.getInstance()
                         .sendDeviceResetInOneDayOngoingNotification(mContext);
                 break;
             default:

@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Perangkat akan direset dalam <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Semua data perangkat akan dihapus. Untuk mendapatkan bantuan dalam proses pendaftaran perangkat Anda, hubungi <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Penyediaan keuangan gagal"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Klik di sini untuk mengetahui cara menghubungi penyedia dana Anda. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Pelajari lebih lanjut<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Untuk mendapatkan bantuan dalam proses pendaftaran perangkat Anda, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>hubungi <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Keluar"</string>
     <string name="retry" msgid="7497287909193345356">"Coba lagi"</string>
 </resources>

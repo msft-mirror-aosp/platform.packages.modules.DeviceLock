@@ -100,7 +100,8 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                             unused -> Futures.transformAsync(isCleared(),
                                     isCleared -> {
                                         if (isCleared) {
-                                            throw new RuntimeException("Device has been cleared!");
+                                            throw new IllegalStateException("Device has been "
+                                                    + "cleared!");
                                         }
                                         return Futures.transformAsync(
                                                 mGlobalParametersClient.setDeviceState(deviceState),

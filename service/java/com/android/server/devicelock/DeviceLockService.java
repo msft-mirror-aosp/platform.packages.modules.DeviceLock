@@ -17,7 +17,10 @@
 package com.android.server.devicelock;
 
 import android.annotation.NonNull;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -41,6 +44,10 @@ public final class DeviceLockService extends SystemService {
         super(context);
         Slog.d(TAG, "DeviceLockService constructor");
         mImpl = new DeviceLockServiceImpl(context);
+
+        final IntentFilter userFilter = new IntentFilter();
+        userFilter.addAction(Intent.ACTION_USER_ADDED);
+        context.registerReceiver(mUserReceiver, userFilter);
     }
 
     @Override
@@ -65,9 +72,12 @@ public final class DeviceLockService extends SystemService {
 
     @Override
     public boolean isUserSupported(@NonNull TargetUser user) {
+        return isUserSupported(user.getUserHandle());
+    }
+
+    private boolean isUserSupported(UserHandle userHandle) {
         final UserManager userManager =
-                getUserContext(getContext(),
-                        user.getUserHandle()).getSystemService(UserManager.class);
+                getUserContext(getContext(), userHandle).getSystemService(UserManager.class);
         return !userManager.isProfile();
     }
 
@@ -76,7 +86,6 @@ public final class DeviceLockService extends SystemService {
         Objects.requireNonNull(to);
         Slog.d(TAG, "onUserSwitching from: " + from + " to: " + to);
         final UserHandle userHandle = to.getUserHandle();
-        mImpl.enforceDeviceLockControllerPackageEnabledState(userHandle);
         mImpl.onUserSwitching(userHandle);
     }
 
@@ -97,4 +106,19 @@ public final class DeviceLockService extends SystemService {
     public void onUserStopping(@NonNull TargetUser user) {
         Slog.d(TAG, "onUserStopping: " + user);
     }
+
+    private BroadcastReceiver mUserReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (Intent.ACTION_USER_ADDED.equals(intent.getAction())) {
+                final int userId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, -1);
+                UserHandle userHandle = UserHandle.of(userId);
+                if (!isUserSupported(userHandle)) {
+                    return;
+                }
+                Slog.d(TAG, "onUserAdded: " + userHandle);
+                mImpl.onUserAdded(userHandle);
+            }
+        }
+    };
 }
