@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.policy;
 
 import static android.Manifest.permission.RECEIVE_EMERGENCY_BROADCAST;
 import static android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED;
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
 
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_ALLOWLIST;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_KIOSK_PACKAGE;
@@ -49,8 +50,8 @@ import androidx.test.core.content.pm.ApplicationInfoBuilder;
 import androidx.test.core.content.pm.PackageInfoBuilder;
 import androidx.work.testing.WorkManagerTestInitHelper;
 
+import com.android.devicelockcontroller.activities.LockedHomeActivity;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
-import com.android.devicelockcontroller.storage.UserParameters;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -79,7 +80,6 @@ public final class LockTaskModePolicyHandlerTest {
     private static final String SETTINGS_PACKAGE = "test.settings";
     private static final String PERMISSION_PACKAGE = "test.permissions";
     private static final String DEVICELOCK_CONTROLLER_PACKAGE = "com.android.devicelockcontroller";
-    private static final String PACKAGE_OVERRIDING_HOME = "com.home.package";
     private static final String[] EXPECTED_ALLOWLIST_PACKAGES =
             new String[]{TEST_PACKAGE, SETTINGS_PACKAGE, DIALER_PACKAGE,
                     DEVICELOCK_CONTROLLER_PACKAGE};
@@ -99,6 +99,7 @@ public final class LockTaskModePolicyHandlerTest {
     private ArgumentCaptor<String[]> mAllowedPackages;
 
     private ShadowTelecomManager mTelecomManager;
+    private PackageManager mPackageManager;
     private LockTaskModePolicyHandler mHandler;
     private Context mContext;
 
@@ -107,6 +108,7 @@ public final class LockTaskModePolicyHandlerTest {
         mContext = ApplicationProvider.getApplicationContext();
         WorkManagerTestInitHelper.initializeTestWorkManager(mContext);
         mTelecomManager = Shadow.extract(mContext.getSystemService(TelecomManager.class));
+        mPackageManager = mContext.getPackageManager();
         mHandler = new LockTaskModePolicyHandler(mContext, mMockDpm,
                 Executors.newSingleThreadExecutor());
     }
@@ -192,6 +194,11 @@ public final class LockTaskModePolicyHandlerTest {
         mHandler.onUnlocked().get();
         shadowOf(Looper.getMainLooper()).idle();
         assertDisableLockTaskMode();
+        verify(mMockDpm).clearPackagePersistentPreferredActivities(eq(null),
+                eq(DEVICELOCK_CONTROLLER_PACKAGE));
+        assertThat(mPackageManager.getComponentEnabledSetting(
+                new ComponentName(mContext, LockedHomeActivity.class))).isEqualTo(
+                        COMPONENT_ENABLED_STATE_DISABLED);
     }
 
     @Test
@@ -200,23 +207,11 @@ public final class LockTaskModePolicyHandlerTest {
         mHandler.onCleared().get();
         shadowOf(Looper.getMainLooper()).idle();
         assertDisableLockTaskMode();
-        verify(mMockDpm, times(0)).clearPackagePersistentPreferredActivities(eq(null),
-                eq(PACKAGE_OVERRIDING_HOME));
-    }
-
-    @Test
-    public void onUnlocked_withHomePackageOverride_shouldDisableLockTaskMode()
-            throws ExecutionException, InterruptedException {
-        UserParameters.setPackageOverridingHome(mContext, PACKAGE_OVERRIDING_HOME);
-        mHandler.onProvisionFailed().get();
-        shadowOf(Looper.getMainLooper()).idle();
-        assertDisableLockTaskMode();
-
         verify(mMockDpm).clearPackagePersistentPreferredActivities(eq(null),
-                eq(PACKAGE_OVERRIDING_HOME));
-        Executors.newSingleThreadExecutor().submit(() -> {
-            assertThat(UserParameters.getPackageOverridingHome(mContext)).isNull();
-        }).get();
+                eq(DEVICELOCK_CONTROLLER_PACKAGE));
+        assertThat(mPackageManager.getComponentEnabledSetting(
+                new ComponentName(mContext, LockedHomeActivity.class))).isEqualTo(
+                        COMPONENT_ENABLED_STATE_DISABLED);
     }
 
     private void setupDefaultSystemPackages() {

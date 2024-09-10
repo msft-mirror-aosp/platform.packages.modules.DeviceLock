@@ -61,6 +61,8 @@ public final class TestDeviceLockControllerApplication extends Application imple
         PlayInstallPackageTaskClassProvider,
         StatsLoggerProvider {
 
+    public static final String TEST_FCM_TOKEN = "fcmToken";
+
     private DevicePolicyController mPolicyController;
     private DeviceStateController mStateController;
     private ProvisionStateController mProvisionStateController;
@@ -117,7 +119,7 @@ public final class TestDeviceLockControllerApplication extends Application imple
     @Override
     @NonNull
     public ListenableFuture<String> getFcmRegistrationToken() {
-        return Futures.immediateFuture(null);
+        return Futures.immediateFuture(TEST_FCM_TOKEN);
     }
 
     @Override

@@ -18,6 +18,8 @@ package com.android.devicelockcontroller;
 
 import android.app.Application;
 import android.content.Context;
+import android.content.res.Resources;
+import android.util.Pair;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
@@ -33,6 +35,7 @@ import com.android.devicelockcontroller.policy.FinalizationControllerImpl;
 import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
 import com.android.devicelockcontroller.policy.ProvisionStateController;
 import com.android.devicelockcontroller.policy.ProvisionStateControllerImpl;
+import com.android.devicelockcontroller.provision.grpc.impl.ApiKeyClientInterceptor;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerImpl;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
@@ -44,6 +47,8 @@ import com.android.devicelockcontroller.util.LogUtil;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import io.grpc.ClientInterceptor;
+
 /**
  * Application class for Device Lock Controller.
  */
@@ -53,7 +58,8 @@ public class DeviceLockControllerApplication extends Application implements
         DeviceLockControllerSchedulerProvider,
         FcmRegistrationTokenProvider,
         PlayInstallPackageTaskClassProvider,
-        StatsLoggerProvider {
+        StatsLoggerProvider,
+        ClientInterceptorProvider {
     private static final String TAG = "DeviceLockControllerApplication";
 
     private static Context sApplicationContext;
@@ -65,6 +71,8 @@ public class DeviceLockControllerApplication extends Application implements
     private DeviceLockControllerScheduler mDeviceLockControllerScheduler;
     @GuardedBy("this")
     private StatsLogger mStatsLogger;
+    @GuardedBy("this")
+    protected ClientInterceptor mClientInterceptor;
 
     private WorkManagerExceptionHandler mWorkManagerExceptionHandler;
 
@@ -159,5 +167,18 @@ public class DeviceLockControllerApplication extends Application implements
                     getProvisionStateController());
         }
         return mDeviceLockControllerScheduler;
+    }
+
+    @Override
+    public synchronized ClientInterceptor getClientInterceptor() {
+        if (mClientInterceptor == null) {
+            Resources resources = getResources();
+            Pair<String, String> apikey =
+                    new Pair<>(resources.getString(R.string.check_in_service_api_key_name),
+                            resources.getString(R.string.check_in_service_api_key_value));
+            mClientInterceptor = new ApiKeyClientInterceptor(apikey);
+        }
+
+        return mClientInterceptor;
     }
 }

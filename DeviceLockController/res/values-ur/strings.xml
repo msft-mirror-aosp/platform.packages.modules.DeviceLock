@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"آلہ <xliff:g id="TIMER">%s</xliff:g> میں ری سیٹ ہو جائے گا"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"آلہ کا تمام ڈیٹا حذف کر دیا جائے گا۔ اپنے آلے کے اندراج میں مدد کے لیے، <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> سے رابطہ کریں"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"فنانسنگ کی فراہمی ناکام ہو گئی ہے"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"اپنے سرمایہ کار سے رابطہ کرنے کے طریقوں کیلئے براہ کرم یہاں کلک کریں۔ <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>مزید جانیں<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"اپنے آلے کے اندراج میں مدد کے لیے، <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g> سے رابطہ کریں۔"</string>
     <string name="exit" msgid="645084771882733921">"باہر نکلیں"</string>
     <string name="retry" msgid="7497287909193345356">"پھر کوشش کریں"</string>
 </resources>

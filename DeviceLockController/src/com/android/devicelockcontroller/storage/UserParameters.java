@@ -37,7 +37,6 @@ import java.util.concurrent.Executors;
  */
 public final class UserParameters {
     private static final String FILENAME = "user-params";
-    private static final String KEY_HOME_PACKAGE_OVERRIDE = "home_override_package";
     private static final String TAG = "UserParameters";
     private static final String KEY_PROVISION_STATE = "provision-state";
     private static final String KEY_BOOT_TIME_MILLS = "boot-time-mills";
@@ -53,6 +52,7 @@ public final class UserParameters {
     public static final String KEY_NEED_INITIAL_CHECK_IN = "need-initial-check-in";
     public static final String KEY_NOTIFICATION_CHANNEL_ID_SUFFIX =
             "notification-channel-id-suffix";
+    public static final String KEY_SUW_TIMED_OUT = "suw-timed-out";
 
     private UserParameters() {
     }
@@ -91,30 +91,6 @@ public final class UserParameters {
     /** Mark initial check-in has been scheduled. */
     public static void initialCheckInScheduled(Context context) {
         getSharedPreferences(context).edit().putBoolean(KEY_NEED_INITIAL_CHECK_IN, false).apply();
-    }
-
-    /**
-     * Gets the name of the package overriding home.
-     *
-     * @param context Context used to get the shared preferences.
-     * @return Package overriding home.
-     */
-    @WorkerThread
-    @Nullable
-    public static String getPackageOverridingHome(Context context) {
-        ThreadAsserts.assertWorkerThread("getPackageOverridingHome");
-        return getSharedPreferences(context).getString(KEY_HOME_PACKAGE_OVERRIDE, null);
-    }
-
-    /**
-     * Sets the name of the package overriding home.
-     *
-     * @param context     Context used to get the shared preferences.
-     * @param packageName Package overriding home.
-     */
-    public static void setPackageOverridingHome(Context context, @Nullable String packageName) {
-        getSharedPreferences(context).edit()
-                .putString(KEY_HOME_PACKAGE_OVERRIDE, packageName).apply();
     }
 
     /** Get the device boot time */
@@ -203,11 +179,13 @@ public final class UserParameters {
         getSharedPreferences(context).edit().putInt(KEY_DAYS_LEFT_UNTIL_RESET, days).apply();
     }
 
+    /** Get the provisioning start time */
     public static long getProvisioningStartTimeMillis(Context context) {
         return getSharedPreferences(context).getLong(KEY_PROVISIONING_START_TIME_MILLIS,
                 /* defValue = */-1L);
     }
 
+    /** Set the provisioning start time */
     public static void setProvisioningStartTimeMillis(Context context,
             @CurrentTimeMillisLong long provisioningStartTime) {
         getSharedPreferences(context).edit().putLong(KEY_PROVISIONING_START_TIME_MILLIS,
@@ -229,6 +207,18 @@ public final class UserParameters {
         ThreadAsserts.assertWorkerThread("setNotificationChannelIdSuffix");
         getSharedPreferences(context).edit()
                 .putString(KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, notificationChannelSuffix).apply();
+    }
+
+    /** Check if SUW timed out. */
+    @WorkerThread
+    public static boolean isSetupWizardTimedOut(Context context) {
+        ThreadAsserts.assertWorkerThread("isSetupWizardTimedOut");
+        return getSharedPreferences(context).getBoolean(KEY_SUW_TIMED_OUT, false);
+    }
+
+    /** Set the provisioning start time */
+    public static void setSetupWizardTimedOut(Context context) {
+        getSharedPreferences(context).edit().putBoolean(KEY_SUW_TIMED_OUT, true).apply();
     }
 
     /**
@@ -255,17 +245,16 @@ public final class UserParameters {
             LogUtil.d(TAG, String.format(Locale.US,
                     "Dumping UserParameters for user: %s ...\n"
                             + "%s: %s\n"    // user_state:
-                            + "%s: %s\n"    // home_override_package:
                             + "%s: %s\n"    // boot-time-mills:
                             + "%s: %s\n"    // next-check-in-time-millis:
                             + "%s: %s\n"    // resume-provision-time-millis:
                             + "%s: %s\n"    // next-provision-failed-step-time-millis:
                             + "%s: %s\n"    // reset-device-time-millis:
                             + "%s: %s\n"    // days-left-until-reset:
-                            + "%s: %s\n",   // notification-channel-suffix:
+                            + "%s: %s\n"    // notification-channel-suffix:
+                            + "%s: %s\n",   // suw-timed-out:
                     context.getUser(),
                     KEY_PROVISION_STATE, getProvisionState(context),
-                    KEY_HOME_PACKAGE_OVERRIDE, getPackageOverridingHome(context),
                     KEY_BOOT_TIME_MILLS, getBootTimeMillis(context),
                     KEY_NEXT_CHECK_IN_TIME_MILLIS, getNextCheckInTimeMillis(context),
                     KEY_RESUME_PROVISION_TIME_MILLIS, getResumeProvisionTimeMillis(context),
@@ -273,7 +262,8 @@ public final class UserParameters {
                     getNextProvisionFailedStepTimeMills(context),
                     KEY_RESET_DEVICE_TIME_MILLIS, getResetDeviceTimeMillis(context),
                     KEY_DAYS_LEFT_UNTIL_RESET, getDaysLeftUntilReset(context),
-                    KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, getNotificationChannelIdSuffix(context)
+                    KEY_NOTIFICATION_CHANNEL_ID_SUFFIX, getNotificationChannelIdSuffix(context),
+                    KEY_SUW_TIMED_OUT, isSetupWizardTimedOut(context)
             ));
         });
     }

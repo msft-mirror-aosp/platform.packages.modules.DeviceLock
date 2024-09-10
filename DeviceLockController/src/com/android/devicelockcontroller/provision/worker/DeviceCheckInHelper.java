@@ -16,8 +16,14 @@
 
 package com.android.devicelockcontroller.provision.worker;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_IMEI;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.DeviceIdType.DEVICE_ID_TYPE_MEID;
+import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_ALLOW_DEBUGGING;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_MANDATORY_PROVISION;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.EXTRA_PROVISIONING_TYPE;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.READY_FOR_PROVISION;
@@ -25,6 +31,9 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.RETRY_
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STATUS_UNSPECIFIED;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.STOP_CHECK_IN;
 import static com.android.devicelockcontroller.common.DeviceLockConstants.TOTAL_DEVICE_ID_TYPES;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORKER_BACKOFF_DELAY;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORKER_INITIAL_DELAY;
+import static com.android.devicelockcontroller.provision.worker.GetFcmTokenWorker.FCM_TOKEN_WORK_NAME;
 import static com.android.devicelockcontroller.receivers.CheckInBootCompletedReceiver.disableCheckInBootCompletedReceiver;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.CONFIG_UNAVAILABLE;
 import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryReason.NETWORK_TIME_UNAVAILABLE;
@@ -33,6 +42,7 @@ import static com.android.devicelockcontroller.stats.StatsLogger.CheckInRetryRea
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.NetworkRequest;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -40,8 +50,15 @@ import android.telephony.TelephonyManager;
 import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
+import androidx.work.BackoffPolicy;
+import androidx.work.Constraints;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.common.DeviceId;
@@ -56,6 +73,7 @@ import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
 import com.android.devicelockcontroller.util.LogUtil;
 
+import com.google.common.base.Strings;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -139,7 +157,8 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
     @WorkerThread
     boolean handleGetDeviceCheckInStatusResponse(
             GetDeviceCheckInStatusGrpcResponse response,
-            DeviceLockControllerScheduler scheduler) {
+            DeviceLockControllerScheduler scheduler,
+            @Nullable String fcmRegistrationToken) {
         Futures.getUnchecked(GlobalParametersClient.getInstance().setRegisteredDeviceId(
                 response.getRegisteredDeviceIdentifier()));
         LogUtil.d(TAG, "check in response: " + response.getDeviceCheckInStatus());
@@ -147,6 +166,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
             case READY_FOR_PROVISION:
                 boolean result = handleProvisionReadyResponse(response);
                 disableCheckInBootCompletedReceiver(mAppContext);
+                maybeEnqueueFcmRegistrationTokenRetrievalWork(fcmRegistrationToken);
                 return result;
             case RETRY_CHECK_IN:
                 try {
@@ -156,6 +176,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                     // Retry immediately if next check in time is in the past.
                     delay = delay.isNegative() ? Duration.ZERO : delay;
                     scheduler.scheduleRetryCheckInWork(delay);
+                    maybeEnqueueFcmRegistrationTokenRetrievalWork(fcmRegistrationToken);
                     return true;
                 } catch (DateTimeException e) {
                     LogUtil.e(TAG, "No network time is available!");
@@ -165,7 +186,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
             case STOP_CHECK_IN:
                 final ListenableFuture<Void> clearRestrictionsFuture =
                         ((PolicyObjectsProvider) mAppContext).getFinalizationController()
-                                .notifyRestrictionsCleared();
+                                .finalizeNotEnrolledDevice();
                 Futures.addCallback(clearRestrictionsFuture,
                         new FutureCallback<>() {
                             @Override
@@ -175,16 +196,44 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
 
                             @Override
                             public void onFailure(Throwable t) {
-                                LogUtil.e(TAG, "Failed to clear restrictions", t);
+                                LogUtil.e(TAG, "Failed to finalize device", t);
                             }
                         }, MoreExecutors.directExecutor()
                 );
-                disableCheckInBootCompletedReceiver(mAppContext);
                 return true;
             case STATUS_UNSPECIFIED:
             default:
                 mStatsLogger.logCheckInRetry(RESPONSE_UNSPECIFIED);
                 return false;
+        }
+    }
+
+    /**
+     * Starts a job to retrieve the FCM registration token later if the current one used to\
+     * check-in is invalid.
+     *
+     * @param fcmRegistrationToken the current token
+     */
+    private void maybeEnqueueFcmRegistrationTokenRetrievalWork(
+            @Nullable String fcmRegistrationToken) {
+        if (Strings.isNullOrEmpty(fcmRegistrationToken) || fcmRegistrationToken.isBlank()) {
+            NetworkRequest request = new NetworkRequest.Builder()
+                    .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                    .addCapability(NET_CAPABILITY_TRUSTED)
+                    .addCapability(NET_CAPABILITY_INTERNET)
+                    .addCapability(NET_CAPABILITY_NOT_VPN)
+                    .build();
+            OneTimeWorkRequest.Builder builder =
+                    new OneTimeWorkRequest.Builder(GetFcmTokenWorker.class)
+                            .setConstraints(
+                                    new Constraints.Builder().setRequiredNetworkRequest(request,
+                                            NetworkType.CONNECTED).build())
+                            .setInitialDelay(FCM_TOKEN_WORKER_INITIAL_DELAY)
+                            .setBackoffCriteria(
+                                    BackoffPolicy.EXPONENTIAL, FCM_TOKEN_WORKER_BACKOFF_DELAY);
+
+            WorkManager.getInstance(mAppContext).enqueueUniqueWork(FCM_TOKEN_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE, builder.build());
         }
     }
 
@@ -205,6 +254,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         provisionBundle.putInt(EXTRA_PROVISIONING_TYPE, response.getProvisioningType());
         provisionBundle.putBoolean(EXTRA_MANDATORY_PROVISION,
                 response.isProvisioningMandatory());
+        provisionBundle.putBoolean(EXTRA_ALLOW_DEBUGGING, response.isDebuggingAllowed());
         Futures.getUnchecked(
                 SetupParametersClient.getInstance().createPrefs(provisionBundle));
         Futures.getUnchecked(globalParametersClient.setProvisionReady(true));

@@ -16,6 +16,11 @@
 
 package com.android.devicelockcontroller.policy;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState.FINALIZED;
 import static com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState.FINALIZED_UNREPORTED;
 import static com.android.devicelockcontroller.policy.FinalizationControllerImpl.FinalizationState.UNFINALIZED;
@@ -28,6 +33,7 @@ import android.app.AlarmManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.NetworkRequest;
 import android.os.OutcomeReceiver;
 
 import androidx.annotation.NonNull;
@@ -127,7 +133,23 @@ public final class FinalizationControllerImpl implements FinalizationController 
     }
 
     @Override
-    public ListenableFuture<Void> enforceInitialState() {
+    public ListenableFuture<Void> enforceDiskState(boolean force) {
+        if (force) {
+            ListenableFuture<Void> resetStateFuture =
+                    mDispatchQueue.enqueueStateChange(UNINITIALIZED);
+            return Futures.transformAsync(resetStateFuture,
+                    unused -> {
+                        synchronized (mLock) {
+                            mStateInitializedFuture = null;
+                        }
+                        return enforceInitialStateIfNeeded();
+                    }, mBgExecutor);
+        } else {
+            return enforceInitialStateIfNeeded();
+        }
+    }
+
+    private ListenableFuture<Void> enforceInitialStateIfNeeded() {
         ListenableFuture<Void> initializedFuture = mStateInitializedFuture;
         if (initializedFuture == null) {
             synchronized (mLock) {
@@ -151,8 +173,15 @@ public final class FinalizationControllerImpl implements FinalizationController 
     @Override
     public ListenableFuture<Void> notifyRestrictionsCleared() {
         LogUtil.d(TAG, "Clearing restrictions");
-        return Futures.transformAsync(enforceInitialState(),
+        return Futures.transformAsync(enforceInitialStateIfNeeded(),
                 unused -> mDispatchQueue.enqueueStateChange(FINALIZED_UNREPORTED),
+                mBgExecutor);
+    }
+
+    @Override
+    public ListenableFuture<Void> finalizeNotEnrolledDevice() {
+        return Futures.transformAsync(enforceInitialStateIfNeeded(),
+                unused -> mDispatchQueue.enqueueStateChange(FINALIZED),
                 mBgExecutor);
     }
 
@@ -161,7 +190,7 @@ public final class FinalizationControllerImpl implements FinalizationController 
             ReportDeviceProgramCompleteResponse response) {
         if (response.isSuccessful()) {
             LogUtil.d(TAG, "Successfully reported finalization to server. Finalizing...");
-            return Futures.transformAsync(enforceInitialState(),
+            return Futures.transformAsync(enforceInitialStateIfNeeded(),
                     unused -> mDispatchQueue.enqueueStateChange(FINALIZED),
                     mBgExecutor);
         } else {
@@ -175,6 +204,10 @@ public final class FinalizationControllerImpl implements FinalizationController 
     @WorkerThread
     private ListenableFuture<Void> onStateChanged(@FinalizationState int oldState,
             @FinalizationState int newState) {
+        if (newState == UNINITIALIZED) {
+            // This is a reset request as part of forcing the disk state. Do not override disk.
+            return Futures.immediateVoidFuture();
+        }
         final ListenableFuture<Void> persistStateFuture =
                 GlobalParametersClient.getInstance().setFinalizationState(newState);
         if (oldState == UNFINALIZED) {
@@ -199,7 +232,7 @@ public final class FinalizationControllerImpl implements FinalizationController 
                         unused -> disableEntireApplication(),
                         mBgExecutor);
             case UNINITIALIZED:
-                throw new IllegalArgumentException("Tried to set state back to uninitialized!");
+                throw new IllegalArgumentException("This should only happen for a reset!");
             default:
                 throw new IllegalArgumentException("Unknown state " + newState);
         }
@@ -211,8 +244,14 @@ public final class FinalizationControllerImpl implements FinalizationController 
     private void requestWorkToReportFinalized() {
         WorkManager workManager =
                 WorkManager.getInstance(mContext);
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                .addCapability(NET_CAPABILITY_TRUSTED)
+                .addCapability(NET_CAPABILITY_INTERNET)
+                .addCapability(NET_CAPABILITY_NOT_VPN)
+                .build();
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiredNetworkRequest(request, NetworkType.CONNECTED)
                 .build();
         OneTimeWorkRequest work =
                 new OneTimeWorkRequest.Builder(mReportDeviceFinalizedWorkerClass)

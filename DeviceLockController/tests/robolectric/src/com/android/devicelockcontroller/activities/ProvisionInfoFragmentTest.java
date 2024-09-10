@@ -67,6 +67,14 @@ public final class ProvisionInfoFragmentTest {
     }
 
     @Test
+    public void onViewCreated_headerIconNotImportantForAccessibility() {
+        shadowOf(Looper.getMainLooper()).idle();
+
+        ImageView imageView = mActivity.findViewById(R.id.header_icon);
+        assertThat(imageView.isImportantForAccessibility()).isFalse();
+    }
+
+    @Test
     public void clickNextButton_startTheProvisioningActivity() {
         Intent intent = new Intent();
         intent.setAction(ACTION_START_DEVICE_FINANCING_PROVISIONING);

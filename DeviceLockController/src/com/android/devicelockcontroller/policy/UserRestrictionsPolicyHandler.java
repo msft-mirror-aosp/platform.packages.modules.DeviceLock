@@ -64,9 +64,6 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
         LogUtil.i(TAG, String.format(Locale.US, "Build type DEBUG = %s", isDebug));
 
         Collections.addAll(mAlwaysOnRestrictions, UserManager.DISALLOW_SAFE_BOOT);
-        if (!isDebug) {
-            Collections.addAll(mAlwaysOnRestrictions, UserManager.DISALLOW_DEBUGGING_FEATURES);
-        }
     }
 
     @Override
@@ -136,9 +133,12 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
         final ListenableFuture<String> kioskPackageTask = parameters.getKioskPackage();
         final ListenableFuture<Boolean> installingFromUnknownSourcesDisallowedTask =
                 parameters.isInstallingFromUnknownSourcesDisallowed();
+        final ListenableFuture<Boolean> debuggingAllowedTask = mIsDebug
+                ? Futures.immediateFuture(true) : parameters.isDebuggingAllowed();
 
         return Futures.whenAllSucceed(kioskPackageTask,
-                        installingFromUnknownSourcesDisallowedTask)
+                        installingFromUnknownSourcesDisallowedTask,
+                        debuggingAllowedTask)
                 .call(() -> {
                     if (Futures.getDone(kioskPackageTask) == null) {
                         throw new IllegalStateException("Setup parameters does not exist!");
@@ -148,6 +148,10 @@ final class UserRestrictionsPolicyHandler implements PolicyHandler {
                         if (Futures.getDone(installingFromUnknownSourcesDisallowedTask)) {
                             mOptionalAlwaysOnRestrictions.add(
                                     UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+                        }
+                        if (!Futures.getDone(debuggingAllowedTask)) {
+                            mOptionalAlwaysOnRestrictions.add(
+                                    UserManager.DISALLOW_DEBUGGING_FEATURES);
                         }
                     }
                     return mOptionalAlwaysOnRestrictions;
