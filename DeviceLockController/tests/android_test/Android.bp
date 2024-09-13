@@ -34,6 +34,6 @@ android_test {
     libs: [
         "android.test.runner.stubs",
         "android.test.base.stubs",
-        "framework-statsd",
+        "framework-statsd.stubs.module_lib",
     ],
 }
