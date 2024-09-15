@@ -146,6 +146,9 @@ message DeviceProvisioningInformation {
   // would use the ReportDeviceProvisionState RPC to report the provision
   // failure.
   optional bool is_device_in_approved_country = 5;
+  // Whether the device is allowed to use adb debugging on production builds.
+  // Should only be true for a small set of tester devices.
+  optional bool allow_debugging = 6;
 }
 
 // Request to determine whether a registered device is in an approved country.

@@ -24,6 +24,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.work.ListenableWorker;
 import androidx.work.WorkerParameters;
 
+import com.android.devicelockcontroller.ClientInterceptorProvider;
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.policy.FinalizationController;
 import com.android.devicelockcontroller.policy.PolicyObjectsProvider;
@@ -35,6 +36,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+
+import io.grpc.ClientInterceptor;
 
 /**
  * A worker class dedicated to report completion of the device lock program.
@@ -69,16 +72,18 @@ public final class ReportDeviceLockProgramCompleteWorker extends ListenableWorke
                     R.string.finalize_server_host_name);
             final int portNumber = context.getResources().getInteger(
                     R.integer.finalize_server_port_number);
-            final String className = context.getResources().getString(
-                    R.string.device_finalize_client_class_name);
             final Pair<String, String> apikey = new Pair<>(
                     context.getResources().getString(R.string.finalize_service_api_key_name),
                     context.getResources().getString(R.string.finalize_service_api_key_value));
             ListenableFuture<String> registeredDeviceId =
                     GlobalParametersClient.getInstance().getRegisteredDeviceId();
+            final ClientInterceptorProvider clientInterceptorProvider =
+                    (ClientInterceptorProvider) context.getApplicationContext();
+            final ClientInterceptor clientInterceptor =
+                    clientInterceptorProvider.getClientInterceptor();
             mClient = Futures.transform(registeredDeviceId,
-                    id -> DeviceFinalizeClient.getInstance(context, className, hostName,
-                            portNumber, apikey, id), executorService);
+                    id -> DeviceFinalizeClient.getInstance(context, hostName,
+                            portNumber, clientInterceptor, id), executorService);
         } else {
             mClient = Futures.immediateFuture(client);
         }
@@ -93,7 +98,7 @@ public final class ReportDeviceLockProgramCompleteWorker extends ListenableWorke
             DeviceFinalizeClient.ReportDeviceProgramCompleteResponse response =
                     client.reportDeviceProgramComplete();
             if (response.hasRecoverableError()) {
-                LogUtil.w(TAG, "Report finalization failed w/ recoverable error" + response
+                LogUtil.w(TAG, "Report finalization failed w/ recoverable error " + response
                         + "\nRetrying...");
                 return Futures.immediateFuture(Result.retry());
             }

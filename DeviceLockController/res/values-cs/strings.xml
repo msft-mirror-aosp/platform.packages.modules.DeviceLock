@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"Zařízení bude resetováno za <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"Veškerá data budou ze zařízení vymazána. Pokud potřebujete pomoc s registrací zařízení, obraťte se na společnost <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"Zajištění financování se nezdařilo"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"Kliknutím sem zobrazíte možnosti kontaktování společnosti poskytující financování. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>Další informace<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"Pokud potřebujete pomoc s registrací zařízení, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>obraťte se na společnost <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"Ukončit"</string>
     <string name="retry" msgid="7497287909193345356">"Zkusit znovu"</string>
 </resources>

@@ -32,11 +32,16 @@ import io.grpc.MethodDescriptor;
 /**
  * Add api key metadata to a gRPC {@link io.grpc.stub.AbstractStub} for authentication.
  */
-final class ApiKeyClientInterceptor implements ClientInterceptor {
+public final class ApiKeyClientInterceptor implements ClientInterceptor {
     private static final String TAG = "SpatulaClientInterceptor";
     private final Pair<String, String> mApiKey;
 
-    ApiKeyClientInterceptor(Pair<String, String> apiKey) {
+    /**
+     * Create a client iterceptor that uses an API key to authenticate with the backend.
+     *
+     * @param apiKey The API key used to authenticate.
+     */
+    public ApiKeyClientInterceptor(Pair<String, String> apiKey) {
         mApiKey = apiKey;
     }
 

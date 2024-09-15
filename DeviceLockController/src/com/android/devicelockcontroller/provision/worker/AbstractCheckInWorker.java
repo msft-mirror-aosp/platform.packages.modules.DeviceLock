@@ -18,13 +18,13 @@ package com.android.devicelockcontroller.provision.worker;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.work.ListenableWorker;
 import androidx.work.WorkerParameters;
 
+import com.android.devicelockcontroller.ClientInterceptorProvider;
 import com.android.devicelockcontroller.R;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
@@ -33,6 +33,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+
+import io.grpc.ClientInterceptor;
 
 import java.time.Duration;
 
@@ -57,14 +59,13 @@ public abstract class AbstractCheckInWorker extends ListenableWorker {
             Resources resources = context.getResources();
             String hostName = resources.getString(R.string.check_in_server_host_name);
             int portNumber = resources.getInteger(R.integer.check_in_server_port_number);
-            String className = resources.getString(R.string.device_check_in_client_class_name);
-            Pair<String, String> apikey = new Pair<>(
-                    resources.getString(R.string.check_in_service_api_key_name),
-                    resources.getString(R.string.check_in_service_api_key_value));
+            ClientInterceptorProvider clientInterceptorProvider =
+                    (ClientInterceptorProvider) context.getApplicationContext();
+            ClientInterceptor clientInterceptor = clientInterceptorProvider.getClientInterceptor();
             mClient = Futures.transform(
                     GlobalParametersClient.getInstance().getRegisteredDeviceId(),
                     registeredId -> DeviceCheckInClient.getInstance(
-                            context, className, hostName, portNumber, apikey, registeredId),
+                            context, hostName, portNumber, clientInterceptor, registeredId),
                     MoreExecutors.directExecutor());
         }
         mContext = context;
