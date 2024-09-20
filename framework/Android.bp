@@ -54,4 +54,7 @@ java_sdk_library {
     min_sdk_version: "UpsideDownCake",
     libs: ["framework-annotations-lib"],
     static_libs: ["devicelock-aconfig-flags-lib"],
+    lint: {
+        baseline_filename: "lint-baseline.xml",
+    },
 }
