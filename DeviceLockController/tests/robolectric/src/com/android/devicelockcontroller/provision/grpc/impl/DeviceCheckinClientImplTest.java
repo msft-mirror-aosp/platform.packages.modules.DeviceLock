@@ -41,11 +41,14 @@ import com.android.devicelockcontroller.proto.PauseDeviceProvisioningRequest;
 import com.android.devicelockcontroller.proto.PauseDeviceProvisioningResponse;
 import com.android.devicelockcontroller.proto.ReportDeviceProvisionStateRequest;
 import com.android.devicelockcontroller.proto.ReportDeviceProvisionStateResponse;
+import com.android.devicelockcontroller.proto.UpdateFcmTokenRequest;
+import com.android.devicelockcontroller.proto.UpdateFcmTokenResponse;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.IsDeviceInApprovedCountryGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.PauseDeviceProvisioningGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStateGrpcResponse;
+import com.android.devicelockcontroller.provision.grpc.UpdateFcmTokenGrpcResponse;
 
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -710,6 +713,127 @@ public final  class DeviceCheckinClientImplTest {
     }
 
     @Test
+    public void updateFcmToken_succeeds() throws Exception {
+        // GIVEN the service succeeds through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeSucceedingService())
+                .build()
+                .start());
+
+        // WHEN we update FCM token
+        AtomicReference<UpdateFcmTokenGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor.submit(() -> response.set(
+                mDeviceCheckInClientImpl.updateFcmToken(
+                        new ArraySet<>(), TEST_FCM_TOKEN))).get();
+
+        // THEN the response is successful
+        assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedFcmToken).isEqualTo(TEST_FCM_TOKEN);
+    }
+
+    @Test
+    public void updateFcmToken_noDefaultConnectivity_fallsBackToNonVpn()
+            throws Exception {
+        // GIVEN a non-VPN network is connected with connectivity
+        Set<ConnectivityManager.NetworkCallback> networkCallbacks =
+                mShadowConnectivityManager.getNetworkCallbacks();
+        for (ConnectivityManager.NetworkCallback callback : networkCallbacks) {
+            NetworkCapabilities capabilities =
+                    Shadows.shadowOf(new NetworkCapabilities()).addCapability(
+                            NET_CAPABILITY_VALIDATED);
+            callback.onCapabilitiesChanged(mNonVpnNetwork, capabilities);
+        }
+
+        // GIVEN the service fails through the default network and succeeds through the non-VPN
+        // network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeFailingService())
+                .build()
+                .start());
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mNonVpnServerName)
+                .directExecutor()
+                .addService(makeSucceedingService())
+                .build()
+                .start());
+
+        // WHEN we update FCM token
+        AtomicReference<UpdateFcmTokenGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor.submit(() -> response.set(
+                mDeviceCheckInClientImpl.updateFcmToken(
+                        new ArraySet<>(), TEST_FCM_TOKEN))).get();
+
+        // THEN the response is successful
+        assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedFcmToken).isEqualTo(TEST_FCM_TOKEN);
+    }
+
+    @Test
+    public void updateFcmToken_noConnectivityOrNonVpnNetwork_isNotSuccessful()
+            throws Exception {
+        // GIVEN non-VPN network connects and then loses connectivity
+        Set<ConnectivityManager.NetworkCallback> networkCallbacks =
+                mShadowConnectivityManager.getNetworkCallbacks();
+        for (ConnectivityManager.NetworkCallback callback : networkCallbacks) {
+            callback.onUnavailable();
+        }
+
+        // GIVEN the service fails through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeFailingService())
+                .build()
+                .start());
+
+        // WHEN we update FCM token
+        AtomicReference<UpdateFcmTokenGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor.submit(() -> response.set(
+                mDeviceCheckInClientImpl.updateFcmToken(
+                        new ArraySet<>(), TEST_FCM_TOKEN))).get();
+
+        // THEN the response is unsuccessful
+        assertThat(response.get().isSuccessful()).isFalse();
+    }
+
+    @Test
+    public void updateFcmToken_lostNonVpnConnection_isNotSuccessful()
+            throws Exception {
+        // GIVEN no connectable non-VPN networks
+        Set<ConnectivityManager.NetworkCallback> networkCallbacks =
+                mShadowConnectivityManager.getNetworkCallbacks();
+        for (ConnectivityManager.NetworkCallback callback : networkCallbacks) {
+            NetworkCapabilities capabilities =
+                    Shadows.shadowOf(new NetworkCapabilities()).addCapability(
+                            NET_CAPABILITY_VALIDATED);
+            callback.onCapabilitiesChanged(mNonVpnNetwork, capabilities);
+            callback.onLost(mNonVpnNetwork);
+        }
+
+        // GIVEN the service fails through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeFailingService())
+                .build()
+                .start());
+
+        // WHEN we update FCM token
+        AtomicReference<UpdateFcmTokenGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor.submit(() -> response.set(
+                mDeviceCheckInClientImpl.updateFcmToken(
+                        new ArraySet<>(), TEST_FCM_TOKEN))).get();
+
+        // THEN the response is unsuccessful
+        assertThat(response.get().isSuccessful()).isFalse();
+        assertThat(response.get().hasRecoverableError()).isTrue();
+    }
+
+    @Test
     public void cleanUp_unregistersNetworkCallback() {
         // WHEN we call clean up
         mDeviceCheckInClientImpl.cleanUp();
@@ -784,6 +908,17 @@ public final  class DeviceCheckinClientImplTest {
                 responseObserver.onNext(response);
                 responseObserver.onCompleted();
             }
+
+            @Override
+            public void updateFcmToken(UpdateFcmTokenRequest req,
+                    StreamObserver<UpdateFcmTokenResponse> responseObserver) {
+                mReceivedFcmToken = req.getFcmRegistrationToken();
+                UpdateFcmTokenResponse response = UpdateFcmTokenResponse
+                        .newBuilder()
+                        .build();
+                responseObserver.onNext(response);
+                responseObserver.onCompleted();
+            }
         };
     }
 
@@ -813,6 +948,13 @@ public final  class DeviceCheckinClientImplTest {
             @Override
             public void reportDeviceProvisionState(ReportDeviceProvisionStateRequest req,
                     StreamObserver<ReportDeviceProvisionStateResponse> responseObserver) {
+                responseObserver.onError(new StatusRuntimeException(Status.DEADLINE_EXCEEDED));
+                responseObserver.onCompleted();
+            }
+
+            @Override
+            public void updateFcmToken(UpdateFcmTokenRequest req,
+                    StreamObserver<UpdateFcmTokenResponse> responseObserver) {
                 responseObserver.onError(new StatusRuntimeException(Status.DEADLINE_EXCEEDED));
                 responseObserver.onCompleted();
             }
