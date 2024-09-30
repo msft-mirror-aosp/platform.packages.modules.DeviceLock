@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.devicelockcontroller.provision.worker;
+package com.android.devicelockcontroller.services;
 
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_READY;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_IN_PROGRESS;
@@ -29,15 +29,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.ContentResolver;
-import android.content.Context;
 import android.provider.Settings;
 
-import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.work.ListenableWorker;
-import androidx.work.WorkerFactory;
-import androidx.work.WorkerParameters;
-import androidx.work.testing.TestListenableWorkerBuilder;
 
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.policy.ProvisionStateController;
@@ -45,7 +39,6 @@ import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
 
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.testing.TestingExecutors;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -54,49 +47,41 @@ import org.robolectric.RobolectricTestRunner;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @RunWith(RobolectricTestRunner.class)
-public final class SetupWizardCompletionTimeoutWorkerTest {
+public final class SetupWizardCompletionTimeoutJobTest {
     private TestDeviceLockControllerApplication mTestApp;
-    private SetupWizardCompletionTimeoutWorker mWorker;
     private ProvisionStateController mMockProvisionStateController;
+    private SetupWizardCompletionTimeoutJobService mJob;
+    private static final long TIMEOUT_MILLIS = 1000;
 
     @Before
     public void setUp() throws Exception {
         mTestApp = ApplicationProvider.getApplicationContext();
         mMockProvisionStateController = mTestApp.getProvisionStateController();
-        mWorker = TestListenableWorkerBuilder.from(
-                        mTestApp, SetupWizardCompletionTimeoutWorker.class)
-                .setWorkerFactory(
-                        new WorkerFactory() {
-                            @Override
-                            public ListenableWorker createWorker(
-                                    @NonNull Context context, @NonNull String workerClassName,
-                                    @NonNull WorkerParameters workerParameters) {
-                                return workerClassName.equals(
-                                        SetupWizardCompletionTimeoutWorker.class.getName())
-                                        ? new SetupWizardCompletionTimeoutWorker(context,
-                                        workerParameters,
-                                        TestingExecutors.sameThreadScheduledExecutor())
-                                        : null;
-                            }
-                        }).build();
+
+        mJob = new SetupWizardCompletionTimeoutJobService(mTestApp);
     }
 
     @Test
-    public void doWork_suwComplete_doesNotStartFlow() {
+    public void doWork_suwComplete_doesNotStartFlow()
+            throws InterruptedException, ExecutionException, TimeoutException {
         // Device setup is complete
         ContentResolver contentResolver = mTestApp.getContentResolver();
         Settings.Secure.putInt(contentResolver, Settings.Secure.USER_SETUP_COMPLETE, 1);
 
-        assertThat(Futures.getUnchecked(mWorker.startWork()))
-                .isEqualTo(ListenableWorker.Result.success());
+        boolean result = mJob.onStartJob(/* params= */ null);
+
+        assertThat(result).isFalse();
 
         verify(mMockProvisionStateController, never()).setNextStateForEvent(anyInt());
     }
 
     @Test
-    public void doWork_suwNotComplete_notUnprovisioned_doesNotStartFlow() {
+    public void doWork_suwNotComplete_notUnprovisioned_doesNotStartFlow()
+            throws ExecutionException, InterruptedException, TimeoutException {
         // Device setup is not complete
         ContentResolver contentResolver = mTestApp.getContentResolver();
         Settings.Secure.putInt(contentResolver, Settings.Secure.USER_SETUP_COMPLETE, 0);
@@ -104,15 +89,18 @@ public final class SetupWizardCompletionTimeoutWorkerTest {
         when(mMockProvisionStateController.getState())
                 .thenReturn(Futures.immediateFuture(PROVISION_IN_PROGRESS));
 
-        assertThat(Futures.getUnchecked(mWorker.startWork()))
-                .isEqualTo(ListenableWorker.Result.success());
+        boolean result = mJob.onStartJob(/* params= */ null);
+
+        assertThat(result).isTrue();
+
+        mJob.mFuture.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         verify(mMockProvisionStateController, never()).setNextStateForEvent(anyInt());
     }
 
     @Test
     public void doWork_suwNotComplete_unprovisioned_provisionNotReady_doesNotStartFlow()
-            throws ExecutionException, InterruptedException {
+            throws ExecutionException, InterruptedException, TimeoutException {
         // Device setup is not complete
         ContentResolver contentResolver = mTestApp.getContentResolver();
         Settings.Secure.putInt(contentResolver, Settings.Secure.USER_SETUP_COMPLETE, 0);
@@ -122,15 +110,18 @@ public final class SetupWizardCompletionTimeoutWorkerTest {
 
         GlobalParametersClient.getInstance().setProvisionReady(false).get();
 
-        assertThat(Futures.getUnchecked(mWorker.startWork()))
-                .isEqualTo(ListenableWorker.Result.success());
+        boolean result = mJob.onStartJob(/* params= */ null);
+
+        assertThat(result).isTrue();
+
+        mJob.mFuture.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         verify(mMockProvisionStateController, never()).setNextStateForEvent(anyInt());
     }
 
     @Test
     public void doWork_suwNotComplete_unprovisioned_provisionReady_startsFlow()
-            throws ExecutionException, InterruptedException {
+            throws ExecutionException, InterruptedException, TimeoutException {
         // Device setup is not complete
         ContentResolver contentResolver = mTestApp.getContentResolver();
         Settings.Secure.putInt(contentResolver, Settings.Secure.USER_SETUP_COMPLETE, 0);
@@ -142,8 +133,11 @@ public final class SetupWizardCompletionTimeoutWorkerTest {
 
         GlobalParametersClient.getInstance().setProvisionReady(true).get();
 
-        assertThat(Futures.getUnchecked(mWorker.startWork()))
-                .isEqualTo(ListenableWorker.Result.success());
+        boolean result = mJob.onStartJob(/* params= */ null);
+
+        assertThat(result).isTrue();
+
+        mJob.mFuture.get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         Executors.newSingleThreadExecutor().submit(
                 () -> assertThat(UserParameters.isSetupWizardTimedOut(mTestApp)).isTrue()).get();
