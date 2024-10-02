@@ -43,8 +43,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.devicelockcontroller.SystemDeviceLockManagerImpl;
-import com.android.devicelockcontroller.provision.worker.SetupWizardCompletionTimeoutWorker;
 import com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver;
+import com.android.devicelockcontroller.services.SetupWizardCompletionTimeoutJobService;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 import com.android.devicelockcontroller.storage.UserParameters;
@@ -268,8 +268,8 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
                 state -> {
                     if (state == UNPROVISIONED) {
                         if (!isUserSetupComplete()) {
-                            SetupWizardCompletionTimeoutWorker
-                                    .scheduleSetupWizardCompletionTimeoutWork(mContext);
+                            SetupWizardCompletionTimeoutJobService
+                                    .scheduleSetupWizardCompletionTimeoutJob(mContext);
                         }
                         return checkReadyToStartProvisioning();
                     } else {
@@ -281,7 +281,7 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
 
     @Override
     public ListenableFuture<Void> onUserSetupCompleted() {
-        SetupWizardCompletionTimeoutWorker.cancelSetupWizardCompletionTimeoutWork(mContext);
+        SetupWizardCompletionTimeoutJobService.cancelSetupWizardCompletionTimeoutJob(mContext);
         return checkReadyToStartProvisioning();
     }
 
