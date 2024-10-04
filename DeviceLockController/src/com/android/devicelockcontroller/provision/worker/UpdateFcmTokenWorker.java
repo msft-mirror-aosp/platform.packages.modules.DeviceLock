@@ -35,7 +35,11 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.time.Duration;
+
 public final class UpdateFcmTokenWorker extends AbstractCheckInWorker {
+    public static final Duration UPDATE_FCM_TOKEN_WORKER_BACKOFF_DELAY = Duration.ofMinutes(30);
+    public static final String UPDATE_FCM_TOKEN_WORK_NAME = "update-fcm-token";
 
     private final AbstractDeviceCheckInHelper mCheckInHelper;
     private final FcmRegistrationTokenProvider mFcmRegistrationTokenProvider;
