@@ -101,7 +101,7 @@ java_library {
     ],
     libs: [
         "devicelockcontroller-proto-lite",
-        "framework-connectivity",
+        "framework-connectivity.stubs.module_lib",
     ],
     visibility: [
         "//packages/modules/DeviceLock:__subpackages__",
@@ -117,7 +117,7 @@ java_test_helper_library {
         ":statslog-devicelock-java-gen",
     ],
     libs: [
-        "framework-statsd",
+        "framework-statsd.stubs.module_lib",
         "modules-utils-expresslog",
     ],
     static_libs: [
@@ -144,11 +144,11 @@ android_library {
     libs: [
         "framework-annotations-lib",
         "framework-devicelock.impl",
-        "org.apache.http.legacy",
-        "framework-statsd",
+        "org.apache.http.legacy.stubs.system",
+        "framework-statsd.stubs.module_lib",
         "modules-utils-expresslog",
         "devicelockcontroller-proto-lite",
-        "framework-connectivity",
+        "framework-connectivity.stubs.module_lib",
     ],
     static_libs: [
         "androidx.annotation_annotation",
