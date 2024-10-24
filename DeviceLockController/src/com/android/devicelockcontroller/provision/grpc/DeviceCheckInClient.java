@@ -23,6 +23,7 @@ import android.os.Build;
 import android.os.UserHandle;
 import android.util.ArraySet;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
@@ -186,6 +187,19 @@ public abstract class DeviceCheckInClient {
     public abstract ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
             @DeviceProvisionState int lastReceivedProvisionState,
             boolean isSuccessful, @ProvisionFailureReason int failureReason);
+
+    /**
+     * Update FCM registration token on device lock backend server for the given device identifiers.
+     *
+     * @param deviceIds            A set of all device unique identifiers, this could include IMEIs,
+     *                             MEIDs, etc.
+     * @param fcmRegistrationToken The fcm registration token
+     * @return A class that encapsulate the response from the backend server.
+     */
+    @WorkerThread
+    public abstract UpdateFcmTokenGrpcResponse updateFcmToken(
+            ArraySet<DeviceId> deviceIds,
+            @NonNull String fcmRegistrationToken);
 
     /**
      * Called when this device check in client is no longer in use and should clean up its

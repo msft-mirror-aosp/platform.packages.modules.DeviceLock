@@ -46,6 +46,10 @@ service DeviceLockCheckinService {
   // provisioning.
   rpc ReportDeviceProvisionState(ReportDeviceProvisionStateRequest)
       returns (ReportDeviceProvisionStateResponse) {}
+
+  // Updates FCM token for a device.
+  rpc UpdateFcmToken(UpdateFcmTokenRequest)
+      returns (UpdateFcmTokenResponse) {}
 }
 
 // Request to retrieve the check-in status of the device.
@@ -251,4 +255,34 @@ message ReportDeviceProvisionStateResponse {
   // This number should only be used when next_client_provision_state is
   // CLIENT_PROVISION_STATE_DISMISSIBLE_UI
   optional uint32 days_left_until_reset = 2;
+}
+
+// Request to update FCM token for a device.
+message UpdateFcmTokenRequest {
+  // The device identifiers associated with the device provided by the Device
+  // Lock Android client.
+  repeated ClientDeviceIdentifier client_device_identifiers = 1;
+
+  // The Firebase Cloud Messaging (FCM) registration token associated with the
+  // device provided by the Device Lock Android client. The token is only used
+  // for GMS devices.
+  optional string fcm_registration_token = 2;
+}
+
+// Response to a request to update FCM token for a device.
+message UpdateFcmTokenResponse {
+  // The result of the update.
+  optional UpdateFcmTokenResult result = 1;
+}
+
+// The results of FCM token update.
+enum UpdateFcmTokenResult {
+  // Unspecified result.
+  UPDATE_FCM_TOKEN_RESULT_UNSPECIFIED = 0;
+
+  // Update to FCM token was successful.
+  UPDATE_FCM_TOKEN_RESULT_SUCCESS = 1;
+
+  // Update to FCM token was unsuccessful.
+  UPDATE_FCM_TOKEN_RESULT_FAILURE = 2;
 }
