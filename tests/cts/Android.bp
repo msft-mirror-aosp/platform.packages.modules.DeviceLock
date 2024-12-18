@@ -30,6 +30,7 @@ android_test {
         "truth",
         "androidx.test.core",
         "compatibility-device-util-axt",
+        "devicelock-exported-aconfig-flags-lib",
     ],
     test_suites: [
         "general-tests",
