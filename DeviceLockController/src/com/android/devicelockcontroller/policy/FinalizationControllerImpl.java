@@ -127,7 +127,23 @@ public final class FinalizationControllerImpl implements FinalizationController 
     }
 
     @Override
-    public ListenableFuture<Void> enforceInitialState() {
+    public ListenableFuture<Void> enforceDiskState(boolean force) {
+        if (force) {
+            ListenableFuture<Void> resetStateFuture =
+                    mDispatchQueue.enqueueStateChange(UNINITIALIZED);
+            return Futures.transformAsync(resetStateFuture,
+                    unused -> {
+                        synchronized (mLock) {
+                            mStateInitializedFuture = null;
+                        }
+                        return enforceInitialStateIfNeeded();
+                    }, mBgExecutor);
+        } else {
+            return enforceInitialStateIfNeeded();
+        }
+    }
+
+    private ListenableFuture<Void> enforceInitialStateIfNeeded() {
         ListenableFuture<Void> initializedFuture = mStateInitializedFuture;
         if (initializedFuture == null) {
             synchronized (mLock) {
@@ -151,8 +167,15 @@ public final class FinalizationControllerImpl implements FinalizationController 
     @Override
     public ListenableFuture<Void> notifyRestrictionsCleared() {
         LogUtil.d(TAG, "Clearing restrictions");
-        return Futures.transformAsync(enforceInitialState(),
+        return Futures.transformAsync(enforceInitialStateIfNeeded(),
                 unused -> mDispatchQueue.enqueueStateChange(FINALIZED_UNREPORTED),
+                mBgExecutor);
+    }
+
+    @Override
+    public ListenableFuture<Void> finalizeNotEnrolledDevice() {
+        return Futures.transformAsync(enforceInitialStateIfNeeded(),
+                unused -> mDispatchQueue.enqueueStateChange(FINALIZED),
                 mBgExecutor);
     }
 
@@ -161,7 +184,7 @@ public final class FinalizationControllerImpl implements FinalizationController 
             ReportDeviceProgramCompleteResponse response) {
         if (response.isSuccessful()) {
             LogUtil.d(TAG, "Successfully reported finalization to server. Finalizing...");
-            return Futures.transformAsync(enforceInitialState(),
+            return Futures.transformAsync(enforceInitialStateIfNeeded(),
                     unused -> mDispatchQueue.enqueueStateChange(FINALIZED),
                     mBgExecutor);
         } else {
@@ -175,6 +198,10 @@ public final class FinalizationControllerImpl implements FinalizationController 
     @WorkerThread
     private ListenableFuture<Void> onStateChanged(@FinalizationState int oldState,
             @FinalizationState int newState) {
+        if (newState == UNINITIALIZED) {
+            // This is a reset request as part of forcing the disk state. Do not override disk.
+            return Futures.immediateVoidFuture();
+        }
         final ListenableFuture<Void> persistStateFuture =
                 GlobalParametersClient.getInstance().setFinalizationState(newState);
         if (oldState == UNFINALIZED) {
@@ -199,7 +226,7 @@ public final class FinalizationControllerImpl implements FinalizationController 
                         unused -> disableEntireApplication(),
                         mBgExecutor);
             case UNINITIALIZED:
-                throw new IllegalArgumentException("Tried to set state back to uninitialized!");
+                throw new IllegalArgumentException("This should only happen for a reset!");
             default:
                 throw new IllegalArgumentException("Unknown state " + newState);
         }

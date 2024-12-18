@@ -29,7 +29,6 @@ import static com.android.devicelockcontroller.policy.ProvisionStateController.P
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_PAUSED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_SUCCEEDED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
-import static com.android.devicelockcontroller.policy.StartLockTaskModeWorker.START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS;
 import static com.android.devicelockcontroller.policy.StartLockTaskModeWorker.START_LOCK_TASK_MODE_WORK_NAME;
 
 import android.app.admin.DevicePolicyManager;
@@ -44,7 +43,6 @@ import android.os.UserManager;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.VisibleForTesting;
-import androidx.work.BackoffPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.Operation;
@@ -95,6 +93,8 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
     private final Executor mBgExecutor;
     static final String ACTION_DEVICE_LOCK_KIOSK_SETUP =
             "com.android.devicelock.action.KIOSK_SETUP";
+    private static final String DEVICE_LOCK_VERSION_EXTRA = "DEVICE_LOCK_VERSION";
+    private static final int DEVICE_LOCK_VERSION = 2;
     private final UserManager mUserManager;
 
     /**
@@ -134,14 +134,14 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
     DevicePolicyControllerImpl(Context context,
             DevicePolicyManager devicePolicyManager,
             UserManager userManager,
-            UserRestrictionsPolicyHandler userRestrictionsPolicyHandler,
-            AppOpsPolicyHandler appOpsPolicyHandler,
-            LockTaskModePolicyHandler lockTaskModePolicyHandler,
-            PackagePolicyHandler packagePolicyHandler,
-            RolePolicyHandler rolePolicyHandler,
-            KioskKeepAlivePolicyHandler kioskKeepAlivePolicyHandler,
-            ControllerKeepAlivePolicyHandler controllerKeepAlivePolicyHandler,
-            NotificationsPolicyHandler notificationsPolicyHandler,
+            PolicyHandler userRestrictionsPolicyHandler,
+            PolicyHandler appOpsPolicyHandler,
+            PolicyHandler lockTaskModePolicyHandler,
+            PolicyHandler packagePolicyHandler,
+            PolicyHandler rolePolicyHandler,
+            PolicyHandler kioskKeepAlivePolicyHandler,
+            PolicyHandler controllerKeepAlivePolicyHandler,
+            PolicyHandler notificationsPolicyHandler,
             ProvisionStateController provisionStateController,
             Executor bgExecutor) {
         mContext = context;
@@ -258,9 +258,6 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             @ProvisionState int provisionState, @DeviceState int deviceState) {
         LogUtil.i(TAG, "Enforcing policies for provision state " + provisionState
                 + " and device state " + deviceState);
-        if (provisionState == UNPROVISIONED) {
-            return Futures.immediateFuture(resolveLockTaskType(provisionState, deviceState));
-        }
         List<ListenableFuture<Boolean>> futures = new ArrayList<>();
         if (deviceState == CLEARED) {
             // If device is cleared, then ignore provision state and add cleared policies
@@ -292,6 +289,9 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             for (int i = 0, policyLen = mPolicyList.size(); i < policyLen; i++) {
                 PolicyHandler policy = mPolicyList.get(i);
                 switch (provisionState) {
+                    case UNPROVISIONED:
+                        futures.add(policy.onUnprovisioned());
+                        break;
                     case PROVISION_IN_PROGRESS:
                         futures.add(policy.onProvisionInProgress());
                         break;
@@ -411,6 +411,7 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
                         throw new IllegalStateException(
                                 "Failed to get setup activity intent for kiosk app!");
                     }
+                    kioskSetupIntent.putExtra(DEVICE_LOCK_VERSION_EXTRA, DEVICE_LOCK_VERSION);
                     return kioskSetupIntent.setComponent(new ComponentName(kioskPackageName,
                             resolveInfo.activityInfo.name));
                 }, mBgExecutor);
@@ -453,7 +454,12 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
             return Futures.transformAsync(
                     mCurrentEnforcedLockTaskTypeFuture,
                     type -> type == LockTaskType.UNDEFINED
-                            ? enforceCurrentPoliciesAndResolveLockTaskType(/* failure= */ false)
+                            ? Futures.transform(enforceCurrentPoliciesAndResolveLockTaskType(
+                                    /* failure= */ false),
+                                    mode -> {
+                                        startLockTaskModeIfNeeded(mode);
+                                        return mode;
+                                    }, mBgExecutor)
                             : Futures.immediateFuture(type),
                     mBgExecutor);
         }
@@ -497,8 +503,6 @@ public final class DevicePolicyControllerImpl implements DevicePolicyController 
         OneTimeWorkRequest startLockTask = new OneTimeWorkRequest.Builder(
                 StartLockTaskModeWorker.class)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .setBackoffCriteria(BackoffPolicy.LINEAR,
-                        START_LOCK_TASK_MODE_WORKER_RETRY_INTERVAL_SECONDS)
                 .build();
         final ListenableFuture<Operation.State.SUCCESS> enqueueResult =
                 workManager.enqueueUniqueWork(START_LOCK_TASK_MODE_WORK_NAME,

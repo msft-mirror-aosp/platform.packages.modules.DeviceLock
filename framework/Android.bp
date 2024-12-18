@@ -42,7 +42,10 @@ java_sdk_library {
     name: "framework-devicelock",
     srcs: [":framework-devicelock-sources"],
     defaults: ["framework-module-defaults"],
-    permitted_packages: ["android.devicelock"],
+    permitted_packages: [
+        "android.devicelock",
+        "com.android.devicelock.flags",
+    ],
     impl_library_visibility: ["//packages/modules/DeviceLock:__subpackages__"],
     apex_available: [
         "com.android.devicelock",
@@ -50,4 +53,5 @@ java_sdk_library {
     sdk_version: "module_current",
     min_sdk_version: "UpsideDownCake",
     libs: ["framework-annotations-lib"],
+    static_libs: ["devicelock-aconfig-flags-lib"],
 }

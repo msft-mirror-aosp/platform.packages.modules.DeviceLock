@@ -18,11 +18,12 @@ package com.android.devicelockcontroller.provision.grpc;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.UserHandle;
 import android.util.ArraySet;
-import android.util.Pair;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
@@ -30,7 +31,10 @@ import com.android.devicelockcontroller.common.DeviceId;
 import com.android.devicelockcontroller.common.DeviceLockConstants.DeviceProvisionState;
 import com.android.devicelockcontroller.common.DeviceLockConstants.PauseDeviceProvisioningReason;
 import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFailureReason;
+import com.android.devicelockcontroller.provision.grpc.impl.DeviceCheckInClientImpl;
 import com.android.devicelockcontroller.util.LogUtil;
+
+import io.grpc.ClientInterceptor;
 
 /**
  * An abstract class that's intended for implementation of class that manages communication with
@@ -50,7 +54,6 @@ public abstract class DeviceCheckInClient {
     protected static String sRegisteredId;
     protected static String sHostName = "";
     protected static int sPortNumber = 0;
-    protected static Pair<String, String> sApiKey = new Pair<>("", "");
     private static volatile boolean sUseDebugClient;
 
     @Nullable
@@ -80,10 +83,9 @@ public abstract class DeviceCheckInClient {
      */
     public static DeviceCheckInClient getInstance(
             Context context,
-            String className,
             String hostName,
             int portNumber,
-            Pair<String, String> apiKey,
+            ClientInterceptor clientInterceptor,
             @Nullable String registeredId) {
         boolean useDebugClient = false;
         String hostNameOverride = "";
@@ -101,21 +103,26 @@ public abstract class DeviceCheckInClient {
                 boolean createRequired =
                         (sClient == null || sUseDebugClient != useDebugClient)
                                 || (registeredId != null && !registeredId.equals(sRegisteredId))
-                                || (hostName != null && !hostName.equals(sHostName))
-                                || (apiKey != null && !apiKey.equals(sApiKey));
+                                || (hostName != null && !hostName.equals(sHostName));
 
                 if (createRequired) {
+                    if (sClient != null) {
+                        sClient.cleanUp();
+                    }
                     sHostName = hostName;
                     sPortNumber = portNumber;
                     sRegisteredId = registeredId;
-                    sApiKey = apiKey;
                     sUseDebugClient = useDebugClient;
                     if (Build.isDebuggable() && sUseDebugClient) {
-                        className = DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME;
+                        final String className = DEVICE_CHECK_IN_CLIENT_DEBUG_CLASS_NAME;
+                        LogUtil.d(TAG, "Creating instance for " + className);
+                        Class<?> clazz = Class.forName(className);
+                        sClient =
+                                (DeviceCheckInClient) clazz.getDeclaredConstructor().newInstance();
+                    } else {
+                        sClient = new DeviceCheckInClientImpl(clientInterceptor,
+                                context.getSystemService(ConnectivityManager.class));
                     }
-                    LogUtil.d(TAG, "Creating instance for " + className);
-                    Class<?> clazz = Class.forName(className);
-                    sClient = (DeviceCheckInClient) clazz.getDeclaredConstructor().newInstance();
                 }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to get DeviceCheckInClient instance", e);
@@ -180,4 +187,23 @@ public abstract class DeviceCheckInClient {
     public abstract ReportDeviceProvisionStateGrpcResponse reportDeviceProvisionState(
             @DeviceProvisionState int lastReceivedProvisionState,
             boolean isSuccessful, @ProvisionFailureReason int failureReason);
+
+    /**
+     * Update FCM registration token on device lock backend server for the given device identifiers.
+     *
+     * @param deviceIds            A set of all device unique identifiers, this could include IMEIs,
+     *                             MEIDs, etc.
+     * @param fcmRegistrationToken The fcm registration token
+     * @return A class that encapsulate the response from the backend server.
+     */
+    @WorkerThread
+    public abstract UpdateFcmTokenGrpcResponse updateFcmToken(
+            ArraySet<DeviceId> deviceIds,
+            @NonNull String fcmRegistrationToken);
+
+    /**
+     * Called when this device check in client is no longer in use and should clean up its
+     * resources.
+     */
+    public void cleanUp() {};
 }

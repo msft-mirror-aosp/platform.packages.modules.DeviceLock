@@ -74,7 +74,7 @@
     <string name="restrictions_lifted" msgid="5785586265984319396">"כל ההגבלות על המכשיר הוסרו"</string>
     <string name="uninstall_kiosk_app" msgid="3459557395024053988">"אפשר להסיר את אפליקציית \"קיוסק\" מהמכשיר"</string>
     <string name="getting_device_ready" msgid="2829009584599871699">"המכשיר בתהליך הגדרה…"</string>
-    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"הפעולה עשויה להימשך מספר דקות"</string>
+    <string name="this_may_take_a_few_minutes" msgid="2482876246874429351">"זה יכול לקחת כמה דקות"</string>
     <string name="installing_kiosk_app" msgid="324208168205545860">"אפליקציית <xliff:g id="CREDITOR_APP">%1$s</xliff:g> מותקנת…"</string>
     <string name="opening_kiosk_app" msgid="2021888641430165654">"האפליקציה <xliff:g id="CREDITOR_APP">%1$s</xliff:g> נפתחת…"</string>
     <string name="settings_banner_title" msgid="527041021011279252">"המכשיר סופק על ידי <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"המכשיר יתאפס בעוד <xliff:g id="TIMER">%s</xliff:g>"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"כל הנתונים במכשיר יימחקו. כדי לקבל עזרה בצירוף המכשיר לתוכנית, יש ליצור קשר עם <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"הקצאת המימון נכשלה"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"אפשר ללחוץ כאן לקבלת דרכים ליצירת קשר עם נותני המימון. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>מידע נוסף<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"כדי לקבל עזרה בצירוף המכשיר לתוכנית, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g>צריך ליצור קשר עם <xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"יציאה"</string>
     <string name="retry" msgid="7497287909193345356">"ניסיון נוסף"</string>
 </resources>

@@ -25,6 +25,9 @@ import static com.android.devicelockcontroller.policy.ProvisionStateController.P
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.PROVISION_SUCCEEDED;
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionState.UNPROVISIONED;
 
+import androidx.annotation.VisibleForTesting;
+
+import com.android.devicelock.flags.Flags;
 import com.android.devicelockcontroller.storage.GlobalParametersClient;
 
 import com.google.common.util.concurrent.Futures;
@@ -42,7 +45,8 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     // Used to exercising APIs under CTS without actually applying any policies.
     // This is not persistent across controller restarts, but should be good enough for the
     // intended purpose.
-    private volatile @DeviceState int mPseudoDeviceState;
+    @VisibleForTesting
+    volatile @DeviceState int mPseudoDeviceState;
 
     public DeviceStateControllerImpl(DevicePolicyController policyController,
             ProvisionStateController provisionStateController, Executor executor) {
@@ -92,6 +96,13 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                         mPseudoDeviceState = deviceState;
                         // Do not apply any policies
                         return Futures.immediateVoidFuture();
+                    } else if (Flags.clearDeviceRestrictions()
+                            && (provisionState == UNPROVISIONED && deviceState == CLEARED)) {
+                        // During normal operation, we should not get clear requests in
+                        // the UNPROVISIONED state. Used for CTS compliance.
+                        mPseudoDeviceState = deviceState;
+                        // Do not apply any policies
+                        return Futures.immediateVoidFuture();
                     } else {
                         throw new RuntimeException(
                                 "User has not been provisioned! Current state " + provisionState);
@@ -100,7 +111,8 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                             unused -> Futures.transformAsync(isCleared(),
                                     isCleared -> {
                                         if (isCleared) {
-                                            throw new RuntimeException("Device has been cleared!");
+                                            throw new IllegalStateException("Device has been "
+                                                    + "cleared!");
                                         }
                                         return Futures.transformAsync(
                                                 mGlobalParametersClient.setDeviceState(deviceState),

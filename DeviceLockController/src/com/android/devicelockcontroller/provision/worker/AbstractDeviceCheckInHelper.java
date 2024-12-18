@@ -18,6 +18,7 @@ package com.android.devicelockcontroller.provision.worker;
 
 import android.util.ArraySet;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
 import com.android.devicelockcontroller.common.DeviceId;
@@ -36,5 +37,6 @@ public abstract class AbstractDeviceCheckInHelper {
     @WorkerThread
     abstract boolean handleGetDeviceCheckInStatusResponse(
             GetDeviceCheckInStatusGrpcResponse response,
-            DeviceLockControllerScheduler scheduler);
+            DeviceLockControllerScheduler scheduler,
+            @Nullable String fcmRegistrationToken);
 }

@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"डिव्हाइस <xliff:g id="TIMER">%s</xliff:g> मध्ये रीसेट होईल"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"सर्व डिव्हाइस डेटा हटवला जाईल. तुमच्या डिव्हाइसची नोंदणी करण्यात मदतीसाठी, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g> शी संपर्क साधा"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"आर्थिक तरतूद करता आली नाही"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"तुमच्या भांडवल पुरवणाऱ्या व्यक्तीशी संपर्क साधण्याच्या मार्गांसाठी येथे क्लिक करा. <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>अधिक जाणून घ्या<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"तुमच्या डिव्हाइसची नोंदणी करण्यासंबंधित मदतीसाठी, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g> शी संपर्क साधा<xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>."</string>
     <string name="exit" msgid="645084771882733921">"बाहेर पडा"</string>
     <string name="retry" msgid="7497287909193345356">"पुन्हा प्रयत्न करा"</string>
 </resources>

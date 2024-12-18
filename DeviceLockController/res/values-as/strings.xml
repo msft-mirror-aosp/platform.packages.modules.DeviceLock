@@ -125,7 +125,7 @@
     <string name="device_reset_timer_notification_title" msgid="301978346002711614">"<xliff:g id="TIMER">%s</xliff:g>ত ডিভাইচটো ৰিছেট হ’ব"</string>
     <string name="device_reset_notification_content" msgid="7642367488663440437">"ডিভাইচৰ আটাইবোৰ ডেটা মচা হ’ব। আপোনাৰ ডিভাইচ পঞ্জীয়ন কৰাত সহায় পাবলৈ, <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>ৰ সৈতে যোগাযোগ কৰক"</string>
     <string name="provisioning_failed" msgid="5350252817004028300">"বিত্তীয় সহায় প্ৰদান কৰাৰ প্ৰ’ভিজনিং বিফল হৈছে"</string>
-    <string name="click_to_contact_financier" msgid="9107827438262930445">"আপোনাৰ বিত্তৰ যোগান ধৰোঁতাৰ সৈতে যোগাযোগ কৰাৰ উপায়সমূহ জানিবলৈ অনুগ্ৰহ কৰি ইয়াত ক্লিক কৰক। <xliff:g id="SUPPORT_URL_START">&lt;a href=%1$s&gt;</xliff:g>অধিক জানক<xliff:g id="SUPPORT_URL_END">&lt;/a&gt;</xliff:g>"</string>
+    <string name="click_to_contact_financier" msgid="5932768971588112528">"আপোনাৰ ডিভাইচ পঞ্জীয়ন কৰাত সহায় পাবলৈ, <xliff:g id="SUPPORT_LINK_START">&lt;a href=%2$s&gt;</xliff:g><xliff:g id="PROVIDER_NAME">%1$s</xliff:g><xliff:g id="SUPPORT_LINK_END">&lt;/a&gt;</xliff:g>ৰ সৈতে যোগাযোগ কৰক।"</string>
     <string name="exit" msgid="645084771882733921">"বাহিৰ ওলাওক"</string>
     <string name="retry" msgid="7497287909193345356">"পুনৰ চেষ্টা কৰক"</string>
 </resources>

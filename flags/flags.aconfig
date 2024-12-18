@@ -1,0 +1,10 @@
+package: "com.android.devicelock.flags"
+container: "com.android.devicelock"
+
+flag {
+    name: "clear_device_restrictions"
+    is_exported: true
+    namespace: "devicelock"
+    description: "Flag for API to clear device restrictions"
+    bug: "349177010"
+}

@@ -35,8 +35,8 @@ import android.util.ArraySet;
 import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.R;
+import com.android.devicelockcontroller.activities.LockedHomeActivity;
 import com.android.devicelockcontroller.storage.SetupParametersClient;
-import com.android.devicelockcontroller.storage.UserParameters;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.Futures;
@@ -178,21 +178,26 @@ final class LockTaskModePolicyHandler implements PolicyHandler {
             if (mUserManager.isUserUnlocked()) {
                 WorkManager.getInstance(mContext).cancelUniqueWork(START_LOCK_TASK_MODE_WORK_NAME);
             }
-            final String currentPackage = UserParameters.getPackageOverridingHome(mContext);
             // Device Policy Engine treats lock task features and packages as one policy and
             // therefore we need to set both lock task features (to LOCK_TASK_FEATURE_NONE) and
             // lock task packages (to an empty string array).
-            mDpm.setLockTaskFeatures(null /* admin */, DevicePolicyManager.LOCK_TASK_FEATURE_NONE);
+
             // This is a hacky workaround to stop the lock task mode by enforcing that no apps
             // can be in lock task mode
             // TODO(b/288886570): Fix this in the framework so we don't have to do this workaround
             mDpm.setLockTaskPackages(null /* admin */, new String[]{""});
             // This will remove the DLC policy and allow other admins to enforce their policy
             mDpm.setLockTaskPackages(null /* admin */, new String[0]);
-            if (currentPackage != null) {
-                mDpm.clearPackagePersistentPreferredActivities(null /* admin */, currentPackage);
-                UserParameters.setPackageOverridingHome(mContext, null /* packageName */);
-            }
+            // Set lock task features (to LOCK_TASK_FEATURE_NONE) after removing the DLC policy
+            // in order to prevent keyguard from being disabled while lock task is still active.
+            mDpm.setLockTaskFeatures(null /* admin */, DevicePolicyManager.LOCK_TASK_FEATURE_NONE);
+            mDpm.clearPackagePersistentPreferredActivities(null /* admin */,
+                    mContext.getPackageName());
+            ComponentName lockedHomeActivity =
+                    new ComponentName(mContext, LockedHomeActivity.class);
+            mContext.getPackageManager().setComponentEnabledSetting(
+                    lockedHomeActivity, PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP);
             return true;
         }, mBgExecutor);
     }

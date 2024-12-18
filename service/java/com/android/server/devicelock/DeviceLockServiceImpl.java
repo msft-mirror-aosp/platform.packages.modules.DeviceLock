@@ -21,6 +21,7 @@ import static android.app.role.RoleManager.MANAGE_HOLDERS_FLAG_DONT_KILL_APP;
 import static android.content.IntentFilter.SYSTEM_HIGH_PRIORITY;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER;
 import static android.content.pm.PackageManager.DONT_KILL_APP;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.devicelock.DeviceId.DEVICE_ID_TYPE_IMEI;
@@ -50,18 +51,20 @@ import android.devicelock.IDeviceLockService;
 import android.devicelock.IGetDeviceIdCallback;
 import android.devicelock.IGetKioskAppsCallback;
 import android.devicelock.IIsDeviceLockedCallback;
-import android.devicelock.ILockUnlockDeviceCallback;
+import android.devicelock.IVoidResultCallback;
 import android.devicelock.ParcelableException;
 import android.net.NetworkPolicyManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
 import android.os.OutcomeReceiver;
 import android.os.PowerExemptionManager;
 import android.os.RemoteCallback;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -71,6 +74,7 @@ import android.util.Slog;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,11 +98,12 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     private static final int MAX_ADD_ROLE_HOLDER_TRIES = 4;
 
     private final Context mContext;
-    private final ExecutorService mExecutorService = Executors.newCachedThreadPool();
+    private final ExecutorService mExecutorService;
 
     private final RoleManager mRoleManager;
     private final TelephonyManager mTelephonyManager;
     private final AppOpsManager mAppOpsManager;
+    private final UserManager mUserManager;
 
     // Map user id -> DeviceLockControllerConnector
     @GuardedBy("this")
@@ -119,8 +124,6 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             mControllerKeepaliveServiceConnections;
 
     private final DeviceLockPersistentStore mPersistentStore;
-
-    private boolean mUseStubConnector = false;
 
     // The following string constants should be a SystemApi on AppOpsManager.
     @VisibleForTesting
@@ -188,22 +191,21 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     @NonNull
     private DeviceLockControllerConnector getDeviceLockControllerConnector(UserHandle userHandle) {
         synchronized (this) {
-            if (mUseStubConnector) {
-                return mDeviceLockControllerConnectorStub;
-            } else {
-                final int userId = userHandle.getIdentifier();
-                DeviceLockControllerConnector deviceLockControllerConnector =
-                        mDeviceLockControllerConnectors.get(userId);
-                if (deviceLockControllerConnector == null) {
+            final int userId = userHandle.getIdentifier();
+            DeviceLockControllerConnector deviceLockControllerConnector =
+                    mDeviceLockControllerConnectors.get(userId);
+            if (deviceLockControllerConnector == null) {
+                if (isDlcPackageEnabledForUser(userHandle)) {
                     final ComponentName componentName = new ComponentName(mServiceInfo.packageName,
                             mServiceInfo.name);
                     deviceLockControllerConnector = new DeviceLockControllerConnectorImpl(mContext,
                             componentName, userHandle);
-                    mDeviceLockControllerConnectors.put(userId, deviceLockControllerConnector);
+                } else {
+                    deviceLockControllerConnector = mDeviceLockControllerConnectorStub;
                 }
-
-                return deviceLockControllerConnector;
+                mDeviceLockControllerConnectors.put(userId, deviceLockControllerConnector);
             }
+            return deviceLockControllerConnector;
         }
     }
 
@@ -214,16 +216,21 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     DeviceLockServiceImpl(@NonNull Context context) {
-        this(context, context.getSystemService(TelephonyManager.class));
+        this(context, context.getSystemService(TelephonyManager.class),
+                Executors.newCachedThreadPool(),
+                Environment.getDataDirectory());
     }
 
     @VisibleForTesting
-    DeviceLockServiceImpl(@NonNull Context context, TelephonyManager telephonyManager) {
+    DeviceLockServiceImpl(@NonNull Context context, TelephonyManager telephonyManager,
+            ExecutorService executorService, File dataDirectory) {
         mContext = context;
         mTelephonyManager = telephonyManager;
+        mExecutorService = executorService;
 
         mRoleManager = context.getSystemService(RoleManager.class);
         mAppOpsManager = context.getSystemService(AppOpsManager.class);
+        mUserManager = context.getSystemService(UserManager.class);
 
         mDeviceLockControllerConnectors = new ArrayMap<>();
 
@@ -232,7 +239,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         mPackageUtils = new DeviceLockControllerPackageUtils(context);
 
-        mPersistentStore = new DeviceLockPersistentStore();
+        mPersistentStore = new DeviceLockPersistentStore(executorService, dataDirectory);
 
         final StringBuilder errorMessage = new StringBuilder();
         mServiceInfo = mPackageUtils.findService(errorMessage);
@@ -241,7 +248,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             throw new RuntimeException(errorMessage.toString());
         }
 
-        enforceDeviceLockControllerPackageEnabledState(UserHandle.SYSTEM);
+        enableDlcIfNeeded(UserHandle.SYSTEM);
 
         final IntentFilter intentFilter = new IntentFilter(DeviceLockClearReceiver.ACTION_CLEAR);
         // Run before any eventual app receiver (there should be none).
@@ -251,10 +258,93 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                 Context.RECEIVER_EXPORTED);
     }
 
-    void enforceDeviceLockControllerPackageEnabledState(@NonNull UserHandle userHandle) {
+    /**
+     * Enable DLC for user if it should be enabled.
+     * <p>
+     * Note that this is separate from {@link #disableDlcIfNeeded} because we always want to enable
+     * if the device is not finalized but we generally do not want to disable immediately if
+     * the device is finalized in case we still need to do some clean up. See
+     * {@link #disableDlcIfNeeded}.
+     *
+     * @param userHandle user to enable for
+     */
+    private void enableDlcIfNeeded(@NonNull UserHandle userHandle) {
         mPersistentStore.readFinalizedState(
-                isFinalized -> setDeviceLockControllerPackageEnabledState(userHandle, !isFinalized),
+                isFinalized -> {
+                    if (!isFinalized || !canDlcBeDisabledForFinalizedUser(userHandle)) {
+                        setDeviceLockControllerPackageEnabledState(userHandle, true);
+                    }
+                },
                 mContext.getMainExecutor());
+    }
+
+    /**
+     * Disable DLC for user if it should be disabled.
+     * <p>
+     * We only want to do this for newly created users or previously provisioned users that have
+     * run their clean-up logic and told us to disable them with {@link #setDeviceFinalized}.
+     * Otherwise, we risk disabling before all the roles, permissions, etc. have been removed.
+     *
+     * @param userHandle user to disable for
+     */
+    private void disableDlcIfNeeded(@NonNull UserHandle userHandle) {
+        mPersistentStore.readFinalizedState(
+                isFinalized -> {
+                    if (isFinalized && canDlcBeDisabledForFinalizedUser(userHandle)) {
+                        setDeviceLockControllerPackageEnabledState(userHandle, false);
+                    }
+                },
+                mContext.getMainExecutor());
+    }
+
+    /**
+     * Whether the DLC on a given user can be disabled safely at this point assuming the user
+     * has been finalized (i.e. the DLC has done its clean-up logic on finalization).
+     *
+     * @param userHandle user handle to check
+     * @return true if it can be disabled, false otherwise
+     */
+    private boolean canDlcBeDisabledForFinalizedUser(UserHandle userHandle) {
+        if (!userHandle.isSystem()) {
+            return true;
+        }
+        // If the user is system, we can only disable it if all other users have finished
+        // finalizing since the system user DLC process hosts services that DLC processes in other
+        // users need to complete finalization (e.g. global parameters).
+        boolean allNonSystemUsersFinalized = true;
+        final long identity = Binder.clearCallingIdentity();
+        List<UserHandle> users = mUserManager.getUserHandles(/* excludeDying= */ true);
+        for (int i = 0; i < users.size(); i++) {
+            UserHandle user = users.get(i);
+            if (user.isSystem()) {
+                continue;
+            }
+            if (isDlcPackageEnabledForUser(user)) {
+                Slog.d(TAG, "Cannot disable DLC for system user. User " + user + " "
+                        + "is not finalized.");
+                allNonSystemUsersFinalized = false;
+                break;
+            }
+        }
+        Binder.restoreCallingIdentity(identity);
+        return allNonSystemUsersFinalized;
+    }
+
+    private boolean isDlcPackageEnabledForUser(UserHandle userHandle) {
+        final String controllerPackageName = mServiceInfo.packageName;
+        Context controllerContext;
+        try {
+            controllerContext = mContext.createPackageContextAsUser(controllerPackageName,
+                    0 /* flags */, userHandle);
+        } catch (NameNotFoundException e) {
+            Slog.e(TAG, "Cannot create package context for: " + userHandle, e);
+            return false;
+        }
+        final PackageManager controllerPackageManager = controllerContext.getPackageManager();
+        final int enabledState =
+                controllerPackageManager.getApplicationEnabledSetting(controllerPackageName);
+        return (enabledState != COMPONENT_ENABLED_STATE_DISABLED
+                && enabledState != COMPONENT_ENABLED_STATE_DISABLED_USER);
     }
 
     private void setDeviceLockControllerPackageEnabledState(UserHandle userHandle,
@@ -289,15 +379,20 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             // PackageManager.setApplicationEnabledSetting() is somehow misleading because it says
             // that a protected package cannot be disabled (but we're actually trying to enable it).
         }
-        if (!enabled) {
-            synchronized (this) {
-                mUseStubConnector = true;
-                mDeviceLockControllerConnectors.clear();
-            }
+        synchronized (this) {
+            // Refresh connector
+            mDeviceLockControllerConnectors.put(userHandle.getIdentifier(), null);
+            getDeviceLockControllerConnector(userHandle);
         }
     }
 
+    void onUserAdded(@NonNull UserHandle userHandle) {
+        // New users do not have any provisioning to clean up and can be disabled immediately
+        disableDlcIfNeeded(userHandle);
+    }
+
     void onUserSwitching(@NonNull UserHandle userHandle) {
+        enableDlcIfNeeded(userHandle);
         getDeviceLockControllerConnector(userHandle).onUserSwitching(new OutcomeReceiver<>() {
             @Override
             public void onResult(Void ignored) {
@@ -312,6 +407,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     void onUserUnlocked(@NonNull Context userContext, @NonNull UserHandle userHandle) {
+        enableDlcIfNeeded(userHandle);
         mExecutorService.execute(() -> {
             getDeviceLockControllerConnector(userHandle).onUserUnlocked(new OutcomeReceiver<>() {
                 @Override
@@ -364,11 +460,11 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                 == PERMISSION_GRANTED;
     }
 
-    private void reportDeviceLockedUnlocked(@NonNull ILockUnlockDeviceCallback callback,
+    private void reportDeviceLockedUnlocked(@NonNull IVoidResultCallback callback,
             @Nullable Exception exception) {
         try {
             if (exception == null) {
-                callback.onDeviceLockedUnlocked();
+                callback.onSuccess();
             } else {
                 callback.onError(getParcelableException(exception));
             }
@@ -378,7 +474,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     private OutcomeReceiver<Void, Exception> getLockUnlockOutcomeReceiver(
-            @NonNull ILockUnlockDeviceCallback callback, @NonNull String successMessage) {
+            @NonNull IVoidResultCallback callback, @NonNull String successMessage) {
         return new OutcomeReceiver<>() {
             @Override
             public void onResult(Void ignored) {
@@ -400,7 +496,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     @Override
-    public void lockDevice(@NonNull ILockUnlockDeviceCallback callback) {
+    public void lockDevice(@NonNull IVoidResultCallback callback) {
         if (!checkCallerPermission()) {
             try {
                 callback.onError(new ParcelableException(new SecurityException()));
@@ -415,7 +511,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     }
 
     @Override
-    public void unlockDevice(@NonNull ILockUnlockDeviceCallback callback) {
+    public void unlockDevice(@NonNull IVoidResultCallback callback) {
         if (!checkCallerPermission()) {
             try {
                 callback.onError(new ParcelableException(new SecurityException()));
@@ -427,6 +523,45 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
         getDeviceLockControllerConnector().unlockDevice(
                 getLockUnlockOutcomeReceiver(callback, "Device unlocked"));
+    }
+
+    @Override
+    public void clearDeviceRestrictions(@NonNull IVoidResultCallback callback) {
+        if (!checkCallerPermission()) {
+            try {
+                callback.onError(new ParcelableException(new SecurityException()));
+            } catch (RemoteException e) {
+                Slog.e(TAG, "clearDeviceRestrictions() - Unable to send error to the callback", e);
+            }
+            return;
+        }
+
+        final UserHandle userHandle = Binder.getCallingUserHandle();
+
+        getDeviceLockControllerConnector(userHandle).clearDeviceRestrictions(
+                new OutcomeReceiver<>() {
+                    @Override
+                    public void onResult(Void ignored) {
+                        Slog.i(TAG, "Device cleared ");
+
+                        try {
+                            callback.onSuccess();
+                        } catch (RemoteException e) {
+                            Slog.e(TAG, "Unable to send result to the callback", e);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception ex) {
+                        Slog.e(TAG, "Exception clearing device: ", ex);
+
+                        try {
+                            callback.onError(getParcelableException(ex));
+                        } catch (RemoteException e) {
+                            Slog.e(TAG, "Unable to send error to the callback", e);
+                        }
+                    }
+                });
     }
 
     @Override
@@ -463,11 +598,22 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         });
     }
 
+    private boolean hasGsm() {
+        return mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_GSM);
+    }
+
+    private boolean hasCdma() {
+        return mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CDMA);
+    }
+
     @VisibleForTesting
     void getDeviceId(@NonNull IGetDeviceIdCallback callback, int deviceIdTypeBitmap) {
         try {
             if (deviceIdTypeBitmap < 0 || deviceIdTypeBitmap >= (1 << (LAST_DEVICE_ID_TYPE + 1))) {
-                callback.onError(new ParcelableException("Invalid device type"));
+                Exception exception = new Exception("Invalid device type");
+                callback.onError(new ParcelableException(exception));
                 return;
             }
         } catch (RemoteException e) {
@@ -478,7 +624,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
         List<String> imeiList = new ArrayList<String>();
         List<String> meidList = new ArrayList<String>();
 
-        if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
+        if (hasGsm() && ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0)) {
             for (int i = 0; i < activeModemCount; i++) {
                 String imei = mTelephonyManager.getImei(i);
                 if (!TextUtils.isEmpty(imei)) {
@@ -487,7 +633,7 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
             }
         }
 
-        if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0) {
+        if (hasCdma() && ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_MEID)) != 0)) {
             for (int i = 0; i < activeModemCount; i++) {
                 String meid = mTelephonyManager.getMeid(i);
                 if (!TextUtils.isEmpty(meid)) {
@@ -514,7 +660,8 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
                     //
                     // TODO(b/270392813): Send the device ID back to the callback with
                     //  UNSPECIFIED device ID type.
-                    callback.onError(new ParcelableException("Unable to get device id"));
+                    Exception exception = new Exception("Unable to get device id");
+                    callback.onError(new ParcelableException(exception));
                 } catch (RemoteException e) {
                     Slog.e(TAG, "getDeviceId() - Unable to send result to the callback", e);
                 }
@@ -879,21 +1026,37 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
     @Override
     public void enableKioskKeepalive(String packageName, @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         enableKeepalive(true /* forKiosk */, packageName, remoteCallback);
     }
 
     @Override
     public void disableKioskKeepalive(@NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         disableKeepalive(true /* forKiosk */, remoteCallback);
     }
 
     @Override
     public void enableControllerKeepalive(@NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         enableKeepalive(false /* forKiosk */, mServiceInfo.packageName, remoteCallback);
     }
 
     @Override
     public void disableControllerKeepalive(@NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         disableKeepalive(false /* forKiosk */, remoteCallback);
     }
 
@@ -963,8 +1126,16 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
 
     @Override
     public void setDeviceFinalized(boolean finalized, @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         mPersistentStore.scheduleWrite(finalized);
-        setDeviceLockControllerPackageEnabledState(getCallingUserHandle(), false /* enabled */);
+        UserHandle user = getCallingUserHandle();
+        if (canDlcBeDisabledForFinalizedUser(user)) {
+            setDeviceLockControllerPackageEnabledState(user, false);
+            Slog.d(TAG, "Device finalized for user " + user + ". Disabling DLC.");
+        }
 
         final Bundle result = new Bundle();
         result.putBoolean(KEY_REMOTE_CALLBACK_RESULT, true);
@@ -974,6 +1145,10 @@ final class DeviceLockServiceImpl extends IDeviceLockService.Stub {
     @Override
     public void setPostNotificationsSystemFixed(boolean systemFixed,
             @NonNull RemoteCallback remoteCallback) {
+        if (!checkDeviceLockControllerPermission(remoteCallback)) {
+            return;
+        }
+
         final UserHandle userHandle = Binder.getCallingUserHandle();
         final PackageManager packageManager = mContext.getPackageManager();
         final int permissionFlags = PackageManager.FLAG_PERMISSION_SYSTEM_FIXED;

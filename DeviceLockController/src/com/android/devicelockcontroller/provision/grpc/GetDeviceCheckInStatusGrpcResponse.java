@@ -101,4 +101,11 @@ public abstract class GetDeviceCheckInStatusGrpcResponse extends GrpcResponse {
      * @return true if the device is an approved country; false otherwise.
      */
     public abstract boolean isDeviceInApprovedCountry();
+
+    /**
+     * Check if adb debugging is allowed even on production devices.
+     *
+     * @return true if debugging is allowed; false otherwise.
+     */
+    public abstract boolean isDebuggingAllowed();
 }

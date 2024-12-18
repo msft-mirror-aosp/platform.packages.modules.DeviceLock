@@ -35,7 +35,9 @@ enum ConfigurationStatus {
 
 message ConfigurationInfo {
   // The URL to download the kiosk app for non-GMS devices.
-  optional string kiosk_app_download_url = 1;
+  // DEPRECATED: This feature has been deprecated. The field will soon be
+  // removed.
+  optional string kiosk_app_download_url = 1 [deprecated = true];
 
   // The name of the provider of the kiosk app, e.g. "Foo Bar Inc".
   optional string kiosk_app_provider_name = 2;
@@ -46,7 +48,9 @@ message ConfigurationInfo {
   // The checksum used to sign the kiosk app.
   //
   // This is for verifying the validity of the kiosk app.
-  optional string kiosk_app_signature_checksum = 4;
+  // DEPRECATED: This feature has been deprecated. The field will soon be
+  // removed.
+  optional string kiosk_app_signature_checksum = 4 [deprecated = true];
 
   // The package component of the activity of the kiosk app that the user
   // would interact when the device is locked (i.e. this activity allows the
