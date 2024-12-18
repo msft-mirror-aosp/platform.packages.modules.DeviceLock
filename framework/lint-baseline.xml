@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.4.0-alpha08" type="baseline" client="" dependencies="true" name="" variant="all" version="8.4.0-alpha08">
+
+    <issue
+        id="MissingPermissionAnnotation"
+        message="onSuccess should be annotated with either @EnforcePermission, @RequiresNoPermission or @PermissionManuallyEnforced."
+        errorLine1="                        @Override"
+        errorLine2="                        ^">
+        <location
+            file="packages/modules/DeviceLock/framework/java/android/devicelock/DeviceLockManager.java"
+            line="108"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="MissingPermissionAnnotation"
+        message="onError should be annotated with either @EnforcePermission, @RequiresNoPermission or @PermissionManuallyEnforced."
+        errorLine1="                        @Override"
+        errorLine2="                        ^">
+        <location
+            file="packages/modules/DeviceLock/framework/java/android/devicelock/DeviceLockManager.java"
+            line="113"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="MissingPermissionAnnotation"
+        message="onSuccess should be annotated with either @EnforcePermission, @RequiresNoPermission or @PermissionManuallyEnforced."
+        errorLine1="                        @Override"
+        errorLine2="                        ^">
+        <location
+            file="packages/modules/DeviceLock/framework/java/android/devicelock/DeviceLockManager.java"
+            line="138"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="MissingPermissionAnnotation"
+        message="onError should be annotated with either @EnforcePermission, @RequiresNoPermission or @PermissionManuallyEnforced."
+        errorLine1="                        @Override"
+        errorLine2="                        ^">
+        <location
+            file="packages/modules/DeviceLock/framework/java/android/devicelock/DeviceLockManager.java"
+            line="143"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="MissingPermissionAnnotation"
+        message="onSuccess should be annotated with either @EnforcePermission, @RequiresNoPermission or @PermissionManuallyEnforced."
+        errorLine1="                        @Override"
+        errorLine2="                        ^">
+        <location
+            file="packages/modules/DeviceLock/framework/java/android/devicelock/DeviceLockManager.java"
+            line="227"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="MissingPermissionAnnotation"
+        message="onError should be annotated with either @EnforcePermission, @RequiresNoPermission or @PermissionManuallyEnforced."
+        errorLine1="                        @Override"
+        errorLine2="                        ^">
+        <location
+            file="packages/modules/DeviceLock/framework/java/android/devicelock/DeviceLockManager.java"
+            line="232"
+            column="25"/>
+    </issue>
+
+</issues>

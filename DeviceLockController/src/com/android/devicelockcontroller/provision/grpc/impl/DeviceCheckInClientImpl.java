@@ -54,11 +54,13 @@ import com.android.devicelockcontroller.proto.IsDeviceInApprovedCountryRequest;
 import com.android.devicelockcontroller.proto.PauseDeviceProvisioningReason;
 import com.android.devicelockcontroller.proto.PauseDeviceProvisioningRequest;
 import com.android.devicelockcontroller.proto.ReportDeviceProvisionStateRequest;
+import com.android.devicelockcontroller.proto.UpdateFcmTokenRequest;
 import com.android.devicelockcontroller.provision.grpc.DeviceCheckInClient;
 import com.android.devicelockcontroller.provision.grpc.GetDeviceCheckInStatusGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.IsDeviceInApprovedCountryGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.PauseDeviceProvisioningGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStateGrpcResponse;
+import com.android.devicelockcontroller.provision.grpc.UpdateFcmTokenGrpcResponse;
 import com.android.devicelockcontroller.util.LogUtil;
 import com.android.devicelockcontroller.util.ThreadAsserts;
 
@@ -201,7 +203,6 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             @Nullable String fcmRegistrationToken,
             @NonNull DeviceLockCheckinServiceBlockingStub stub) {
         try {
-            // TODO(339313833): Make a separate grpc call for passing in the token
             return new GetDeviceCheckInStatusGrpcResponseWrapper(
                     stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
                             .getDeviceCheckinStatus(createGetDeviceCheckinStatusRequest(
@@ -316,6 +317,40 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     }
 
     @Override
+    public UpdateFcmTokenGrpcResponse updateFcmToken(ArraySet<DeviceId> deviceIds,
+            @NonNull String fcmRegistrationToken) {
+        ThreadAsserts.assertWorkerThread("getDeviceCheckInStatus");
+        UpdateFcmTokenGrpcResponse response =
+                updateFcmToken(deviceIds, fcmRegistrationToken, mDefaultBlockingStub);
+        if (response.hasRecoverableError()) {
+            DeviceLockCheckinServiceBlockingStub stub;
+            synchronized (this) {
+                if (mNonVpnBlockingStub == null) {
+                    return response;
+                }
+                stub = mNonVpnBlockingStub;
+            }
+            LogUtil.d(TAG, "Non-VPN network fallback detected. Re-attempt fcm token update.");
+            return updateFcmToken(deviceIds, fcmRegistrationToken, stub);
+        }
+        return response;
+    }
+
+    private UpdateFcmTokenGrpcResponse updateFcmToken(
+            ArraySet<DeviceId> deviceIds,
+            @NonNull String fcmRegistrationToken,
+            @NonNull DeviceLockCheckinServiceBlockingStub stub) {
+        try {
+            return new UpdateFcmTokenGrpcResponseWrapper(
+                    stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
+                            .updateFcmToken(createUpdateFcmTokenRequest(
+                                    deviceIds, fcmRegistrationToken)));
+        } catch (StatusRuntimeException e) {
+            return new UpdateFcmTokenGrpcResponseWrapper(e.getStatus());
+        }
+    }
+
+    @Override
     public void cleanUp() {
         super.cleanUp();
         mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
@@ -356,24 +391,10 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             @Nullable String fcmRegistrationToken) {
         GetDeviceCheckinStatusRequest.Builder builder = GetDeviceCheckinStatusRequest.newBuilder();
         for (DeviceId deviceId : deviceIds) {
-            DeviceIdentifierType type;
-            switch (deviceId.getType()) {
-                case DeviceIdType.DEVICE_ID_TYPE_UNSPECIFIED:
-                    type = DeviceIdentifierType.DEVICE_IDENTIFIER_TYPE_UNSPECIFIED;
-                    break;
-                case DeviceIdType.DEVICE_ID_TYPE_IMEI:
-                    type = DeviceIdentifierType.DEVICE_IDENTIFIER_TYPE_IMEI;
-                    break;
-                case DeviceIdType.DEVICE_ID_TYPE_MEID:
-                    type = DeviceIdentifierType.DEVICE_IDENTIFIER_TYPE_MEID;
-                    break;
-                default:
-                    throw new IllegalStateException(
-                            "Unexpected DeviceId type: " + deviceId.getType());
-            }
             builder.addClientDeviceIdentifiers(
                     ClientDeviceIdentifier.newBuilder()
-                            .setDeviceIdentifierType(type)
+                            .setDeviceIdentifierType(
+                                    convertToProtoDeviceIdType(deviceId.getType()))
                             .setDeviceIdentifier(deviceId.getId()));
         }
         builder.setCarrierMccmnc(carrierInfo);
@@ -384,6 +405,19 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
             builder.setFcmRegistrationToken(fcmRegistrationToken);
         }
         return builder.build();
+    }
+
+    private static DeviceIdentifierType convertToProtoDeviceIdType(@DeviceIdType int deviceIdType) {
+        return switch (deviceIdType) {
+            case DeviceIdType.DEVICE_ID_TYPE_UNSPECIFIED ->
+                    DeviceIdentifierType.DEVICE_IDENTIFIER_TYPE_UNSPECIFIED;
+            case DeviceIdType.DEVICE_ID_TYPE_IMEI ->
+                    DeviceIdentifierType.DEVICE_IDENTIFIER_TYPE_IMEI;
+            case DeviceIdType.DEVICE_ID_TYPE_MEID ->
+                    DeviceIdentifierType.DEVICE_IDENTIFIER_TYPE_MEID;
+            default -> throw new IllegalStateException(
+                    "Unexpected DeviceId type: " + deviceIdType);
+        };
     }
 
     private static IsDeviceInApprovedCountryRequest createIsDeviceInApprovedCountryRequest(
@@ -467,6 +501,20 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
         if (!isSuccessful) {
             builder.setClientProvisionFailureReason(reasonProto);
         }
+        return builder.build();
+    }
+
+    private static UpdateFcmTokenRequest createUpdateFcmTokenRequest(ArraySet<DeviceId> deviceIds,
+            @NonNull String fcmRegistrationToken) {
+        UpdateFcmTokenRequest.Builder builder = UpdateFcmTokenRequest.newBuilder();
+        for (DeviceId deviceId : deviceIds) {
+            builder.addClientDeviceIdentifiers(
+                    ClientDeviceIdentifier.newBuilder()
+                            .setDeviceIdentifierType(
+                                    convertToProtoDeviceIdType(deviceId.getType()))
+                            .setDeviceIdentifier(deviceId.getId()));
+        }
+        builder.setFcmRegistrationToken(fcmRegistrationToken);
         return builder.build();
     }
 }

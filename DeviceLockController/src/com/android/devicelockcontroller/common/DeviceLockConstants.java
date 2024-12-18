@@ -30,6 +30,15 @@ public final class DeviceLockConstants {
     /** Device reset count down minute when non-mandatory provision fails */
     public static final int NON_MANDATORY_PROVISION_DEVICE_RESET_COUNTDOWN_MINUTE = 30;
 
+    // JobSchedule Job IDs have to be unique across the same UID, so they need to be centrally
+    // managed.
+
+    /** Max value for Job ID for use by WorkManager */
+    public static final int WORK_MANAGER_MAX_JOB_SCHEDULER_ID = 100_000;
+
+    /** Job Id for Setup Wizard Timeout Job */
+    public static final int SETUP_WIZARD_TIMEOUT_JOB_ID = WORK_MANAGER_MAX_JOB_SCHEDULER_ID + 1;
+
     // Constants related to unique device identifiers.
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(value = {
