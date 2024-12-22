@@ -59,6 +59,7 @@ bootclasspath_fragment {
         // result in a build failure due to inconsistent flags.
         package_prefixes: [
             "android.devicelock",
+            "com.android.devicelock.flags",
         ],
     },
 }

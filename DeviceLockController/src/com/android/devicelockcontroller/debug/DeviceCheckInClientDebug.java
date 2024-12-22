@@ -25,6 +25,7 @@ import android.os.SystemClock;
 import android.util.ArraySet;
 
 import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.devicelockcontroller.common.DeviceId;
@@ -38,6 +39,7 @@ import com.android.devicelockcontroller.provision.grpc.IsDeviceInApprovedCountry
 import com.android.devicelockcontroller.provision.grpc.PauseDeviceProvisioningGrpcResponse;
 import com.android.devicelockcontroller.provision.grpc.ProvisioningConfiguration;
 import com.android.devicelockcontroller.provision.grpc.ReportDeviceProvisionStateGrpcResponse;
+import com.android.devicelockcontroller.provision.grpc.UpdateFcmTokenGrpcResponse;
 import com.android.devicelockcontroller.util.LogUtil;
 import com.android.devicelockcontroller.util.ThreadAsserts;
 
@@ -244,6 +246,18 @@ public final class DeviceCheckInClientDebug extends DeviceCheckInClient {
                 return DebugLogUtil.logAndReturn(TAG,
                         getSharedPreference(
                                 DEBUG_DEVICELOCK_CHECKIN_DAYS_LEFT_UNTIL_RESET, /* def= */ 1));
+            }
+        };
+    }
+
+    @Override
+    public UpdateFcmTokenGrpcResponse updateFcmToken(ArraySet<DeviceId> deviceIds,
+            @NonNull String fcmRegistrationToken) {
+        ThreadAsserts.assertWorkerThread("updateFcmToken");
+        return new UpdateFcmTokenGrpcResponse() {
+            @Override
+            public int getFcmTokenResult() {
+                return FcmTokenResult.RESULT_SUCCESS;
             }
         };
     }
