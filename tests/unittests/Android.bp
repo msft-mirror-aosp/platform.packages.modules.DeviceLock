@@ -42,6 +42,5 @@ android_robolectric_test {
         "framework-annotations-lib",
     ],
     instrumentation_for: "DeviceLockTestApp",
-    upstream: true,
     strict_mode: false,
 }
