@@ -93,6 +93,8 @@ public final  class DeviceCheckinClientImplTest {
     private static final String TEST_REGISTERED_ID = "1234567890";
     private static final String TEST_FCM_TOKEN = "token";
     private static final int NON_VPN_NET_ID = 10;
+    private static final String TEST_DEVICE_LOCALE = "en-US";
+    private static final long TEST_DEVICE_LOCK_APEX_VERSION = 1234567890;
 
     @Rule
     public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -111,6 +113,8 @@ public final  class DeviceCheckinClientImplTest {
     private DeviceCheckInClientImpl mDeviceCheckInClientImpl;
 
     private String mReceivedFcmToken;
+    private String mReceivedDeviceLocale;
+    private long mReceivedDeviceLockApexVersion;
 
     @Before
     public void setUp() throws Exception {
@@ -163,8 +167,12 @@ public final  class DeviceCheckinClientImplTest {
         // WHEN we ask for the check in status
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
-                mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is successful
@@ -185,9 +193,12 @@ public final  class DeviceCheckinClientImplTest {
         // WHEN we ask for the check in status without an FCM token
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
-                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                                new ArraySet<>(), TEST_CARRIER_INFO,
-                                /* fcmRegistrationToken= */ null)))
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                /* fcmRegistrationToken= */ null)))
                 .get();
 
         // THEN the response is successful
@@ -208,8 +219,12 @@ public final  class DeviceCheckinClientImplTest {
         // WHEN we ask for the check in status with an empty FCM token
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
-                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                                new ArraySet<>(), TEST_CARRIER_INFO, "")))
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                "")))
                 .get();
 
         // THEN the response is successful
@@ -229,14 +244,79 @@ public final  class DeviceCheckinClientImplTest {
 
         // WHEN we ask for the check in status with a blank FCM token
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
-        mBgExecutor.submit(() -> response.set(
-                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                                new ArraySet<>(), TEST_CARRIER_INFO, "   ")))
+        mBgExecutor
+                .submit(
+                        () ->
+                                response.set(
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                "   ")))
                 .get();
 
         // THEN the response is successful
         assertThat(response.get().isSuccessful()).isTrue();
         assertThat(mReceivedFcmToken).isEmpty();
+    }
+
+    @Test
+    public void getCheckInStatus_emptyDeviceLocale_succeeds() throws Exception {
+        // GIVEN the service succeeds through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeSucceedingService())
+                .build()
+                .start());
+
+        // WHEN we ask for the check in status with an empty FCM token
+        AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor
+                .submit(
+                        () ->
+                                response.set(
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                "",
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                TEST_FCM_TOKEN)))
+                .get();
+
+        // THEN the response is successful
+        assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedDeviceLocale).isEmpty();
+    }
+
+    @Test
+    public void getCheckInStatus_emptyApexVersion_succeeds() throws Exception {
+        // GIVEN the service succeeds through the default network
+        mGrpcCleanup.register(InProcessServerBuilder
+                .forName(mDefaultNetworkServerName)
+                .directExecutor()
+                .addService(makeSucceedingService())
+                .build()
+                .start());
+
+        // WHEN we ask for the check in status with an empty FCM token
+        AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
+        mBgExecutor
+                .submit(
+                        () ->
+                                response.set(
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                0L,
+                                                TEST_FCM_TOKEN)))
+                .get();
+
+        // THEN the response is successful
+        assertThat(response.get().isSuccessful()).isTrue();
+        assertThat(mReceivedDeviceLockApexVersion).isEqualTo(0L);
     }
 
     @Test
@@ -269,8 +349,12 @@ public final  class DeviceCheckinClientImplTest {
         // WHEN we ask for the check in status
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
-                mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is successful
@@ -297,8 +381,12 @@ public final  class DeviceCheckinClientImplTest {
         // WHEN we ask for the check in status
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
         mBgExecutor.submit(() -> response.set(
-                mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is unsuccessful
@@ -330,9 +418,14 @@ public final  class DeviceCheckinClientImplTest {
 
         // WHEN we ask for the check in status
         AtomicReference<GetDeviceCheckInStatusGrpcResponse> response = new AtomicReference<>();
-        mBgExecutor.submit(() -> response.set(
-                mDeviceCheckInClientImpl.getDeviceCheckInStatus(
-                        new ArraySet<>(), TEST_CARRIER_INFO, TEST_FCM_TOKEN)))
+        mBgExecutor.submit(() ->
+                                response.set(
+                                        mDeviceCheckInClientImpl.getDeviceCheckInStatus(
+                                                new ArraySet<>(),
+                                                TEST_CARRIER_INFO,
+                                                TEST_DEVICE_LOCALE,
+                                                TEST_DEVICE_LOCK_APEX_VERSION,
+                                                TEST_FCM_TOKEN)))
                 .get();
 
         // THEN the response is unsuccessful
@@ -872,6 +965,8 @@ public final  class DeviceCheckinClientImplTest {
             public void getDeviceCheckinStatus(GetDeviceCheckinStatusRequest req,
                     StreamObserver<GetDeviceCheckinStatusResponse> responseObserver) {
                 mReceivedFcmToken = req.getFcmRegistrationToken();
+                mReceivedDeviceLocale = req.getDeviceLocale();
+                mReceivedDeviceLockApexVersion = req.getApexVersion();
                 GetDeviceCheckinStatusResponse response = GetDeviceCheckinStatusResponse
                         .newBuilder()
                         .build();

@@ -40,6 +40,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.NetworkRequest;
 import android.os.SystemClock;
@@ -117,6 +118,9 @@ public final class DeviceCheckInHelperTest {
     );
     static final int DEVICE_ID_TYPE_BITMAP =
             (1 << DEVICE_ID_TYPE_IMEI) | (1 << DEVICE_ID_TYPE_MEID);
+    static final String FAKE_APEX_PACKAGE = "fake_apex";
+    static final long APEX_VERSION = 1111;
+    static final String DEVICE_LOCALE = "en-US";
 
     private FinalizationController mFinalizationController;
     private DeviceCheckInHelper mHelper;
@@ -305,6 +309,26 @@ public final class DeviceCheckInHelperTest {
                 mTestApplication.getFcmRegistrationToken().get())).isTrue();
 
         verify(mScheduler).scheduleRetryCheckInWork(eq(Duration.ZERO));
+    }
+
+    @Test
+    public void getDeviceLockApexVersion_missingPackageName_shouldReturnZero() {
+        assertThat(mHelper.getDeviceLockApexVersion("non_existent_package")).isEqualTo(0);
+    }
+
+    @Test
+    public void getDeviceLockApexVersion_validPackageName_returnsVersion() {
+        PackageInfo packageInfo = new PackageInfo();
+        packageInfo.setLongVersionCode(APEX_VERSION);
+        packageInfo.packageName = FAKE_APEX_PACKAGE;
+        packageInfo.isApex = true;
+        mPackageManager.installPackage(packageInfo);
+        assertThat(mHelper.getDeviceLockApexVersion(FAKE_APEX_PACKAGE)).isEqualTo(APEX_VERSION);
+    }
+
+    @Test
+    public void getDeviceLocale_returnsDefaultLocale() {
+        assertThat(mHelper.getDeviceLocale()).isEqualTo(DEVICE_LOCALE);
     }
 
     private void assertNetworkRequestCapabilities(NetworkRequest networkRequest) {

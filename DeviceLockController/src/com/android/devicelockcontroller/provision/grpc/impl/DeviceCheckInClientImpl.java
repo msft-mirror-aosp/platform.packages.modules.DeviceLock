@@ -178,11 +178,19 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
 
     @Override
     public GetDeviceCheckInStatusGrpcResponse getDeviceCheckInStatus(
-            ArraySet<DeviceId> deviceIds, String carrierInfo,
+            ArraySet<DeviceId> deviceIds,
+            String carrierInfo,
+            String deviceLocale,
+            long deviceLockApexVersion,
             @Nullable String fcmRegistrationToken) {
         ThreadAsserts.assertWorkerThread("getDeviceCheckInStatus");
         GetDeviceCheckInStatusGrpcResponse response =
-                getDeviceCheckInStatus(deviceIds, carrierInfo, fcmRegistrationToken,
+                getDeviceCheckInStatus(
+                        deviceIds,
+                        carrierInfo,
+                        deviceLocale,
+                        deviceLockApexVersion,
+                        fcmRegistrationToken,
                         mDefaultBlockingStub);
         if (response.hasRecoverableError()) {
             DeviceLockCheckinServiceBlockingStub stub;
@@ -193,20 +201,34 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
                 stub = mNonVpnBlockingStub;
             }
             LogUtil.d(TAG, "Non-VPN network fallback detected. Re-attempt check-in.");
-            return getDeviceCheckInStatus(deviceIds, carrierInfo, fcmRegistrationToken, stub);
+            return getDeviceCheckInStatus(
+                    deviceIds,
+                    carrierInfo,
+                    deviceLocale,
+                    deviceLockApexVersion,
+                    fcmRegistrationToken,
+                    stub);
         }
         return response;
     }
 
     private GetDeviceCheckInStatusGrpcResponse getDeviceCheckInStatus(
-            ArraySet<DeviceId> deviceIds, String carrierInfo,
+            ArraySet<DeviceId> deviceIds,
+            String carrierInfo,
+            String deviceLocale,
+            long deviceLockApexVersion,
             @Nullable String fcmRegistrationToken,
             @NonNull DeviceLockCheckinServiceBlockingStub stub) {
         try {
             return new GetDeviceCheckInStatusGrpcResponseWrapper(
                     stub.withDeadlineAfter(GRPC_DEADLINE_MS, TimeUnit.MILLISECONDS)
-                            .getDeviceCheckinStatus(createGetDeviceCheckinStatusRequest(
-                                    deviceIds, carrierInfo, fcmRegistrationToken)));
+                            .getDeviceCheckinStatus(
+                                    createGetDeviceCheckinStatusRequest(
+                                            deviceIds,
+                                            carrierInfo,
+                                            deviceLocale,
+                                            deviceLockApexVersion,
+                                            fcmRegistrationToken)));
         } catch (StatusRuntimeException e) {
             return new GetDeviceCheckInStatusGrpcResponseWrapper(e.getStatus());
         }
@@ -387,7 +409,10 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
     }
 
     private static GetDeviceCheckinStatusRequest createGetDeviceCheckinStatusRequest(
-            ArraySet<DeviceId> deviceIds, String carrierInfo,
+            ArraySet<DeviceId> deviceIds,
+            String carrierInfo,
+            String deviceLocale,
+            long deviceLockApexVersion,
             @Nullable String fcmRegistrationToken) {
         GetDeviceCheckinStatusRequest.Builder builder = GetDeviceCheckinStatusRequest.newBuilder();
         for (DeviceId deviceId : deviceIds) {
@@ -404,6 +429,8 @@ public final class DeviceCheckInClientImpl extends DeviceCheckInClient {
         if (!Strings.isNullOrEmpty(fcmRegistrationToken) && !fcmRegistrationToken.isBlank()) {
             builder.setFcmRegistrationToken(fcmRegistrationToken);
         }
+        builder.setDeviceLocale(deviceLocale);
+        builder.setApexVersion(deviceLockApexVersion);
         return builder.build();
     }
 

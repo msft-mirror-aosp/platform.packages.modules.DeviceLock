@@ -24,6 +24,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -69,6 +70,9 @@ public class DeviceCheckInWorkerTest {
     public static final ArraySet<DeviceId> EMPTY_DEVICE_IDS = new ArraySet<>(new DeviceId[]{});
     public static final String TEST_CARRIER_INFO = "1234567890";
     public static final String EMPTY_CARRIER_INFO = "";
+    public static final String TEST_DEVICE_LOCALE = "en-US";
+    public static final String EMPTY_DEVICE_LOCALE = "";
+    public static final long TEST_DEVICE_LOCK_APEX_VERSION = 1234567890;
     @Rule
     public final MockitoRule mMocks = MockitoJUnit.rule();
     @Mock
@@ -91,7 +95,8 @@ public class DeviceCheckInWorkerTest {
         when(mFcmRegistrationTokenProvider.getFcmRegistrationToken()).thenReturn(
                 mContext.getFcmRegistrationToken());
         when(mClient.getDeviceCheckInStatus(
-                eq(TEST_DEVICE_IDS), anyString(), any())).thenReturn(mResponse);
+                        eq(TEST_DEVICE_IDS), anyString(), anyString(), anyLong(), any()))
+                .thenReturn(mResponse);
         mWorker = TestListenableWorkerBuilder.from(
                         mContext, DeviceCheckInWorker.class)
                 .setWorkerFactory(
@@ -119,6 +124,8 @@ public class DeviceCheckInWorkerTest {
         // GIVEN all device info available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
 
         // GIVEN check-in response is successful
         setUpSuccessfulCheckInResponse(/* isHandleable= */ true);
@@ -138,6 +145,8 @@ public class DeviceCheckInWorkerTest {
         // GIVEN all device info available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
 
         // GIVEN check-in response is successful
         setUpSuccessfulCheckInResponse(/* isHandleable= */ false);
@@ -157,6 +166,8 @@ public class DeviceCheckInWorkerTest {
         // GIVEN all device info available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
 
         // GIVEN check-in response has recoverable failure.
         setUpFailedCheckInResponse(/* isRecoverable= */ true);
@@ -176,6 +187,8 @@ public class DeviceCheckInWorkerTest {
         // GIVEN all device info available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
 
         // GIVEN check-in response has non-recoverable failure.
         setUpFailedCheckInResponse(/* isRecoverable= */ false);
@@ -201,13 +214,20 @@ public class DeviceCheckInWorkerTest {
         // GIVEN only device ids available
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ false);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
 
         // WHEN work runs
         Futures.getUnchecked(mWorker.startWork());
 
         // THEN check-in is requested
-        verify(mClient).getDeviceCheckInStatus(eq(TEST_DEVICE_IDS), eq(EMPTY_CARRIER_INFO),
-                eq(TEST_FCM_TOKEN));
+        verify(mClient)
+                .getDeviceCheckInStatus(
+                        eq(TEST_DEVICE_IDS),
+                        eq(EMPTY_CARRIER_INFO),
+                        eq(TEST_DEVICE_LOCALE),
+                        eq(TEST_DEVICE_LOCK_APEX_VERSION),
+                        eq(TEST_FCM_TOKEN));
     }
 
     @Test
@@ -218,13 +238,20 @@ public class DeviceCheckInWorkerTest {
         // GIVEN only device ids available
         setDeviceIdAvailability(/* isAvailable= */ false);
         setCarrierInfoAvailability(/* isAvailable= */ false);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
 
         // WHEN work runs
         Futures.getUnchecked(mWorker.startWork());
 
         // THEN check-in is not requested
-        verify(mClient, never()).getDeviceCheckInStatus(eq(TEST_DEVICE_IDS), eq(EMPTY_CARRIER_INFO),
-                eq(TEST_FCM_TOKEN));
+        verify(mClient, never())
+                .getDeviceCheckInStatus(
+                        eq(TEST_DEVICE_IDS),
+                        eq(EMPTY_CARRIER_INFO),
+                        eq(TEST_DEVICE_LOCALE),
+                        eq(TEST_DEVICE_LOCK_APEX_VERSION),
+                        eq(TEST_FCM_TOKEN));
 
         // THEN non enrolled device should be finalized
         verify(mFinalizationController).finalizeNotEnrolledDevice();
@@ -235,6 +262,8 @@ public class DeviceCheckInWorkerTest {
         // GIVEN FCM registration token unavailable
         setDeviceIdAvailability(/* isAvailable= */ true);
         setCarrierInfoAvailability(/* isAvailable= */ true);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
         when(mFcmRegistrationTokenProvider.getFcmRegistrationToken()).thenReturn(
                 Futures.immediateFuture(/* value= */ null));
 
@@ -251,6 +280,48 @@ public class DeviceCheckInWorkerTest {
         verify(mStatsLogger).logSuccessfulCheckIn();
     }
 
+    @Test
+    public void checkIn_apexVersionUnavailable_shouldAtLeastSendCheckInRequest() {
+        // GIVEN only device ids available
+        setDeviceIdAvailability(/* isAvailable= */ true);
+        setCarrierInfoAvailability(/* isAvailable= */ true);
+        setDeviceLocaleAvailability(/* isAvailable= */ true);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ false);
+
+        // WHEN work runs
+        Futures.getUnchecked(mWorker.startWork());
+
+        // THEN check-in is requested
+        verify(mClient)
+                .getDeviceCheckInStatus(
+                        eq(TEST_DEVICE_IDS),
+                        eq(TEST_CARRIER_INFO),
+                        eq(TEST_DEVICE_LOCALE),
+                        eq(0L),
+                        eq(TEST_FCM_TOKEN));
+    }
+
+    @Test
+    public void checkIn_deviceLocaleUnavailable_shouldAtLeastSendCheckInRequest() {
+        // GIVEN only device ids available
+        setDeviceIdAvailability(/* isAvailable= */ true);
+        setCarrierInfoAvailability(/* isAvailable= */ true);
+        setDeviceLocaleAvailability(/* isAvailable= */ false);
+        setDeviceLockApexVersionAvailability(/* isAvailable= */ true);
+
+        // WHEN work runs
+        Futures.getUnchecked(mWorker.startWork());
+
+        // THEN check-in is requested
+        verify(mClient)
+                .getDeviceCheckInStatus(
+                        eq(TEST_DEVICE_IDS),
+                        eq(TEST_CARRIER_INFO),
+                        eq(EMPTY_DEVICE_LOCALE),
+                        eq(TEST_DEVICE_LOCK_APEX_VERSION),
+                        eq(TEST_FCM_TOKEN));
+    }
+
     private void setDeviceIdAvailability(boolean isAvailable) {
         when(mHelper.getDeviceUniqueIds()).thenReturn(
                 isAvailable ? TEST_DEVICE_IDS : EMPTY_DEVICE_IDS);
@@ -259,6 +330,16 @@ public class DeviceCheckInWorkerTest {
     private void setCarrierInfoAvailability(boolean isAvailable) {
         when(mHelper.getCarrierInfo()).thenReturn(
                 isAvailable ? TEST_CARRIER_INFO : EMPTY_CARRIER_INFO);
+    }
+
+    private void setDeviceLocaleAvailability(boolean isAvailable) {
+        when(mHelper.getDeviceLocale())
+                .thenReturn(isAvailable ? TEST_DEVICE_LOCALE : EMPTY_DEVICE_LOCALE);
+    }
+
+    private void setDeviceLockApexVersionAvailability(boolean isAvailable) {
+        when(mHelper.getDeviceLockApexVersion(anyString()))
+                .thenReturn(isAvailable ? TEST_DEVICE_LOCK_APEX_VERSION : 0);
     }
 
     private void setUpSuccessfulCheckInResponse(boolean isHandleable) {
