@@ -20,7 +20,6 @@ android_robolectric_test {
     name: "DeviceLockControllerRoboTests",
     team: "trendy_team_android_go",
     instrumentation_for: "DeviceLockController",
-    upstream: true,
     java_resource_dirs: [
         "config",
     ],
