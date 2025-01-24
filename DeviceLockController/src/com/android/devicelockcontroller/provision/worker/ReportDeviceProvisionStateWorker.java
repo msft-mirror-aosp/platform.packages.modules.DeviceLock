@@ -70,9 +70,7 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
 
     private final StatsLogger mStatsLogger;
 
-    /**
-     * Report provision failure and get next failed step
-     */
+    /** Report provision failure and get next failed step */
     public static void reportSetupFailed(WorkManager workManager,
             @ProvisionFailureReason int reason) {
         Data inputData = new Data.Builder()
@@ -169,6 +167,7 @@ public final class ReportDeviceProvisionStateWorker extends AbstractCheckInWorke
             if (!isSuccessful && failureReason == ProvisionFailureReason.UNKNOWN_REASON) {
                 LogUtil.e(TAG, "Reporting failure with an unknown reason is not allowed");
             }
+
             ReportDeviceProvisionStateGrpcResponse response =
                     Futures.getDone(mClient).reportDeviceProvisionState(
                             Futures.getDone(lastState),

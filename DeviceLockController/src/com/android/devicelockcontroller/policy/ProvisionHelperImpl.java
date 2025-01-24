@@ -60,6 +60,7 @@ import com.android.devicelockcontroller.common.DeviceLockConstants.ProvisionFail
 import com.android.devicelockcontroller.provision.worker.IsDeviceInApprovedCountryWorker;
 import com.android.devicelockcontroller.provision.worker.PauseProvisioningWorker;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
+import com.android.devicelockcontroller.provision.worker.ReviewDeviceProvisionStateWorker;
 import com.android.devicelockcontroller.receivers.ResumeProvisionReceiver;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerScheduler;
 import com.android.devicelockcontroller.schedule.DeviceLockControllerSchedulerProvider;
@@ -186,7 +187,10 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
                         LogUtil.i(TAG, "Kiosk app is pre-installed");
                         progressController.setProvisioningProgress(
                                 ProvisioningProgress.OPENING_KIOSK_APP);
+
                         ReportDeviceProvisionStateWorker.reportSetupCompleted(workManager);
+                        ReviewDeviceProvisionStateWorker.cancelJobs(
+                                WorkManager.getInstance(mContext));
                         mStateController.postSetNextStateForEventRequest(PROVISION_KIOSK);
                     } catch (NameNotFoundException e) {
                         LogUtil.i(TAG, "Kiosk app is not pre-installed");
@@ -305,6 +309,8 @@ public final class ProvisionHelperImpl implements ProvisionHelper {
                                 progressController.setProvisioningProgress(
                                         ProvisioningProgress.OPENING_KIOSK_APP);
                                 ReportDeviceProvisionStateWorker.reportSetupCompleted(workManager);
+                                ReviewDeviceProvisionStateWorker.cancelJobs(
+                                        WorkManager.getInstance(mContext));
                                 mStateController.postSetNextStateForEventRequest(PROVISION_KIOSK);
                             } else if (state == FAILED) {
                                 LogUtil.w(TAG, "Play installation failed!");
