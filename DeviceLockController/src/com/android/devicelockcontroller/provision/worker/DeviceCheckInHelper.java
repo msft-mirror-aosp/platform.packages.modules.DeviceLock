@@ -44,6 +44,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.NetworkRequest;
 import android.os.Bundle;
+import android.os.LocaleList;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.telephony.TelephonyManager;
@@ -262,5 +263,23 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
                 new Intent(mAppContext, ProvisionReadyReceiver.class),
                 UserHandle.ALL);
         return true;
+    }
+
+    @Override
+    String getDeviceLocale() {
+        return LocaleList.getAdjustedDefault().get(0).toLanguageTag();
+    }
+
+    @Override
+    long getDeviceLockApexVersion(String packageName) {
+        try {
+            return mAppContext
+                    .getPackageManager()
+                    .getPackageInfo(packageName, PackageManager.MATCH_APEX)
+                    .getLongVersionCode();
+        } catch (PackageManager.NameNotFoundException e) {
+            LogUtil.e(TAG, "Failed to get device lock apex version", e);
+        }
+        return 0;
     }
 }

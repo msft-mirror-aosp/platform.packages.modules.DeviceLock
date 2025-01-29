@@ -139,12 +139,15 @@ public abstract class DeviceCheckInClient {
      * @param carrierInfo          The information of the device's sim operator which is used to
      *                             determine the device's geological location and eventually
      *                             eligibility of the DeviceLock program.
+     * @param deviceLocale         The locale of the device.
+     * @param deviceLockApexVersion The version of the device lock apex.
      * @param fcmRegistrationToken The fcm registration token
      * @return A class that encapsulate the response from the backend server.
      */
     @WorkerThread
     public abstract GetDeviceCheckInStatusGrpcResponse getDeviceCheckInStatus(
             ArraySet<DeviceId> deviceIds, String carrierInfo,
+            String deviceLocale, long deviceLockApexVersion,
             @Nullable String fcmRegistrationToken);
 
     /**
