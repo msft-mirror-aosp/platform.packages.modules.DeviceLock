@@ -98,11 +98,6 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         mStatsLogger = ((StatsLoggerProvider) mAppContext).getStatsLogger();
     }
 
-    private boolean hasGsm() {
-        return mAppContext.getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_TELEPHONY_GSM);
-    }
-
     private boolean hasCdma() {
         return mAppContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_TELEPHONY_CDMA);
@@ -129,7 +124,7 @@ public final class DeviceCheckInHelper extends AbstractDeviceCheckInHelper {
         if (maximumIdCount == 0) return deviceIds;
 
         for (int i = 0; i < totalSlotCount; i++) {
-            if (hasGsm() && (deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
+            if ((deviceIdTypeBitmap & (1 << DEVICE_ID_TYPE_IMEI)) != 0) {
                 final String imei = mTelephonyManager.getImei(i);
 
                 if (imei != null) {
