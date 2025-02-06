@@ -100,7 +100,12 @@ public final class DeviceCheckInWorker extends AbstractCheckInWorker {
                         String fcmToken = Futures.getDone(fcmRegistrationToken);
                         GetDeviceCheckInStatusGrpcResponse response =
                                 client.getDeviceCheckInStatus(
-                                        deviceIds, carrierInfo, fcmToken);
+                                        deviceIds,
+                                        carrierInfo,
+                                        mCheckInHelper.getDeviceLocale(),
+                                        mCheckInHelper.getDeviceLockApexVersion(
+                                                mContext.getPackageName()),
+                                        fcmToken);
                         mStatsLogger.logGetDeviceCheckInStatus();
                         if (response.hasRecoverableError()) {
                             LogUtil.w(TAG, "Check-in failed w/ recoverable error " + response

@@ -120,12 +120,14 @@ public final class DeviceCheckInClientDebug extends DeviceCheckInClient {
         return value == null ? defValue : value;
     }
 
-    /**
-     * Check In with DeviceLock backend server and get the next step for the device.
-     */
+    /** Check In with DeviceLock backend server and get the next step for the device. */
     @Override
-    public GetDeviceCheckInStatusGrpcResponse getDeviceCheckInStatus(ArraySet<DeviceId> deviceIds,
-            String carrierInfo, @Nullable String fcmRegistrationToken) {
+    public GetDeviceCheckInStatusGrpcResponse getDeviceCheckInStatus(
+            ArraySet<DeviceId> deviceIds,
+            String carrierInfo,
+            String deviceLocale,
+            long deviceLockApexVersion,
+            @Nullable String fcmRegistrationToken) {
         ThreadAsserts.assertWorkerThread("getDeviceCheckInStatus");
         return new GetDeviceCheckInStatusGrpcResponse() {
             @Override

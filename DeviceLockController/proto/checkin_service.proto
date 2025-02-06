@@ -72,6 +72,10 @@ message GetDeviceCheckinStatusRequest {
   optional string device_model = 5;
   // The internal name of the device.
   optional string device_internal_name = 6;
+  // The locale of the device.
+  optional string device_locale = 7;
+  // The version of the apex package on the device.
+  optional uint64 apex_version = 8;
 }
 
 message ClientDeviceIdentifier {

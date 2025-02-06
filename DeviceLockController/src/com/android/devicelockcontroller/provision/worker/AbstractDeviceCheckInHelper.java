@@ -34,6 +34,10 @@ public abstract class AbstractDeviceCheckInHelper {
 
     abstract String getCarrierInfo();
 
+    abstract String getDeviceLocale();
+
+    abstract long getDeviceLockApexVersion(String packageName);
+
     @WorkerThread
     abstract boolean handleGetDeviceCheckInStatusResponse(
             GetDeviceCheckInStatusGrpcResponse response,
