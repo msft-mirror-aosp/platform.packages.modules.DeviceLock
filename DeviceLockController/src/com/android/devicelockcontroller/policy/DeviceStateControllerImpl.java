@@ -47,6 +47,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     // intended purpose.
     @VisibleForTesting
     volatile @DeviceState int mPseudoDeviceState;
+    private boolean mClearingInProgress;
 
     public DeviceStateControllerImpl(DevicePolicyController policyController,
             ProvisionStateController provisionStateController, Executor executor) {
@@ -55,6 +56,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
         mGlobalParametersClient = GlobalParametersClient.getInstance();
         mExecutor = executor;
         mPseudoDeviceState = UNDEFINED;
+        mClearingInProgress = false;
     }
 
     @Override
@@ -69,6 +71,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
 
     @Override
     public ListenableFuture<Void> clearDevice() {
+        mClearingInProgress = true;
         return setDeviceState(CLEARED);
     }
 
@@ -110,7 +113,7 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
                     return Futures.transformAsync(maybeSetProvisioningSuccess,
                             unused -> Futures.transformAsync(isCleared(),
                                     isCleared -> {
-                                        if (isCleared) {
+                                        if (isClearingInProgress(deviceState) || isCleared) {
                                             throw new IllegalStateException("Device has been "
                                                     + "cleared!");
                                         }
@@ -153,5 +156,13 @@ public final class DeviceStateControllerImpl implements DeviceStateController {
     public ListenableFuture<Boolean> isCleared() {
         return Futures.transform(mGlobalParametersClient.getDeviceState(),
                 s -> s == CLEARED, MoreExecutors.directExecutor());
+    }
+
+    // If a clear operation is immediately followed by an unlock command, sometimes a race
+    // condition occurs that results in the unlock state being enforced. This method is used to
+    // ensure that clear is always terminal.
+    // TODO: b/286324034 - these operations should be made thread safe
+    private boolean isClearingInProgress(@DeviceState int deviceStateBeingEnforced) {
+        return deviceStateBeingEnforced != CLEARED && mClearingInProgress;
     }
 }
