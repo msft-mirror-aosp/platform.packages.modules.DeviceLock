@@ -90,7 +90,7 @@
     <string name="settings_install_apps_preference_key" msgid="27542314345238427">"settings_install_apps_preference_key"</string>
     <string name="settings_safe_mode" msgid="3035228015586375153">"إعادة تشغيل الجهاز باستخدام ميزة \"الوضع الآمن\""</string>
     <string name="settings_safe_mode_preference_key" msgid="2106617747358027424">"settings_safe_mode_preference_key"</string>
-    <string name="settings_developer_options" msgid="880701002025216672">"استخدام ميزة \"خيارات المطوّرين\""</string>
+    <string name="settings_developer_options" msgid="880701002025216672">"استخدام خيارات المطوّرين"</string>
     <string name="settings_developer_options_preference_key" msgid="6807036808722582954">"settings_developer_options_preference_key"</string>
     <string name="settings_credit_provider_capabilities_category" msgid="1274440595211820868">"إذا حدث خطأ في جهازك، سيكون بإمكان \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\":"</string>
     <string name="settings_credit_provider_capabilities_category_preference_key" msgid="4571685720898641262">"settings_credit_provider_capabilities_category_preference_key"</string>
