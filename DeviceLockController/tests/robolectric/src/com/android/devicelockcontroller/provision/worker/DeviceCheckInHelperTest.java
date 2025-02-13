@@ -163,8 +163,6 @@ public final class DeviceCheckInHelperTest {
 
     @Test
     public void getDeviceAvailableUniqueIds_shouldReturnAllAvailableUniqueIds() {
-        mPackageManager.setSystemFeature(PackageManager.FEATURE_TELEPHONY_GSM,
-                /* supported= */ true);
         mPackageManager.setSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA,
                 /* supported= */ true);
         mTelephonyManager.setActiveModemCount(TOTAL_SLOT_COUNT);

@@ -175,8 +175,6 @@ public final class DeviceLockServiceImplTest {
         final String testImei = "983402979622353";
         mShadowTelephonyManager.setActiveModemCount(1);
         mShadowTelephonyManager.setImei(/* slotIndex= */ 0, testImei);
-        mShadowPackageManager.setSystemFeature(PackageManager.FEATURE_TELEPHONY_GSM,
-                /* supported= */ true);
 
         // GIVEN a successful service call to DLC app
         doAnswer((Answer<Void>) invocation -> {
