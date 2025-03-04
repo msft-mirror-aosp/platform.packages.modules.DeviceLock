@@ -58,10 +58,10 @@ public final class GetFcmTokenWorkerTest {
     private GetFcmTokenWorker mWorker;
     private TestDeviceLockControllerApplication mContext;
 
-    @ParameterizedRobolectricTestRunner.Parameter
+    @ParameterizedRobolectricTestRunner.Parameter(0)
     public String mFcmToken;
 
-    @ParameterizedRobolectricTestRunner.Parameter
+    @ParameterizedRobolectricTestRunner.Parameter(1)
     public Result mExpectedResult;
 
     /** Expected input and output for work result */
