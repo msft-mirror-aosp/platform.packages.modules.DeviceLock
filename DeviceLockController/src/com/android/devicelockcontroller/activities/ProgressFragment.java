@@ -47,6 +47,7 @@ import com.android.devicelockcontroller.policy.ProvisionHelper;
 import com.android.devicelockcontroller.policy.ProvisionHelperImpl;
 import com.android.devicelockcontroller.policy.ProvisionStateController;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
+import com.android.devicelockcontroller.provision.worker.ReviewDeviceProvisionStateWorker;
 import com.android.devicelockcontroller.util.LogUtil;
 
 import com.google.common.util.concurrent.FutureCallback;
@@ -158,6 +159,8 @@ public final class ProgressFragment extends Fragment {
                                             getActivity().finish();
                                             return;
                                         }
+                                        ReviewDeviceProvisionStateWorker.cancelJobs(
+                                                WorkManager.getInstance(requireContext()));
                                         ReportDeviceProvisionStateWorker.reportSetupFailed(
                                                 WorkManager.getInstance(requireContext()),
                                                 provisioningProgress.mFailureReason);

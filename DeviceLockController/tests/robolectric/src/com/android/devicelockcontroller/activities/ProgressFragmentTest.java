@@ -27,6 +27,7 @@ import static com.android.devicelockcontroller.common.DeviceLockConstants.Provis
 import static com.android.devicelockcontroller.policy.ProvisionStateController.ProvisionEvent.PROVISION_FAILURE;
 import static com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker.KEY_PROVISION_FAILURE_REASON;
 import static com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker.REPORT_PROVISION_STATE_WORK_NAME;
+import static com.android.devicelockcontroller.provision.worker.ReviewDeviceProvisionStateWorker.REVIEW_DEVICE_PROVISION_STATE_WORK_NAME;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -66,6 +67,7 @@ import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.policy.ProvisionHelper;
 import com.android.devicelockcontroller.policy.ProvisionStateController;
 import com.android.devicelockcontroller.provision.worker.ReportDeviceProvisionStateWorker;
+import com.android.devicelockcontroller.provision.worker.ReviewDeviceProvisionStateWorker;
 
 import com.google.common.truth.Truth;
 import com.google.common.util.concurrent.Futures;
@@ -89,7 +91,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-
 
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class ProgressFragmentTest {
@@ -214,6 +215,9 @@ public final class ProgressFragmentTest {
         // Check bottom views
         View bottomView = activity.findViewById(R.id.bottom);
         if (mProvisioningProgress.mBottomViewVisible) {
+            WorkManager workManager = WorkManager.getInstance(applicationContext);
+            ReviewDeviceProvisionStateWorker.scheduleDailyReview(workManager);
+
             assertThat(bottomView.getVisibility()).isEqualTo(View.VISIBLE);
 
             ((Button) activity.findViewById(R.id.button_retry)).callOnClick();
@@ -222,10 +226,17 @@ public final class ProgressFragmentTest {
             ((Button) activity.findViewById(R.id.button_exit)).performClick();
             Shadows.shadowOf(Looper.getMainLooper()).idle();
             verify(provisionStateController).postSetNextStateForEventRequest(eq(PROVISION_FAILURE));
-            WorkManager workManager = WorkManager.getInstance(applicationContext);
+
             List<WorkInfo> workInfos = workManager.getWorkInfosForUniqueWork(
                     REPORT_PROVISION_STATE_WORK_NAME).get();
-            assertThat(workInfos.size()).isEqualTo(1);
+            assertThat(workInfos).hasSize(1);
+            List<WorkInfo> reviewDeviceProvisionStateWorkInfos =
+                    workManager
+                            .getWorkInfosForUniqueWork(REVIEW_DEVICE_PROVISION_STATE_WORK_NAME)
+                            .get();
+            assertThat(reviewDeviceProvisionStateWorkInfos).hasSize(1);
+            assertThat(reviewDeviceProvisionStateWorkInfos.get(0).getState())
+                    .isEqualTo(WorkInfo.State.CANCELLED);
         } else {
             assertThat(bottomView.getVisibility()).isEqualTo(View.GONE);
         }

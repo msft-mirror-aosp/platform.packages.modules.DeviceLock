@@ -107,6 +107,7 @@ public final class DeviceLockConstants {
             ProvisionFailureReason.COUNTRY_INFO_UNAVAILABLE,
             ProvisionFailureReason.NOT_IN_ELIGIBLE_COUNTRY,
             ProvisionFailureReason.POLICY_ENFORCEMENT_FAILED,
+            ProvisionFailureReason.DEADLINE_PASSED
     })
     public @interface ProvisionFailureReason {
         int UNKNOWN_REASON = 0;
