@@ -25,6 +25,9 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import androidx.test.core.app.ApplicationProvider;
+import androidx.work.Configuration;
+import androidx.work.testing.SynchronousExecutor;
+import androidx.work.testing.WorkManagerTestInitHelper;
 
 import com.android.devicelockcontroller.TestDeviceLockControllerApplication;
 import com.android.devicelockcontroller.policy.ProvisionStateControllerImpl.StateTransitionException;
@@ -60,6 +63,12 @@ public class ProvisionStateControllerThreadSafetyTest {
                 ApplicationProvider.getApplicationContext();
         UserParameters.setProvisionState(testApplication, UNPROVISIONED);
         DevicePolicyController policyController = testApplication.getPolicyController();
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+                testApplication,
+                new Configuration.Builder()
+                        .setMinimumLoggingLevel(android.util.Log.DEBUG)
+                        .setExecutor(new SynchronousExecutor())
+                        .build());
         mProvisionStateController = new ProvisionStateControllerImpl(testApplication,
                 policyController, testApplication.getDeviceStateController(),
                 Executors.newCachedThreadPool());

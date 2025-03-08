@@ -41,8 +41,10 @@ import android.provider.Settings;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+import androidx.work.WorkManager;
 
 import com.android.devicelockcontroller.SystemDeviceLockManagerImpl;
+import com.android.devicelockcontroller.provision.worker.ReviewDeviceProvisionStateWorker;
 import com.android.devicelockcontroller.receivers.LockedBootCompletedReceiver;
 import com.android.devicelockcontroller.services.SetupWizardCompletionTimeoutJobService;
 import com.android.devicelockcontroller.stats.StatsLoggerProvider;
@@ -137,7 +139,10 @@ public final class ProvisionStateControllerImpl implements ProvisionStateControl
                                 if (PROVISION_READY == event) {
                                     UserParameters.setProvisioningStartTimeMillis(mContext,
                                             SystemClock.elapsedRealtime());
+                                    ReviewDeviceProvisionStateWorker.scheduleDailyReview(
+                                            WorkManager.getInstance(mContext));
                                 }
+
                                 if (PROVISION_SUCCESS == event) {
                                     ((StatsLoggerProvider) mContext.getApplicationContext())
                                             .getStatsLogger().logSuccessfulProvisioning();

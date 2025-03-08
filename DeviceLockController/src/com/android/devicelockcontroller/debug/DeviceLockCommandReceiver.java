@@ -368,10 +368,6 @@ public final class DeviceLockCommandReceiver extends BroadcastReceiver {
                 PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
         alarmManager.cancel(PendingIntent.getBroadcast(
                 context, /* ignored */ 0,
-                new Intent(context, NextProvisionFailedStepReceiver.class),
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
-        alarmManager.cancel(PendingIntent.getBroadcast(
-                context, /* ignored */ 0,
                 new Intent(context, WorkFailureAlarmReceiver.class),
                 PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE));
 
