@@ -28,6 +28,7 @@ import androidx.work.Configuration;
 import androidx.work.DelegatingWorkerFactory;
 import androidx.work.ListenableWorker;
 
+import com.android.devicelockcontroller.common.DeviceLockConstants;
 import com.android.devicelockcontroller.policy.DevicePolicyController;
 import com.android.devicelockcontroller.policy.DeviceStateController;
 import com.android.devicelockcontroller.policy.FinalizationController;
@@ -145,6 +146,8 @@ public class DeviceLockControllerApplication extends Application implements
                         (t) -> mWorkManagerExceptionHandler
                                 .initializationExceptionHandler(this, t))
                 .setTaskExecutor(mWorkManagerExceptionHandler.getWorkManagerTaskExecutor())
+                .setJobSchedulerJobIdRange(/* minJobSchedulerId= */ 0,
+                        DeviceLockConstants.WORK_MANAGER_MAX_JOB_SCHEDULER_ID)
                 .build();
     }
 
