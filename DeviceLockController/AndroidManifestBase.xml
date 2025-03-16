@@ -263,6 +263,10 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name="com.android.devicelockcontroller.services.SetupWizardCompletionTimeoutJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"/>
+
     </application>
 
 </manifest>
