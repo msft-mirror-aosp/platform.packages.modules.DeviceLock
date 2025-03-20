@@ -33,7 +33,7 @@
     <string name="control_section_title" msgid="2213476068991045785">"Τι μπορεί να κάνει η εφαρμογή <xliff:g id="CREDITOR_APP">%1$s</xliff:g>;"</string>
     <string name="control_lock_device_text" msgid="8253302484073757764">"Εφαρμογή περιορισμών σε αυτήν τη συσκευή αν δεν καταβάλετε κάποια πληρωμή"</string>
     <string name="control_download_text" msgid="8514650561843088172">"Λήψη, εγκατάσταση και ενημέρωση της εφαρμογής <xliff:g id="CREDITOR_APP">%1$s</xliff:g>"</string>
-    <string name="control_disable_debug_text" msgid="8112443250013094442">"Απενεργοποίηση λειτουργιών εντοπισμού και διόρθωσης σφαλμάτων"</string>
+    <string name="control_disable_debug_text" msgid="8112443250013094442">"Απενεργοποίηση λειτουργιών αποσφαλμάτωσης"</string>
     <string name="locked_section_title" msgid="2748725389334076510">"Τι θα λειτουργεί αν αυτή η συσκευή κλειδωθεί;"</string>
     <string name="locked_emergency_text" msgid="3509216445555779286">"Υπηρεσίες κλήσεων έκτακτης ανάγκης"</string>
     <string name="locked_phone_usage_text" msgid="1913605870324552847">"Εισερχόμενες και ορισμένες εξερχόμενες κλήσεις"</string>
