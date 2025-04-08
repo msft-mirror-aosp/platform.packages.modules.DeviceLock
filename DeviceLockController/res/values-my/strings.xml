@@ -79,7 +79,7 @@
     <string name="opening_kiosk_app" msgid="2021888641430165654">"<xliff:g id="CREDITOR_APP">%1$s</xliff:g> အက်ပ်ကို ဖွင့်နေသည်…"</string>
     <string name="settings_banner_title" msgid="527041021011279252">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> က ပံ့ပိုးထားသော စက်ပစ္စည်း"</string>
     <string name="settings_banner_body" msgid="5814902066260202824">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> သည် ဤစက်တွင် ဆက်တင်များကို ပြောင်းနိုင်သည်"</string>
-    <string name="settings_banner_button" msgid="1831020849782670907">"ပိုမိုလေ့လာရန်"</string>
+    <string name="settings_banner_button" msgid="1831020849782670907">"ပိုလေ့လာရန်"</string>
     <string name="settings_screen_title" msgid="721470080648091035">"အရစ်ကျပေးချေဆဲ စက်၏အချက်အလက်"</string>
     <string name="settings_intro_device_financing" msgid="2548476558131048133">"<xliff:g id="PROVIDER_NAME_0">%1$s</xliff:g> သည် ဤစက်တွင် ဆက်တင်များပြောင်းနိုင်ပြီး Kiosk app ထည့်သွင်းနိုင်သည်။\n\nငွေပေးချေမှု မပြုလုပ်ပါက <xliff:g id="PROVIDER_NAME_1">%1$s</xliff:g> သည် သင့်စက်ကို ကန့်သတ်နိုင်သည်။\n\nပိုမိုလေ့လာရန် <xliff:g id="PROVIDER_NAME_2">%1$s</xliff:g> ကို ဆက်သွယ်နိုင်သည်။"</string>
     <string name="settings_intro_device_subsidy" msgid="4274945644204818702">"<xliff:g id="PROVIDER_NAME_0">%1$s</xliff:g> သည် ဤစက်တွင် ဆက်တင်များပြောင်းနိုင်ပြီး Kiosk app ထည့်သွင်းနိုင်သည်။\n\nငွေပေးချေမှု မပြုလုပ်ပါက (သို့) <xliff:g id="PROVIDER_NAME_2">%1$s</xliff:g> ၏ ဆင်းမ်ကတ်ကို မသုံးတော့ပါက <xliff:g id="PROVIDER_NAME_1">%1$s</xliff:g> သည် ဤစက်ကိုလည်း ကန့်သတ်နိုင်သည်။\n\nပိုမိုလေ့လာရန် <xliff:g id="PROVIDER_NAME_3">%1$s</xliff:g> ကို ဆက်သွယ်နိုင်သည်။"</string>
